@@ -5,5 +5,6 @@
 //! in this repository for the exact wire format this crate implements.
 
 pub mod aead;
+pub mod envelope;
 pub mod kdf;
 pub mod wire;
