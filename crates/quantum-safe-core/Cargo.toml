@@ -8,6 +8,8 @@ repository = "https://github.com/AnimeshShaw/quantum-safe-ts"
 
 [dependencies]
 aes-gcm = "0.11.1"
+ciborium = "0.2.2"
+getrandom = "0.4.3"
 hkdf = "0.13.0"
 ml-kem = { version = "0.3.2", features = ["getrandom"] }
 sha2 = "0.11.0"
