@@ -9,8 +9,10 @@ repository = "https://github.com/AnimeshShaw/quantum-safe-ts"
 [dependencies]
 aes-gcm = "0.11.1"
 hkdf = "0.13.0"
+ml-kem = { version = "0.3.2", features = ["getrandom"] }
 sha2 = "0.11.0"
 thiserror = "2"
+x25519-dalek = { version = "3.0.0", features = ["static_secrets", "getrandom"] }
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }

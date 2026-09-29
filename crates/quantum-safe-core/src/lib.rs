@@ -7,4 +7,5 @@
 pub mod aead;
 pub mod envelope;
 pub mod kdf;
+pub mod kem;
 pub mod wire;
