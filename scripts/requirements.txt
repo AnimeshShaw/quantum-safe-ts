@@ -1,1 +1,8 @@
 quantum-safe-py==0.3.0
+# quantum-safe-py's own "rustcrypto" ML-KEM backend is currently a stub
+# (its is_available() returns False -- see backends/rustcrypto.py's own
+# docstring). liboqs is what quantum-safe-py actually uses for real KEM
+# operations today, and is required to generate the envelope_roundtrip
+# vector (a real HybridKEM keypair + Envelope.seal), not just the
+# fixed-input "glue" vectors.
+liboqs-python>=0.16.0
