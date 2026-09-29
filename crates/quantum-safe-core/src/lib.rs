@@ -4,4 +4,5 @@
 //! See docs/superpowers/specs/2026-09-29-quantum-safe-ts-v0.1-design.md
 //! in this repository for the exact wire format this crate implements.
 
+pub mod kdf;
 pub mod wire;
