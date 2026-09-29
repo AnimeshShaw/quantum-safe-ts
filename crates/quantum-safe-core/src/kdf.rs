@@ -20,6 +20,8 @@ const MAX_HKDF_OUTPUT_SHA256: usize = 255 * 32;
 pub enum KdfError {
     #[error("requested HKDF output of {requested} bytes exceeds the maximum of {max} for SHA-256")]
     OutputTooLong { requested: usize, max: usize },
+    #[error("Argon2id derivation failed: {0}")]
+    Argon2(String),
 }
 
 use hkdf::Hkdf;
@@ -72,6 +74,28 @@ pub fn derive_key(shared_secret: &[u8], info: &[u8], length: usize) -> Result<Ve
     hk.expand(info, &mut okm)
         .expect("length was already checked against the HKDF output cap above");
     Ok(okm)
+}
+
+use argon2::{Algorithm, Argon2, Params, Version};
+
+/// OWASP-recommended Argon2id parameters for interactive, client-side use
+/// (memory-hard master-password stretching): 19 MiB memory, 2 iterations,
+/// 1 degree of parallelism, 32-byte output. This is the application's own
+/// choice — quantum-safe-py has no master-password concept, so there is no
+/// upstream construction to match here.
+const ARGON2ID_MEMORY_KIB: u32 = 19 * 1024;
+const ARGON2ID_ITERATIONS: u32 = 2;
+const ARGON2ID_PARALLELISM: u32 = 1;
+
+pub fn derive_master_key(password: &[u8], salt: &[u8]) -> Result<[u8; 32], KdfError> {
+    let params = Params::new(ARGON2ID_MEMORY_KIB, ARGON2ID_ITERATIONS, ARGON2ID_PARALLELISM, Some(32))
+        .map_err(|e| KdfError::Argon2(e.to_string()))?;
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+    let mut out = [0u8; 32];
+    argon2
+        .hash_password_into(password, salt, &mut out)
+        .map_err(|e| KdfError::Argon2(e.to_string()))?;
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -143,5 +167,26 @@ mod tests {
             err,
             KdfError::OutputTooLong { requested: MAX_HKDF_OUTPUT_SHA256 + 1, max: MAX_HKDF_OUTPUT_SHA256 }
         );
+    }
+
+    #[test]
+    fn derive_master_key_is_deterministic_given_same_password_and_salt() {
+        let a = derive_master_key(b"correct horse battery staple", b"a-16-byte-salt!!").unwrap();
+        let b = derive_master_key(b"correct horse battery staple", b"a-16-byte-salt!!").unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn derive_master_key_differs_for_different_passwords() {
+        let a = derive_master_key(b"password one", b"a-16-byte-salt!!").unwrap();
+        let b = derive_master_key(b"password two", b"a-16-byte-salt!!").unwrap();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn derive_master_key_differs_for_different_salts() {
+        let a = derive_master_key(b"same password", b"salt-number-one!").unwrap();
+        let b = derive_master_key(b"same password", b"salt-number-two!").unwrap();
+        assert_ne!(a, b);
     }
 }
