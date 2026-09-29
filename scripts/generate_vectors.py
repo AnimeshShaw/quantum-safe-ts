@@ -14,11 +14,10 @@ Run from the repository root:
 import json
 import pathlib
 
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from quantum_safe import HybridKEM
 from quantum_safe.protocols.envelope import Envelope
-from quantum_safe.types.kem import combine_shared_secrets
+from quantum_safe.types.kem import SharedSecret, combine_shared_secrets
 
 
 def hx(b: bytes) -> str:
@@ -51,9 +50,14 @@ vectors["combiner"] = {
 }
 
 # --- envelope enc_key derivation: SharedSecret.derive_key(info="qs-envelope-enc-v1") ---
+# Calls the real SharedSecret class method (not a hand-copied HKDF call) --
+# a code-review finding on the first version of this script noted that
+# calling `cryptography`'s HKDF directly here meant this vector wouldn't
+# catch drift if SharedSecret.derive_key's construction ever changed.
 shared_secret_bytes = bytes((i * 11) % 256 for i in range(32))
-hkdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"qs-envelope-enc-v1")
-enc_key = hkdf.derive(shared_secret_bytes)
+enc_key = SharedSecret(data=shared_secret_bytes, algorithm=algorithm).derive_key(
+    length=32, info=b"qs-envelope-enc-v1"
+)
 vectors["enc_key_derivation"] = {
     "shared_secret": hx(shared_secret_bytes),
     "info": "qs-envelope-enc-v1",
@@ -88,6 +92,37 @@ vectors["aes_gcm"] = {
     "plaintext": hx(plaintext),
     "aad": hx(built_aad),
     "expected_ciphertext_with_tag": hx(ciphertext),
+}
+
+# --- full envelope round-trip: real HybridKEM keypair + real Envelope.seal ---
+# This is the vector a code review flagged as missing: everything above
+# tests isolated "glue" functions with fixed inputs, but nothing proved the
+# actual ML-KEM secret-key wire format (the 2400-byte *expanded* form quantum
+# -safe-core deliberately uses via ml-kem's deprecated from_expanded/
+# to_expanded_bytes) round-trips against a real Python-generated key, or
+# that a full sealed envelope parses and opens correctly end to end. Requires
+# the liboqs backend (`pip install liboqs-python`, see
+# scripts/requirements.txt) since quantum-safe-py's own "rustcrypto" backend
+# is currently a stub whose is_available() returns False.
+kem = HybridKEM()
+assert kem.backend_name == "liboqs", (
+    f"expected the liboqs backend, got {kem.backend_name!r} -- install liboqs-python "
+    "(see scripts/requirements.txt) so this vector reflects the KEM implementation "
+    "quantum-safe-py actually uses today, not a stub"
+)
+roundtrip_kp = kem.generate_keypair()
+roundtrip_plaintext = b"correct horse battery staple"
+roundtrip_aad = b"vault-item-42"
+roundtrip_sealed = Envelope.seal(roundtrip_plaintext, roundtrip_kp.public, aad=roundtrip_aad)
+# Sanity-check in Python before committing the vector: it must actually open.
+assert Envelope.open(roundtrip_sealed, roundtrip_kp.secret) == roundtrip_plaintext
+vectors["envelope_roundtrip"] = {
+    "public_key": hx(roundtrip_kp.public.raw_bytes),
+    "secret_key": hx(roundtrip_kp.secret.raw_bytes),
+    "algorithm": roundtrip_kp.public.algorithm,
+    "plaintext": hx(roundtrip_plaintext),
+    "aad": hx(roundtrip_aad),
+    "sealed": hx(roundtrip_sealed.to_bytes()),
 }
 
 out_path = pathlib.Path(__file__).resolve().parent.parent / "tests" / "vectors" / "glue_vectors.json"

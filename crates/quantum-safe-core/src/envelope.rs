@@ -32,6 +32,8 @@ pub enum EnvelopeError {
     Aead(#[from] AeadError),
     #[error("nonce must be exactly {expected} bytes, got {actual}")]
     BadNonceLength { expected: usize, actual: usize },
+    #[error("envelope version {0} is out of range for a single byte (0-255)")]
+    InvalidVersion(i64),
 }
 
 /// Build the AAD passed to AES-GCM, matching `Envelope._build_aad` exactly:
@@ -104,8 +106,11 @@ impl SealedMessage {
             })
         };
 
+        let raw_version = get_int("v").ok_or(EnvelopeError::MissingField("v"))?;
+        let version = u8::try_from(raw_version).map_err(|_| EnvelopeError::InvalidVersion(raw_version))?;
+
         Ok(SealedMessage {
-            version: get_int("v").ok_or(EnvelopeError::MissingField("v"))? as u8,
+            version,
             algorithm: get_text("algo").ok_or(EnvelopeError::MissingField("algo"))?,
             kem_ct: get_bytes("kct").ok_or(EnvelopeError::MissingField("kct"))?,
             nonce: get_bytes("n").ok_or(EnvelopeError::MissingField("n"))?,
@@ -266,5 +271,82 @@ mod tests {
         let mut data = Vec::new();
         ciborium::into_writer(&Value::Integer(42.into()), &mut data).unwrap();
         assert!(SealedMessage::from_cbor(&data).is_err());
+    }
+
+    /// Code-review finding: `get_int("v") ... as u8` silently truncates an
+    /// out-of-range version instead of rejecting it (e.g. 257 wraps to 1).
+    /// quantum-safe-py's `Envelope._build_aad` runs `bytes([version, ...])`,
+    /// which raises `ValueError` for the same out-of-range value, so a
+    /// version Python rejects must not be silently accepted here — accepting
+    /// it makes the wire format ambiguous/malleable (many different "v"
+    /// bytes decoding to the same effective version).
+    #[test]
+    fn from_cbor_rejects_version_above_u8_range() {
+        let value = Value::Map(vec![
+            (Value::Text("v".into()), Value::Integer(257.into())),
+            (Value::Text("algo".into()), Value::Text("X25519+ML-KEM-768".into())),
+            (Value::Text("kct".into()), Value::Bytes(vec![0u8; 4])),
+            (Value::Text("n".into()), Value::Bytes(vec![0u8; 12])),
+            (Value::Text("ct".into()), Value::Bytes(vec![0u8; 4])),
+        ]);
+        let mut data = Vec::new();
+        ciborium::into_writer(&value, &mut data).unwrap();
+        assert!(matches!(SealedMessage::from_cbor(&data), Err(EnvelopeError::InvalidVersion(257))));
+    }
+
+    #[test]
+    fn from_cbor_rejects_negative_version() {
+        let value = Value::Map(vec![
+            (Value::Text("v".into()), Value::Integer((-1i64).into())),
+            (Value::Text("algo".into()), Value::Text("X25519+ML-KEM-768".into())),
+            (Value::Text("kct".into()), Value::Bytes(vec![0u8; 4])),
+            (Value::Text("n".into()), Value::Bytes(vec![0u8; 12])),
+            (Value::Text("ct".into()), Value::Bytes(vec![0u8; 4])),
+        ]);
+        let mut data = Vec::new();
+        ciborium::into_writer(&value, &mut data).unwrap();
+        assert!(matches!(SealedMessage::from_cbor(&data), Err(EnvelopeError::InvalidVersion(-1))));
+    }
+
+    /// Code-review finding: the "wire-compatible with quantum-safe-py" claim
+    /// was only backed by isolated glue-function vectors (combiner, AAD),
+    /// not by a real Python-generated keypair + sealed envelope. This test
+    /// closes that gap: it parses and opens an envelope that real
+    /// quantum-safe-py (via its liboqs backend) actually produced, using a
+    /// secret key it actually produced -- proving the 2400-byte *expanded*
+    /// ML-KEM secret-key format quantum-safe-core deliberately uses (see
+    /// kem.rs's module doc) is the same format quantum-safe-py's liboqs
+    /// backend emits, and that our CBOR/AAD/AEAD pipeline opens a real
+    /// Python-sealed envelope correctly end to end.
+    #[test]
+    fn opens_envelope_sealed_by_real_quantum_safe_py() {
+        #[derive(serde::Deserialize)]
+        struct EnvelopeRoundtripVector {
+            secret_key: String,
+            algorithm: String,
+            plaintext: String,
+            sealed: String,
+        }
+        #[derive(serde::Deserialize)]
+        struct VectorFile {
+            envelope_roundtrip: EnvelopeRoundtripVector,
+        }
+        let raw = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/vectors/glue_vectors.json"
+        ))
+        .expect("run scripts/generate_vectors.py first (see Task 2 of the implementation plan)");
+        let file: VectorFile = serde_json::from_str(&raw).unwrap();
+        let v = file.envelope_roundtrip;
+
+        let secret_key = kem::SecretKey {
+            raw: hex::decode(&v.secret_key).unwrap(),
+            algorithm: v.algorithm.clone(),
+        };
+        let sealed_bytes = hex::decode(&v.sealed).unwrap();
+        let sealed = SealedMessage::from_cbor(&sealed_bytes).unwrap();
+
+        let opened = open(&sealed, &secret_key).unwrap();
+        assert_eq!(hex::encode(opened), v.plaintext);
     }
 }
