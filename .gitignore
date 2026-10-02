@@ -1,3 +1,5 @@
 /target
 Cargo.lock
-/docs
+# Internal planning docs stay local; research reports ship with the repo.
+/docs/*
+!/docs/research/
