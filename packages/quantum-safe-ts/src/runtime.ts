@@ -12,8 +12,11 @@ let ready: WasmApi | null = null;
 let loading: Promise<void> | null = null;
 let defaultSource: (() => Promise<InitSource> | InitSource) | null = null;
 
-/** What `init()` can instantiate from. */
-export type InitSource = BufferSource | WebAssembly.Module | Response | Promise<Response> | URL | string;
+/**
+ * What `init()` can instantiate from: raw bytes, a `WebAssembly.Module`, a `Response` (or promise of
+ * one), or a URL. Typed loosely (`object`) so consumers need neither the DOM nor WebAssembly typings.
+ */
+export type InitSource = Uint8Array | ArrayBuffer | URL | string | object;
 
 /** @internal Registers how the entry point obtains the .wasm bytes. */
 export function setDefaultSource(fn: () => Promise<InitSource> | InitSource): void {
@@ -49,7 +52,7 @@ export async function init(options: { wasm?: InitSource } = {}): Promise<void> {
 }
 
 /** @internal Synchronous initialisation from bytes (used by the Node entry). */
-export function initSyncFromBytes(bytes: BufferSource | WebAssembly.Module): void {
+export function initSyncFromBytes(bytes: Uint8Array | object): void {
   if (ready) return;
   glue.initSync({ module: bytes as never });
   ready = glue;

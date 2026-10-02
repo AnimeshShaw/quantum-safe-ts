@@ -8,13 +8,6 @@
 export * from './core.js';
 
 import { setDefaultSource } from './runtime.js';
-import { WASM_BASE64 } from './wasm-inline.generated.js';
+import { inlineWasmBytes } from './wasm-inline.js';
 
-function decodeBase64(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-setDefaultSource(() => decodeBase64(WASM_BASE64));
+setDefaultSource(inlineWasmBytes);

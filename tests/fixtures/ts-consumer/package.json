@@ -1,0 +1,2 @@
+{ "name": "fixture-ts-consumer", "private": true, "type": "module", "version": "0.0.0",
+  "devDependencies": { "typescript": "~5.9.0", "@types/node": "^24.0.0" } }

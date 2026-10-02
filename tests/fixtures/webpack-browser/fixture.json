@@ -1,0 +1,2 @@
+{ "description": "webpack 5 default config (no asyncWebAssembly) in Chromium/Firefox/WebKit",
+  "steps": [["npx", "webpack", "--mode", "production", "--entry", "./shared/entry.js", "--output-path", "out", "--output-filename", "app.js"], ["node", "make-html.mjs"], ["node", "shared/browser-check.mjs", "out"]] }

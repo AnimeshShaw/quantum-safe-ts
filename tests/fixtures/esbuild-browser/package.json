@@ -1,0 +1,2 @@
+{ "name": "fixture-esbuild", "private": true, "type": "module", "version": "0.0.0",
+  "devDependencies": { "esbuild": "^0.27.0", "playwright": "1.60.0" } }

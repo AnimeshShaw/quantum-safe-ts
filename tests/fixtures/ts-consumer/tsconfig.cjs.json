@@ -1,0 +1,3 @@
+{ "compilerOptions": { "target": "ES2022", "module": "CommonJS", "moduleResolution": "Node10", "strict": true,
+    "skipLibCheck": false, "noEmit": true, "lib": ["ES2022", "ESNext.Disposable"], "types": ["node"] },
+  "include": ["main.ts"] }

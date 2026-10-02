@@ -5,3 +5,5 @@ dist/
 pkg/
 *.tgz
 /tests/acvp/_vectors/
+tests/fixtures/.work/
+tests/fixtures/.tools/

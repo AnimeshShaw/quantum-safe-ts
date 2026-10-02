@@ -1,0 +1,2 @@
+{ "description": "Strict TypeScript consumer compiling against the published .d.ts (skipLibCheck off), ESM and CJS resolution",
+  "steps": [["npx", "tsc", "-p", "tsconfig.json"], ["npx", "tsc", "-p", "tsconfig.cjs.json"], ["node", "dist/main.js"]] }
