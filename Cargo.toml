@@ -1,7 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["crates/quantum-safe-core"]
+members = ["crates/quantum-safe-core", "bindings/wasm"]
 
 # Cryptographic crates are far too slow unoptimized (SLH-DSA especially).
 [profile.test]
 opt-level = 3
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
