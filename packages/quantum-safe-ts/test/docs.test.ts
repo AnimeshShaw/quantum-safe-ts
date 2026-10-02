@@ -12,7 +12,7 @@ const out = join(here, '.generated-docs');
 
 function blocks(file: string, fence = 'ts test'): string[] {
   const text = readFileSync(file, 'utf8');
-  const re = new RegExp('```' + fence + '\\n([\\s\\S]*?)```', 'g');
+  const re = new RegExp('```' + fence + '\\r?\\n([\\s\\S]*?)```', 'g');
   return [...text.matchAll(re)].map((m) => m[1]!);
 }
 

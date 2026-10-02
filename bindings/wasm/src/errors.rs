@@ -56,6 +56,7 @@ impl Kinded for EnvelopeError {
             EnvelopeError::Kdf(e) => e.kind(),
             EnvelopeError::Aead(e) => e.kind(),
             EnvelopeError::UnsupportedSuite(_) => "unsupported_algorithm",
+            EnvelopeError::UnsupportedVersion(_) => "unsupported_algorithm",
             EnvelopeError::AlgorithmMismatch => "algorithm_mismatch",
         }
     }

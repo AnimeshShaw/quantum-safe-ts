@@ -19,7 +19,7 @@ const plain = Envelope.open(sealed, pair.secretKey);
 ```
 
 ## Choosing algorithms
-- Default hybrid KEM: `X25519+ML-KEM-768` (NIST category 3). CNSA 2.0 needs `X25519+ML-KEM-1024` (`cnsa2.hybridKem()`).
+- Default hybrid KEM: `X25519+ML-KEM-768` (NIST category 3). For CNSA 2.0 use pure `ML-KEM-1024` (`cnsa2.kem()`; `Envelope.seal` then produces envelope v2 with HKDF-SHA-384). Hybrid is optional under CNSA 2.0, and `X25519+ML-KEM-1024` is NOT CNSA-conformant (the classical half of a CNSA 2.0 hybrid must be P-384, which is not implemented).
 - Default hybrid signature: `Ed25519+ML-DSA-65`. CNSA 2.0 needs `Ed25519+ML-DSA-87` (`cnsa2.hybridSign()`).
 - Need other ecosystems to read your data? Use `new HybridKEM('X-Wing')` and `StandardJwt` (RFC 9964), not the quantum-safe-py-compatible constructions.
 - Need to interoperate with quantum-safe-py (Python)? Use the defaults; formats are byte-compatible both ways.
@@ -39,7 +39,7 @@ Encryption: `Envelope.seal(plaintext, publicKey, { aad })`, `Envelope.open(seale
 Signatures: `Sign`, `HybridSign` (`generateKeyPair`, `sign(message, secretKey, { context })`, `verify(signed, publicKey)`, `verifyBytes`, `isValid`), `SignedMessage`.
 JWT: `JWTSigner`/`JWTVerifier` (quantum-safe-py mode), `StandardJwt.generateKeyPair/sign/verify` (RFC 9964).
 KDF: `deriveMasterKey(password, salt)` (Argon2id) -> `SecretBytes`.
-Compliance: `cnsa2.report({ kem, signature })`, `cnsa2.enforce(...)`, `cnsa2.hybridKem()`, `cnsa2.hybridSign()`.
+Compliance: `cnsa2.report({ kem, signature })`, `cnsa2.enforce(...)`, `cnsa2.kem()` (pure ML-KEM-1024), `cnsa2.hybridSign()`; `cnsa2.hybridKem()` is quantum-safe-py parity only and reports `partial`.
 Registry: `kemSuites()`, `sigSuites()`.
 
 ## Docs

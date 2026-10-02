@@ -40,8 +40,8 @@ Signature suites (`sigSuites()`): `Ed25519+ML-DSA-44`, `Ed25519+ML-DSA-65` (defa
 `SLH-DSA-SHA2-128s`, `SLH-DSA-SHA2-128f`, `SLH-DSA-SHA2-192s`, `SLH-DSA-SHA2-192f`, `SLH-DSA-SHA2-256s`, `SLH-DSA-SHA2-256f`.
 quantum-safe-py reads all except `X-Wing` and the nine SLH-DSA sets it does not list (only SHAKE-128s/128f/256s are shared).
 
-Choosing: default hybrids are NIST category 3. CNSA 2.0 requires ML-KEM-1024 and ML-DSA-87: use `X25519+ML-KEM-1024` and
-`Ed25519+ML-DSA-87` (`cnsa2.hybridKem()` / `cnsa2.hybridSign()`), and see section 9 for what CNSA 2.0 still lacks. For data
+Choosing: default hybrids are NIST category 3. CNSA 2.0 requires ML-KEM-1024 and ML-DSA-87: use pure `ML-KEM-1024` (`cnsa2.kem()`;
+hybrid is optional under CNSA 2.0) and `ML-DSA-87` or `Ed25519+ML-DSA-87` (`cnsa2.hybridSign()`), and see section 9 for what CNSA 2.0 still lacks. For data
 other ecosystems must read, use `X-Wing` (draft-connolly-cfrg-xwing-kem) and `StandardJwt` (RFC 9964) instead of the
 quantum-safe-py-compatible constructions.
 
@@ -89,7 +89,8 @@ try {
 
 - `Envelope.seal(plaintext, publicKey, { aad? })`. The AAD is authenticated and stored in clear in the message.
 - `Envelope.open(sealed | bytes, secretKey)` throws `DecryptionAuthenticationError` for a wrong key, wrong AAD, or any tampering.
-- Envelopes require a hybrid key; a pure ML-KEM key throws `UnsupportedAlgorithmError`.
+- Envelopes require a hybrid key, except pure `ML-KEM-1024`, which produces an envelope v2 (CNSA 2.0 profile: HKDF-SHA-384 + AES-256-GCM,
+  TypeScript-only, not readable by quantum-safe-py). Other pure ML-KEM keys throw `UnsupportedAlgorithmError`.
 - `SealedMessage` fields: `version`, `algorithm`, `kemCiphertext`, `nonce`, `ciphertext`, `aad`; methods `toBytes`, `toHex`, `inspect`,
   `fromBytes`, `fromHex`, `fromParts`.
 
@@ -174,16 +175,18 @@ import { cnsa2 } from 'quantum-safe-ts';
 
 const report = cnsa2.report({ kem: 'X25519+ML-KEM-768', signature: 'Ed25519+ML-DSA-65' });
 if (report.compliant) throw new Error('the defaults are below CNSA 2.0');
-const kem = cnsa2.hybridKem(); // X25519+ML-KEM-1024
+const kem = cnsa2.kem(); // pure ML-KEM-1024: Envelope.seal() then produces envelope v2 (HKDF-SHA-384)
 const signer = cnsa2.hybridSign(); // Ed25519+ML-DSA-87
 cnsa2.enforce({ kem: kem.algorithm, signature: signer.algorithm }); // throws PolicyViolationError below the parameter sets
+if (!cnsa2.report({ kem: kem.algorithm, includeCodeSigning: false }).compliant) throw new Error('pure ML-KEM-1024 + envelope v2 meets the KEM requirements');
 ```
 
 CNSA 2.0 mandates ML-KEM-1024, ML-DSA-87, AES-256, SHA-384/512, and LMS/XMSS (SP 800-208) for software/firmware signing.
 Selecting the parameter sets is necessary and not sufficient. Known gaps in this library, reported honestly by `cnsa2.report()`:
-(1) the hybrid combiner and envelope key derivation use HKDF-SHA-256 (required for byte compatibility with quantum-safe-py);
-(2) LMS/XMSS are not implemented; (3) compliance for National Security Systems runs through FIPS 140-3 validated modules and
-this library is not one.
+(1) a CNSA 2.0 hybrid needs a CNSA 1.0 classical half (ECDH P-384), which is not implemented, so `X25519+ML-KEM-1024` is `partial`; hybrid
+is optional and pure ML-KEM-1024 is compliant; (2) the quantum-safe-py-compatible hybrid combiner and envelope v1 use HKDF-SHA-256 (below
+the SHA-384/512 requirement); pure ML-KEM-1024 envelopes (v2) use HKDF-SHA-384; (3) LMS/XMSS are not implemented; (4) compliance for National
+Security Systems runs through FIPS 140-3 validated modules and this library is not one.
 
 ## 10. Errors
 
