@@ -104,7 +104,7 @@ impl Tally {
     }
 }
 
-fn expected_by_tc<'a>(expected: &'a Value, tg_id: u64, tc_id: u64) -> &'a Value {
+fn expected_by_tc(expected: &Value, tg_id: u64, tc_id: u64) -> &Value {
     let g = expected["testGroups"]
         .as_array()
         .unwrap()
