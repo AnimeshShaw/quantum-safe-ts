@@ -4,13 +4,19 @@ on:
   push:
     branches: [master]
   pull_request:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: ""
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   rust:
-    name: Rust (test, clippy, fmt, wasm check)
+    name: Rust (fmt, clippy, tests, wasm check)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,4 +28,158 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
-      - run: cargo check --target wasm32-unknown-unknown -p quantum-safe-core
+      - run: cargo check --target wasm32-unknown-unknown -p quantum-safe-wasm
+      - run: cargo check --manifest-path fuzz/Cargo.toml
+
+  acvp:
+    name: NIST ACVP known-answer tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: python3 scripts/fetch_acvp.py
+      - name: Run ACVP (all SLH-DSA cases; results saved)
+        run: QS_REQUIRE_ACVP=1 QS_ACVP_SAVE="$PWD/results/acvp_ts_native.json" cargo test --release -p quantum-safe-core --test acvp -- --test-threads=4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: acvp-results
+          path: results/acvp_ts_native.json
+
+  python-parity:
+    name: Parity with quantum-safe-py (both directions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install quantum-safe-py (bundled liboqs) and wasm-pack
+        run: |
+          pip install 'quantum-safe-py[liboqs]==0.3.0' cbor2
+          cargo install wasm-pack --locked
+      - name: "py to Rust: committed vectors must pass natively"
+        run: cargo test --release -p quantum-safe-core --test py_parity_kem --test py_parity_sig
+      - name: Generate Rust-made vectors
+        run: cargo run --release -p quantum-safe-core --example gen_ts_vectors
+      - name: Build the npm package and run the parity suite through WASM
+        working-directory: packages/quantum-safe-ts
+        run: |
+          npm ci
+          npm run build
+          npx vitest run test/parity.test.ts
+      - name: "Rust and TS facade to py (quantum-safe-py verifies everything we produced)"
+        run: |
+          node scripts/gen_ts_js_vectors.mjs
+          python scripts/verify_ts_vectors.py
+
+  typescript:
+    name: TypeScript package (build, typecheck, tests, size budget)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: packages/quantum-safe-ts/package-lock.json
+      - run: cargo install wasm-pack --locked
+      - working-directory: packages/quantum-safe-ts
+        run: |
+          npm ci
+          npm run build
+          npm run typecheck
+          npx vitest run
+      - name: Size budget
+        working-directory: packages/quantum-safe-ts
+        run: node scripts/check-size.mjs
+      - name: npm pack contents
+        working-directory: packages/quantum-safe-ts
+        run: npm pack --dry-run
+
+  fixtures-node:
+    name: Node ${{ matrix.node }} fixtures (packed tarball)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: cargo install wasm-pack --locked
+      - run: npm ci --prefix packages/quantum-safe-ts
+      - run: node tests/fixtures/run.mjs node-esm node-cjs ts-consumer
+
+  fixtures-frameworks:
+    name: Framework / runtime fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: cargo install wasm-pack --locked
+      - run: npm ci --prefix packages/quantum-safe-ts
+      - name: Install Playwright browsers
+        run: |
+          npm install --prefix tests/fixtures/.tools playwright@1.60.0
+          npx --prefix tests/fixtures/.tools playwright install --with-deps chromium firefox webkit
+      - name: Fixtures
+        run: node tests/fixtures/run.mjs esbuild-browser webpack-browser vite-react next-app sveltekit cloudflare-workers deno bun chrome-mv3-extension
+
+  fuzz:
+    name: cargo-fuzz (bounded)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
+      - run: cargo install cargo-fuzz --locked
+      - name: Run each target for 60 seconds
+        working-directory: fuzz
+        run: |
+          for t in fuzz_envelope fuzz_kem_decapsulate fuzz_keys fuzz_signed_message fuzz_sig_secret_key fuzz_wire; do
+            echo "== $t"
+            cargo +nightly fuzz run "$t" -- -max_total_time=60 -rss_limit_mb=4096
+          done
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts
+
+  audit:
+    name: Supply chain (cargo-deny, npm audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm audit --prefix packages/quantum-safe-ts --omit=dev

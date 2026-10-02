@@ -7,3 +7,6 @@ pkg/
 /tests/acvp/_vectors/
 tests/fixtures/.work/
 tests/fixtures/.tools/
+fuzz/target/
+fuzz/corpus/
+fuzz/artifacts/

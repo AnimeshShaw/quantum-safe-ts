@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/quantum-safe-core", "bindings/wasm"]
+exclude = ["fuzz"]
 
 # Cryptographic crates are far too slow unoptimized (SLH-DSA especially).
 [profile.test]

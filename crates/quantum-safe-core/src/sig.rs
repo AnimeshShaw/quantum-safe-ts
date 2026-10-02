@@ -983,7 +983,13 @@ pub mod standard {
         }
     }
 
-    pub fn verify(level: MlDsaLevel, pk: &[u8], msg: &[u8], ctx: &[u8], sig: &[u8]) -> Result<bool, SigError> {
+    pub fn verify(
+        level: MlDsaLevel,
+        pk: &[u8],
+        msg: &[u8],
+        ctx: &[u8],
+        sig: &[u8],
+    ) -> Result<bool, SigError> {
         if pk.len() != level.sizes().0 {
             return Err(SigError::MalformedKey);
         }
