@@ -9,13 +9,21 @@ repository = "https://github.com/AnimeshShaw/quantum-safe-ts"
 [dependencies]
 aes-gcm = "0.11.1"
 argon2 = "0.6.0"
+base64 = "0.22"
 ciborium = "0.2.2"
+ed25519-dalek = "3.0.0"
 getrandom = "0.4.3"
 hkdf = "0.13.0"
-ml-kem = { version = "0.3.2", features = ["getrandom"] }
+ml-dsa = { version = "0.1.1", features = ["zeroize"] }
+ml-kem = { version = "0.3.2", features = ["getrandom", "zeroize"] }
+p256 = { version = "0.14.0", features = ["ecdh", "ecdsa", "pem", "pkcs8"] }
 sha2 = "0.11.0"
+slh-dsa = "0.1.0"
+rand_core06 = { package = "rand_core", version = "0.6" }
 thiserror = "2"
+x-wing = { version = "0.1.1", features = ["getrandom", "zeroize"] }
 x25519-dalek = { version = "3.0.0", features = ["static_secrets", "getrandom"] }
+zeroize = { version = "1", features = ["zeroize_derive"] }
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
