@@ -1,0 +1,7 @@
+quantum-safe-ts
+Copyright 2026 Animesh Shaw
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+It is wire-compatible with quantum-safe-py (https://github.com/AnimeshShaw/quantum-safe-py)
+and builds on the RustCrypto project crates (ml-kem, ml-dsa, slh-dsa, hkdf, sha2, aes-gcm,
+argon2, x25519-dalek, ed25519-dalek, p256) under their respective licenses.
