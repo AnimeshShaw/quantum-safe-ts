@@ -1,0 +1,1 @@
+{ "description": "Deno 2 running the packed tarball from node_modules", "steps": [["npx", "deno", "run", "-A", "check.mjs"]] }

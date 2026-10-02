@@ -1,0 +1,1 @@
+{ "description": "Chrome Manifest V3 extension service worker (CSP 'wasm-unsafe-eval')", "steps": [["node", "build.mjs"], ["node", "run-extension.mjs"]] }
