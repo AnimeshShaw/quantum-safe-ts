@@ -1,7 +1,8 @@
 // Builds the WASM module (wasm-pack, web target) and generates the inline-base64 loader module.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -9,11 +10,16 @@ const pkg = resolve(here, '..');
 const repo = resolve(pkg, '..', '..');
 
 if (!process.env.QS_SKIP_WASM_PACK) {
+  // Panic locations embed source paths. Remap the checkout and the Cargo home so the artifact does not depend on where it was built
+  // (scripts/repro-check.mjs verifies this). Builds are reproducible per platform: path separators differ between operating systems.
+  const cargoHome = process.env.CARGO_HOME ?? join(homedir(), '.cargo');
+  const remap = [`--remap-path-prefix=${repo}=/build`, `--remap-path-prefix=${cargoHome}=/cargo`];
+  const rustflags = [process.env.RUSTFLAGS, ...remap].filter(Boolean).join(' ');
   execFileSync(
     'wasm-pack',
     ['build', 'bindings/wasm', '--target', 'web', '--release', '--out-dir', '../../packages/quantum-safe-ts/wasm',
      '--out-name', 'quantum_safe_wasm', '--no-pack'],
-    { cwd: repo, stdio: 'inherit', shell: process.platform === 'win32' },
+    { cwd: repo, stdio: 'inherit', shell: process.platform === 'win32', env: { ...process.env, RUSTFLAGS: rustflags } },
   );
 }
 

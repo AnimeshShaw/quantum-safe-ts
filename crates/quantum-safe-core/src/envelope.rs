@@ -100,6 +100,12 @@ impl SealedMessage {
     }
 
     pub fn from_cbor(data: &[u8]) -> Result<Self, EnvelopeError> {
+        if data.len() > crate::keys::MAX_PAYLOAD_BYTES {
+            return Err(EnvelopeError::CborDecode(
+                "payload exceeds the 10 MB limit".into(),
+            ));
+        }
+        crate::cbor_guard::validate_shape(data).map_err(|e| EnvelopeError::CborDecode(e.to_string()))?;
         let value: Value =
             ciborium::from_reader(data).map_err(|e| EnvelopeError::CborDecode(e.to_string()))?;
         let Value::Map(entries) = value else {

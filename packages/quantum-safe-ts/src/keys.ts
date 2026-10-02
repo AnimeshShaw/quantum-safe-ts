@@ -1,6 +1,6 @@
 /// <reference lib="esnext.disposable" />
 import type { MigrationState } from './algorithms.js';
-import { InvalidArgumentError } from './errors.js';
+import { AlgorithmMismatchError, InvalidArgumentError } from './errors.js';
 import { call } from './runtime.js';
 import type {
   KeyPair as WPair,
@@ -199,6 +199,35 @@ export class KeyPair {
   /** Parses a quantum-safe-py `KeyPair.to_cbor_bundle()` blob. */
   static fromCborBundle(data: Uint8Array): KeyPair {
     return new KeyPair(call((w) => w.KeyPair.fromCborBundle(bytes(data, 'data'))));
+  }
+
+  /**
+   * Assembles a pair from separately held keys (for example a public key from one place and a secret key from another).
+   * The keys are copied; the caller still owns, and should free, the arguments.
+   * @throws {AlgorithmMismatchError} if the algorithms differ.
+   */
+  static fromKeys(publicKey: PublicKey, secretKey: SecretKey): KeyPair {
+    if (!(publicKey instanceof PublicKey)) throw new InvalidArgumentError('publicKey must be a PublicKey.');
+    if (!(secretKey instanceof SecretKey)) throw new InvalidArgumentError('secretKey must be a SecretKey.');
+    if (publicKey.algorithm !== secretKey.algorithm) {
+      throw new AlgorithmMismatchError(`Public key is ${publicKey.algorithm} but secret key is ${secretKey.algorithm}.`);
+    }
+    const pub = publicKey.toCbor();
+    const sec = secretKey.toCbor();
+    // quantum-safe-py KeyPair.to_cbor_bundle() layout: {v: 1, bundle: "keypair", pub: <key map>, sec: <key map>}
+    const head = [0xa4, 0x61, 0x76, 0x01, 0x66, 0x62, 0x75, 0x6e, 0x64, 0x6c, 0x65, 0x67, 0x6b, 0x65, 0x79, 0x70, 0x61, 0x69, 0x72, 0x63, 0x70, 0x75, 0x62];
+    const mid = [0x63, 0x73, 0x65, 0x63];
+    const out = new Uint8Array(head.length + pub.length + mid.length + sec.length);
+    out.set(head, 0);
+    out.set(pub, head.length);
+    out.set(mid, head.length + pub.length);
+    out.set(sec, head.length + pub.length + mid.length);
+    try {
+      return KeyPair.fromCborBundle(out);
+    } finally {
+      out.fill(0);
+      sec.fill(0);
+    }
   }
 
   /** The public key. */

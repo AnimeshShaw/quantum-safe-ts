@@ -693,6 +693,7 @@ impl SignedMessage {
         if data.len() > MAX_PAYLOAD_BYTES {
             return Err(fmt("payload exceeds the 10 MB limit"));
         }
+        crate::cbor_guard::validate_shape(data).map_err(|e| SigError::Format(e.to_string()))?;
         let value: Value =
             ciborium::from_reader(data).map_err(|e| SigError::Format(format!("decode failed: {e}")))?;
         let Value::Map(entries) = value else {
@@ -838,8 +839,13 @@ fn parse_hybrid_payload(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>, String, String
     if data.len() > MAX_PAYLOAD_BYTES {
         return None;
     }
+    crate::cbor_guard::validate_shape(data).ok()?;
     let value: Value = ciborium::from_reader(data).ok()?;
     let Value::Map(entries) = value else { return None };
+    // Exactly the four entries quantum-safe-py writes: unknown extra entries would be unsigned, mutable bytes (malleability).
+    if entries.len() != 4 {
+        return None;
+    }
     let b = |k: &str| match map_get(&entries, k) {
         Some(Value::Bytes(v)) => Some(v.clone()),
         _ => None,

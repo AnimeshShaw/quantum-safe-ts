@@ -1,0 +1,16 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["../packages/quantum-safe-ts/src/index.ts"],
+  "tsconfig": "../packages/quantum-safe-ts/tsconfig.json",
+  "plugin": ["typedoc-plugin-markdown", "typedoc-vitepress-theme"],
+  "out": "api",
+  "readme": "none",
+  "entryFileName": "index",
+  "hideBreadcrumbs": true,
+  "hidePageHeader": true,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "skipErrorChecking": true,
+  "gitRevision": "master"
+}

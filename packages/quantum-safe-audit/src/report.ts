@@ -30,6 +30,7 @@ export function toText(report: ScanReport): string {
     `Scanned ${report.filesScanned} file(s): ${s.critical} critical, ${s.high} high, ${s.medium} medium, ${s.low} low, ${s.info} info.`,
   );
   for (const e of report.errors) lines.push(`warning: ${e}`);
+  for (const n of report.notes) lines.push(`note: ${n}`);
   lines.push(
     'Static analysis sees only what the source names; an empty result is not evidence of absence. This is an inventory, not a compliance verdict or a FIPS 140-3 validation.',
   );
@@ -44,6 +45,8 @@ export function toJson(report: ScanReport): string {
       summary: summary(report),
       findings: report.findings.map((f) => ({ ...f, fix: ruleById(f.ruleId)?.replacement })),
       errors: report.errors,
+      notes: report.notes,
+      suppressed: report.suppressed,
     },
     null,
     2,
@@ -86,6 +89,16 @@ export function toSarif(report: ScanReport, toolVersion = '0.1.0'): string {
             rules,
           },
         },
+        // An incomplete scan is reported as such, so a consumer can tell "nothing found" from "could not look".
+        invocations: [
+          {
+            executionSuccessful: report.errors.length === 0,
+            toolExecutionNotifications: [
+              ...report.errors.map((e) => ({ level: 'error', message: { text: e.slice(0, 300) } })),
+              ...report.notes.map((n) => ({ level: 'note', message: { text: n.slice(0, 300) } })),
+            ],
+          },
+        ],
         results: report.findings.map((f) => ({
           ruleId: f.ruleId,
           level: LEVEL[f.severity],

@@ -3,7 +3,12 @@ import { InvalidArgumentError } from './errors.js';
 /** Returns `value` if it is a `Uint8Array` (Node `Buffer` included); throws a typed error otherwise. */
 export function bytes(value: unknown, name: string): Uint8Array {
   if (value instanceof Uint8Array) return value;
-  throw new InvalidArgumentError(`${name} must be a Uint8Array (got ${describe(value)}).`);
+  // Cross-realm values (vm contexts, iframes, jsdom, Electron preloads) fail `instanceof`; accept them by tag and normalise views and buffers.
+  const tag = Object.prototype.toString.call(value);
+  if (tag === '[object Uint8Array]') return value as Uint8Array;
+  if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  if (tag === '[object ArrayBuffer]' || tag === '[object SharedArrayBuffer]') return new Uint8Array(value as ArrayBufferLike);
+  throw new InvalidArgumentError(`${name} must be a Uint8Array, ArrayBuffer or typed-array view (got ${describe(value)}).`);
 }
 
 function describe(v: unknown): string {
@@ -66,6 +71,14 @@ export function fromBase64Url(s: string): Uint8Array {
   return out;
 }
 
+/** Decodes canonical, unpadded base64url only: rejects padding and non-canonical trailing bits, so a value has exactly one accepted spelling. */
+export function fromBase64UrlStrict(s: string): Uint8Array {
+  if (typeof s !== 'string' || !/^[A-Za-z0-9_-]*$/.test(s)) throw new InvalidArgumentError('Invalid base64url string.');
+  const out = fromBase64Url(s);
+  if (toBase64Url(out) !== s) throw new InvalidArgumentError('Non-canonical base64url string.');
+  return out;
+}
+
 /** Constant-time-ish equality for equal-length arrays (best effort in JS; not a guarantee). */
 export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
@@ -78,5 +91,6 @@ export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
 // with the same registry key other polyfills (tslib, core-js) use, so objects stay disposable everywhere.
 const sym = Symbol as unknown as { dispose?: symbol };
 if (typeof sym.dispose !== 'symbol') {
-  Object.defineProperty(Symbol, 'dispose', { value: Symbol.for('Symbol.dispose'), configurable: false, writable: false });
+  // Configurable and writable so that a later polyfill (core-js, tslib, test setup) can still define it without throwing.
+  Object.defineProperty(Symbol, 'dispose', { value: Symbol.for('Symbol.dispose'), configurable: true, writable: true });
 }

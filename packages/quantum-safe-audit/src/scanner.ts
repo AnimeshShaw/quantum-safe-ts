@@ -38,6 +38,13 @@ export class ScanError extends Error {
 export interface ScanOptions {
   /** Also report CNSA 2.0 hash gaps (SHA-256) as findings. */
   cnsa2?: boolean;
+  /**
+   * Honour `// qs-audit-ignore` comments (default true). Turn off in CI gates for untrusted code: a pull request could otherwise add the comment to
+   * pass its own check.
+   */
+  ignoreInline?: boolean;
+  /** Called with the number of findings suppressed by inline comments in a file. */
+  onSuppressed?: (count: number) => void;
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -475,17 +482,28 @@ function scanSourceUnchecked(file: string, text: string, options: ScanOptions): 
   let findings: Finding[];
   if (lower.endsWith('package.json')) {
     findings = scanPackageJson(file, text);
-  } else if (/\.(vue|svelte|astro)$/.test(lower)) {
+  } else if (/\.(vue|svelte|astro|html?)$/.test(lower)) {
     findings = extractScripts(text).flatMap((s) => scanCode(file, s.code, s.lineOffset, s.lang === 'ts' ? ts.ScriptKind.TS : ts.ScriptKind.JS, options));
   } else {
     findings = scanCode(file, text, 0, scriptKind(file), options);
   }
+  if (options.ignoreInline === false) return findings;
   const sup = suppressions(text);
-  return findings.filter((f) => {
-    if (sup.fileWide === 'all' || sup.fileWide?.has(f.ruleId)) return false;
+  let suppressed = 0;
+  const kept = findings.filter((f) => {
+    if (sup.fileWide === 'all' || sup.fileWide?.has(f.ruleId)) {
+      suppressed++;
+      return false;
+    }
     const s = sup.lines.get(f.line);
-    return !(s === 'all' || s?.has(f.ruleId));
+    if (s === 'all' || s?.has(f.ruleId)) {
+      suppressed++;
+      return false;
+    }
+    return true;
   });
+  if (suppressed > 0) options.onSuppressed?.(suppressed);
+  return kept;
 }
 
 const CLASSICAL_DEPS = /^(node-rsa|elliptic|node-forge|tweetnacl|tweetnacl-ts|jsrsasign|libsodium(-wrappers(-sumo)?)?|sodium-native|openpgp|jsonwebtoken|jose|jws|jwa|jwk-to-pem|pem|selfsigned|node-jose|ssh2|sshpk|@peculiar\/webcrypto|@peculiar\/x509|secp256k1|@noble\/secp256k1|@noble\/ed25519|@noble\/curves|ecdsa-sig-formatter)$/;

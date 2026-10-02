@@ -1,8 +1,16 @@
 name: Release
+run-name: Release ${{ inputs.package }} (dry run ${{ inputs.dry_run }})
 
 # Manual only. Publishes ONE package per run, with npm provenance (links the tarball to this commit and workflow).
-# Requires the repository secret NPM_TOKEN (an npm automation/granular token with publish rights).
-# See docs/maintainer/PUBLISHING.md. Order: audit -> quantum-safe-ts -> mcp.
+#
+# Design, so that a compromised build step cannot publish and a green build is what ships:
+#   1. `build` has NO secrets. It checks that CI passed for this exact commit, builds and tests, and packs ONE tarball.
+#   2. `publish` holds the token and runs only the final `npm publish <that tarball>`, after a human approves the `npm-publish` environment.
+# One-time setup by the maintainer: Settings > Environments > New environment `npm-publish`, add yourself as required reviewer and
+# restrict deployment branches to master; add the secret NPM_TOKEN to THAT environment (not to the repository).
+# Order: quantum-safe-audit -> quantum-safe-ts -> quantum-safe-mcp.
+# IMPORTANT: create the `npm-publish` environment (with its reviewer and branch rule) BEFORE adding NPM_TOKEN anywhere and before pushing
+# this file: GitHub auto-creates an unprotected environment of that name on first use, and a repository-level secret would be used by it.
 
 on:
   workflow_dispatch:
@@ -19,36 +27,90 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm provenance
 
 jobs:
-  publish:
+  build:
+    name: Build, test and pack (no secrets)
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # to read the CI result for this commit
+    env:
+      PACKAGE: ${{ inputs.package }}
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: CI must have passed for this exact commit
+        run: |
+          # At least one completed push run of ci.yml for this SHA, and every run for it succeeded (none pending, cancelled or failed).
+          result=$(gh run list --workflow ci.yml --branch master --event push --commit "$GITHUB_SHA" --limit 50 --json status,conclusion --jq 'if length==0 then "none" elif all(.status=="completed" and .conclusion=="success") then "success" else "not-green" end')
+          echo "CI result for $GITHUB_SHA: $result"
+          test "$result" = "success"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      # The compiler comes from rust-toolchain.toml (pinned). No build cache in a release job: a poisoned cache must not reach the artifact.
+      - run: rustup show active-toolchain && rustup target add wasm32-unknown-unknown
+      - run: cargo install wasm-pack --locked --version 0.15.0
+      - name: "Prepare (rewrites the MCP package's local file dependency to a version range)"
+        run: node scripts/prepare-release.mjs
+      - name: Install, build, test
+        working-directory: packages/${{ env.PACKAGE }}
+        run: |
+          # The MCP package's lockfile pins the local file: dependency, which prepare-release.mjs replaced with a version range.
+          if [ "$PACKAGE" = "quantum-safe-mcp" ]; then npm install --ignore-scripts; else npm ci --ignore-scripts; fi
+          npm run build
+          npx vitest run
+      - name: Pack once; this exact file is what gets published
+        id: pack
+        working-directory: packages/${{ env.PACKAGE }}
+        run: |
+          file=$(npm pack --ignore-scripts --json | jq -r '.[0].filename')
+          test -n "$file"
+          # A published manifest must not depend on local paths, links, workspaces, git or URLs.
+          tar -xOf "$file" package/package.json | node -e 'const p=JSON.parse(require("fs").readFileSync(0,"utf8"));const bad=Object.entries({...p.dependencies,...p.optionalDependencies,...p.peerDependencies}).filter(([,v])=>/^(file|link|workspace|git|https?):/.test(v));if(bad.length){console.error("unpublishable dependency specs:",bad);process.exit(1)}'
+          sum=$(sha256sum "$file" | cut -d' ' -f1)
+          echo "$sum  $file"
+          echo "tarball=$file" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sum" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tarball
+          path: packages/${{ env.PACKAGE }}/*.tgz
+          if-no-files-found: error
+
+  publish:
+    name: Publish the packed tarball (needs approval)
+    needs: build
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    env:
+      TARBALL: ${{ needs.build.outputs.tarball }}
+      EXPECTED_SHA256: ${{ needs.build.outputs.sha256 }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: tarball
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo install wasm-pack --locked
-      - name: "Prepare (rewrites the MCP package's local file dependency to a version range)"
-        run: node scripts/prepare-release.mjs
-      - name: Build, test, publish
-        working-directory: packages/${{ inputs.package }}
+      - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          # The MCP package's lockfile pins the local file: dependency, which prepare-release.mjs replaced
-          # with a version range, so install it fresh; the other packages use their lockfiles.
-          if [ "${{ inputs.package }}" = "quantum-safe-mcp" ]; then npm install; else npm ci; fi
-          npm run build
-          npx vitest run
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            npm publish --access public --provenance --dry-run
+          test -n "$TARBALL" && test -n "$EXPECTED_SHA256"
+          echo "$EXPECTED_SHA256  $TARBALL" | sha256sum -c -   # the file that was built and tested is the file that is published
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish "./$TARBALL" --access public --provenance --ignore-scripts --dry-run
           else
-            npm publish --access public --provenance
+            npm publish "./$TARBALL" --access public --provenance --ignore-scripts
           fi

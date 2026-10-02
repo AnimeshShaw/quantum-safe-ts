@@ -16,7 +16,7 @@ let defaultSource: (() => Promise<InitSource> | InitSource) | null = null;
  * What `init()` can instantiate from: raw bytes, a `WebAssembly.Module`, a `Response` (or promise of
  * one), or a URL. Typed loosely (`object`) so consumers need neither the DOM nor WebAssembly typings.
  */
-export type InitSource = Uint8Array | ArrayBuffer | URL | string | object;
+export type InitSource = Uint8Array | ArrayBuffer | string | object;
 
 /** @internal Registers how the entry point obtains the .wasm bytes. */
 export function setDefaultSource(fn: () => Promise<InitSource> | InitSource): void {

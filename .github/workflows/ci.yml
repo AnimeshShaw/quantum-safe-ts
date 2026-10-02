@@ -10,21 +10,25 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: ""
 
+permissions:
+  contents: read
+
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
+  # Pull requests cancel their own superseded runs; pushes to master always finish (a cancelled master run is a hole in the history).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rust:
     name: Rust (fmt, clippy, tests, wasm check)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          components: clippy, rustfmt
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+          persist-credentials: false
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
@@ -35,13 +39,16 @@ jobs:
     name: NIST ACVP known-answer tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: python3 scripts/fetch_acvp.py
       - name: Run ACVP (all SLH-DSA cases; results saved)
         run: QS_REQUIRE_ACVP=1 QS_ACVP_SAVE="$PWD/results/acvp_ts_native.json" cargo test --release -p quantum-safe-core --test acvp -- --test-threads=4
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: acvp-results
           path: results/acvp_ts_native.json
@@ -50,31 +57,37 @@ jobs:
     name: Parity with quantum-safe-py (both directions)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+          persist-credentials: false
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       - name: Install quantum-safe-py (bundled liboqs) and wasm-pack
         run: |
-          pip install 'quantum-safe-py[liboqs]==0.3.0' cbor2
-          cargo install wasm-pack --locked
+          pip install 'quantum-safe-py[liboqs]==0.3.0' 'liboqs-python==0.16.0' 'cbor2==6.1.4' 'cryptography==45.0.7'
+          cargo install wasm-pack --locked --version 0.15.0
       - name: "py to Rust: committed vectors must pass natively"
         run: cargo test --release -p quantum-safe-core --test py_parity_kem --test py_parity_sig
       - name: Generate Rust-made vectors
         run: cargo run --release -p quantum-safe-core --example gen_ts_vectors
+      - name: "Fresh py vectors: the generators must still work against the pinned quantum-safe-py (new random keys every run)"
+        run: |
+          python scripts/generate_suite_vectors.py
+          python scripts/generate_migrate_vectors.py
+          cargo test --release -p quantum-safe-core --test py_parity_kem --test py_parity_sig
       - name: Build the npm package and run the parity suite through WASM
         working-directory: packages/quantum-safe-ts
         run: |
           npm ci
           npm run build
-          npx vitest run test/parity.test.ts
+          npx vitest run test/parity.test.ts test/migrate.test.ts
       - name: "Rust and TS facade to py (quantum-safe-py verifies everything we produced)"
         run: |
           node scripts/gen_ts_js_vectors.mjs
@@ -84,17 +97,18 @@ jobs:
     name: TypeScript package (build, typecheck, tests, size budget)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+          persist-credentials: false
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: packages/quantum-safe-ts/package-lock.json
-      - run: cargo install wasm-pack --locked
+      - run: cargo install wasm-pack --locked --version 0.15.0
       - working-directory: packages/quantum-safe-ts
         run: |
           npm ci
@@ -112,8 +126,10 @@ jobs:
     name: quantum-safe-audit (build, tests, self-scan)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: npm
@@ -124,8 +140,122 @@ jobs:
           npm run typecheck
           npm run build
           npx vitest run
+      - name: Values that must agree have not drifted (audit version, Rust toolchain)
+        run: node scripts/check-versions.mjs
       - name: Self-scan (this repository must not contain classical crypto findings)
-        run: node packages/quantum-safe-audit/dist/cli.js scan packages/quantum-safe-ts/src packages/quantum-safe-audit/src tests/fixtures --exclude '**/.work/**' --fail-on low
+        run: node packages/quantum-safe-audit/dist/cli.js scan packages/quantum-safe-ts/src packages/quantum-safe-audit/src tests/fixtures --exclude '**/.work/**' --exclude '**/wasm-inline.generated.ts' --fail-on low
+
+  mcp:
+    name: quantum-safe-mcp (build, tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Build the audit package first (the MCP server depends on it by file path in this repository)
+        working-directory: packages/quantum-safe-audit
+        run: |
+          npm ci
+          npm run build
+      - working-directory: packages/quantum-safe-mcp
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+          npx vitest run
+
+  pack-smoke:
+    name: Packed tarballs install and run from an empty project
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: cargo install wasm-pack --locked --version 0.15.0
+      - run: |
+          for p in quantum-safe-ts quantum-safe-audit quantum-safe-mcp; do
+            (cd "packages/$p" && npm ci && npm run build)
+          done
+      - run: node scripts/pack-smoke.mjs
+
+  action-selftest:
+    name: GitHub Action (self-test with the local build)
+    runs-on: ubuntu-latest
+    needs: audit-tool
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - working-directory: packages/quantum-safe-audit
+        run: |
+          npm ci
+          npm run build
+      - name: Findings at the gate fail the job, and the report is still written
+        id: gate
+        uses: ./
+        continue-on-error: true
+        with:
+          path: packages/quantum-safe-audit/test/corpus
+          package-path: packages/quantum-safe-audit
+          output: out/audit.sarif
+          cbom: 'true'
+      - name: Assert the failing gate behaved
+        env:
+          OUTCOME: ${{ steps.gate.outcome }}
+          EXIT_CODE: ${{ steps.gate.outputs.exit-code }}
+        run: |
+          test "$OUTCOME" = failure
+          test "$EXIT_CODE" = 1
+          test -s out/audit.sarif
+          test -s quantum-safe-cbom.json
+      - name: fail-on none passes
+        uses: ./
+        with:
+          path: packages/quantum-safe-audit/test/corpus
+          package-path: packages/quantum-safe-audit
+          fail-on: none
+          output: out/audit-none.sarif
+
+  sbom-repro:
+    name: SBOM, CBOM and reproducible WASM build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: cargo install wasm-pack --locked --version 0.15.0
+      - working-directory: packages/quantum-safe-audit
+        run: |
+          npm ci
+          npm run build
+      - name: Generate and validate the SBOM and CBOM
+        run: node scripts/generate-sboms.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom
+          path: sbom/
+      - name: Two builds from different paths must be byte-identical
+        run: node scripts/repro-check.mjs
 
   fixtures-node:
     name: Node ${{ matrix.node }} fixtures (packed tarball)
@@ -135,15 +265,16 @@ jobs:
       matrix:
         node: [20, 22, 24]
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+          persist-credentials: false
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ matrix.node }}
-      - run: cargo install wasm-pack --locked
+      - run: cargo install wasm-pack --locked --version 0.15.0
       - run: npm ci --prefix packages/quantum-safe-ts
       - run: node tests/fixtures/run.mjs node-esm node-cjs ts-consumer
 
@@ -152,15 +283,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+          persist-credentials: false
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
-      - run: cargo install wasm-pack --locked
+      - run: cargo install wasm-pack --locked --version 0.15.0
       - run: npm ci --prefix packages/quantum-safe-ts
       - name: Install Playwright browsers
         run: |
@@ -173,20 +305,23 @@ jobs:
     name: cargo-fuzz (bounded)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install nightly (cargo-fuzz needs it)
+        run: rustup toolchain install nightly --profile minimal
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: fuzz
       - run: cargo install cargo-fuzz --locked
       - name: Run each target for 60 seconds
         working-directory: fuzz
         run: |
-          for t in fuzz_envelope fuzz_kem_decapsulate fuzz_keys fuzz_signed_message fuzz_sig_secret_key fuzz_wire; do
+          for t in fuzz_envelope fuzz_kem_decapsulate fuzz_keys fuzz_lms_verify fuzz_signed_message fuzz_sig_secret_key fuzz_wire; do
             echo "== $t"
             cargo +nightly fuzz run "$t" -- -max_total_time=60 -rss_limit_mb=4096
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
           name: fuzz-artifacts
@@ -196,9 +331,14 @@ jobs:
     name: Supply chain (cargo-deny, npm audit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
-      - run: npm audit --prefix packages/quantum-safe-ts --omit=dev
+      - run: |
+          npm audit --prefix packages/quantum-safe-ts --omit=dev
+          npm audit --prefix packages/quantum-safe-audit --omit=dev
+          npm audit --prefix packages/quantum-safe-mcp --omit=dev

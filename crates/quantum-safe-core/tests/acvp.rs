@@ -107,6 +107,23 @@ impl Tally {
         assert!(self.failures.is_empty(), "{name} failures: {:?}", self.failures);
         assert_eq!(self.passed, self.run, "{name}");
         assert!(self.run > 0, "{name}: no cases ran");
+        // With the pinned ACVP-Server vectors (scripts/fetch_acvp.py) the case counts are fixed: a parser change that silently skips cases must fail.
+        if std::env::var("QS_REQUIRE_ACVP").is_ok() {
+            let expected = match name {
+                "ML-DSA-keyGen" => Some(75),
+                "ML-DSA-sigGen" => Some(180),
+                "ML-DSA-sigVer" => Some(90),
+                "ML-KEM-encapDecap" => Some(105),
+                "ML-KEM-keyGen" => Some(75),
+                "SLH-DSA-keyGen" => Some(120),
+                "SLH-DSA-sigGen" => Some(336),
+                "SLH-DSA-sigVer" => Some(336),
+                _ => None,
+            };
+            if let Some(n) = expected {
+                assert_eq!(self.run, n, "{name}: expected {n} ACVP cases, ran {}", self.run);
+            }
+        }
     }
 }
 

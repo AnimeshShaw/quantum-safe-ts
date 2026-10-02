@@ -48,3 +48,9 @@ name = "fuzz_wire"
 path = "fuzz_targets/fuzz_wire.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_lms_verify"
+path = "fuzz_targets/fuzz_lms_verify.rs"
+test = false
+doc = false

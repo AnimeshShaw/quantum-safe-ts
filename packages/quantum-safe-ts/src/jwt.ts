@@ -19,7 +19,7 @@ import { KeyPair, PublicKey, SecretBytes, SecretKey } from './keys.js';
 import { call } from './runtime.js';
 import { HybridSign, Sign } from './signatures.js';
 import type { SignatureAlgorithm } from './algorithms.js';
-import { bytes, fromBase64Url, toBase64Url, utf8 } from './utils.js';
+import { bytes, fromBase64Url, fromBase64UrlStrict, toBase64Url, utf8 } from './utils.js';
 
 /** JWT claims. Standard registered claims are typed; any other JSON-serializable claim is allowed. */
 export interface JwtClaims {
@@ -65,26 +65,30 @@ interface ClaimChecks {
   issuer?: string | undefined;
   audience?: string | undefined;
   validateExp?: boolean | undefined;
+  requireExp?: boolean | undefined;
   validateNbf?: boolean | undefined;
   now?: number | undefined;
 }
 
 /** Claim validation shared by both modes. Failures are a bare VerificationError (no oracle). */
+const CLAIMS_MESSAGE = 'Token verification failed: the signature or a claim check (exp, nbf, iss, aud) did not pass.';
+
 function checkClaims(claims: Record<string, unknown>, c: ClaimChecks): void {
   const now = c.now ?? Date.now() / 1000;
+  if (c.requireExp && !('exp' in claims)) throw new VerificationError(CLAIMS_MESSAGE);
   if ((c.validateExp ?? true) && 'exp' in claims) {
     const exp = claims.exp;
-    if (typeof exp !== 'number' || now > exp + CLOCK_SKEW_SECONDS) throw new VerificationError();
+    if (typeof exp !== 'number' || now > exp + CLOCK_SKEW_SECONDS) throw new VerificationError(CLAIMS_MESSAGE);
   }
   if ((c.validateNbf ?? true) && 'nbf' in claims) {
     const nbf = claims.nbf;
-    if (typeof nbf !== 'number' || now < nbf - CLOCK_SKEW_SECONDS) throw new VerificationError();
+    if (typeof nbf !== 'number' || now < nbf - CLOCK_SKEW_SECONDS) throw new VerificationError(CLAIMS_MESSAGE);
   }
-  if (c.issuer !== undefined && claims.iss !== c.issuer) throw new VerificationError();
+  if (c.issuer !== undefined && claims.iss !== c.issuer) throw new VerificationError(CLAIMS_MESSAGE);
   if (c.audience !== undefined) {
     const aud = claims.aud;
     const list = typeof aud === 'string' ? [aud] : Array.isArray(aud) ? aud : [];
-    if (!list.includes(c.audience)) throw new VerificationError();
+    if (!list.includes(c.audience)) throw new VerificationError(CLAIMS_MESSAGE);
   }
 }
 
@@ -93,6 +97,9 @@ function buildClaims(claims: JwtClaims, issuer: string | undefined, expiresIn: n
   const full: JwtClaims = {};
   if (issuer) full.iss = issuer;
   full.iat = now;
+  if (expiresIn < 0 || !Number.isFinite(expiresIn)) {
+    throw new InvalidArgumentError('expiresIn must be a finite number of seconds, 0 to omit exp, or positive. A negative value would silently produce a token without exp.');
+  }
   if (expiresIn > 0) full.exp = now + expiresIn;
   return Object.assign(full, claims); // caller claims override, as in quantum-safe-py
 }
@@ -152,6 +159,8 @@ export interface JwtVerifierOptions {
   issuer?: string;
   /** If set, the `aud` claim must include this. */
   audience?: string;
+  /** Whether tokens were signed hedged (a 32-byte random prefix; the default, as in quantum-safe-py). Set `false` only for tokens from an unhedged signer. */
+  hedged?: boolean;
 }
 
 /** Per-token options for {@link JWTVerifier.verify}. */
@@ -160,6 +169,8 @@ export interface JwtVerifyOptions {
   context?: Uint8Array;
   validateExp?: boolean;
   validateNbf?: boolean;
+  /** Reject tokens that carry no `exp` claim (default false, as in quantum-safe-py). Recommended for anything that should expire. */
+  requireExp?: boolean;
   /** Override "now" (Unix seconds), mainly for tests. */
   now?: number;
 }
@@ -176,9 +187,10 @@ export class JWTVerifier {
     this.#public = publicKey;
     this.#opts = options;
     this.algorithm = publicKey.algorithm as SignatureAlgorithm;
+    const hedged = options.hedged ?? true;
     this.#verifier = this.algorithm.includes('+')
-      ? new HybridSign(this.algorithm as never)
-      : new Sign(this.algorithm as never);
+      ? new HybridSign(this.algorithm as never, { hedged })
+      : new Sign(this.algorithm as never, { hedged });
   }
 
   /**
@@ -196,7 +208,7 @@ export class JWTVerifier {
     const claims = decodeJson(p, 'payload');
     let blob: Uint8Array;
     try {
-      blob = fromBase64Url(s);
+      blob = fromBase64UrlStrict(s); // one spelling per signature: no padding, no non-canonical trailing bits
     } catch {
       throw new VerificationError();
     }
@@ -257,6 +269,8 @@ export interface StandardVerifyOptions {
   audience?: string;
   validateExp?: boolean;
   validateNbf?: boolean;
+  /** Reject tokens that carry no `exp` claim (default false). Recommended for anything that should expire. */
+  requireExp?: boolean;
   now?: number;
 }
 
@@ -339,7 +353,7 @@ export const StandardJwt = {
     let sig: Uint8Array;
     let pub: Uint8Array;
     try {
-      sig = fromBase64Url(s);
+      sig = fromBase64UrlStrict(s); // one spelling per signature: no padding, no non-canonical trailing bits
       pub = fromBase64Url(publicJwk.pub);
     } catch {
       throw new VerificationError();

@@ -81,12 +81,20 @@ function result(
 
 const pqcHalf = (algorithm: string): string => (algorithm.includes('+') ? algorithm.split('+').pop()! : algorithm);
 
+// Names this library actually implements. A selection is only evaluated if its WHOLE name is one of these: 'RSA-1024+ML-DSA-87' is not 'compliant'.
+const KNOWN_KEM = /^(?:ML-KEM-(?:512|768|1024)|X-Wing|X25519\+ML-KEM-(?:512|768|1024)|P-256\+ML-KEM-(?:512|768))$/;
+const KNOWN_SIGNATURE =
+  /^(?:ML-DSA-(?:44|65|87)|Ed25519\+ML-DSA-(?:44|65|87)|P-256\+ML-DSA-(?:44|65)|SLH-DSA-(?:SHAKE|SHA2)-(?:128|192|256)[sf])$/;
+const unknown = (requirement: string, algorithm: string): CheckResult =>
+  result(requirement, 'non-compliant', `'${algorithm}' is not an algorithm name this library implements, so it cannot be evaluated.`);
+
 /**
  * Checks a KEM selection. Pure `ML-KEM-1024` is compliant. A hybrid whose post-quantum half is ML-KEM-1024
  * is `partial`: the parameter set is right, but the classical component of a CNSA 2.0 hybrid must come from
  * CNSA 1.0 (ECDH P-384), which this library does not implement, and hybrids are optional anyway.
  */
 export function checkKem(algorithm: string): CheckResult {
+  if (!KNOWN_KEM.test(algorithm)) return unknown('Key establishment', algorithm);
   const pqc = pqcHalf(algorithm);
   if (pqc !== CNSA2_KEM) {
     return result(
@@ -110,9 +118,22 @@ export function checkKem(algorithm: string): CheckResult {
   );
 }
 
-/** Checks a signature selection; a hybrid passes when its post-quantum half is ML-DSA-87. */
+/**
+ * Checks a signature selection. Pure `ML-DSA-87` is compliant. A hybrid whose post-quantum half is ML-DSA-87 is `partial`, for the same reason a
+ * hybrid KEM is: the parameter set is right, but its classical half (Ed25519 or P-256) is not a CNSA 1.0 algorithm, and hybrid is optional.
+ */
 export function checkSignature(algorithm: string): CheckResult {
+  if (!KNOWN_SIGNATURE.test(algorithm)) return unknown('Signatures', algorithm);
   const pqc = pqcHalf(algorithm);
+  if (pqc === CNSA2_SIGNATURE && algorithm.includes('+')) {
+    return result(
+      'Signatures',
+      'partial',
+      `${algorithm} uses ${CNSA2_SIGNATURE}, but the classical half of a hybrid is not a CNSA 1.0 algorithm (ECDSA P-384), and hybrid is optional. Use pure ${CNSA2_SIGNATURE}.`,
+      `${CNSA2_SIGNATURE}; classical half P-384 if hybrid`,
+      algorithm,
+    );
+  }
   return pqc === CNSA2_SIGNATURE
     ? result('Signatures', 'compliant', `${algorithm} uses ${CNSA2_SIGNATURE}.`, CNSA2_SIGNATURE, pqc)
     : result(
@@ -222,12 +243,17 @@ export function report(options: ReportOptions = {}): ComplianceReport {
  * Throws if the post-quantum half of a selection falls below the CNSA 2.0 *parameter sets*. The hybrid
  * classical-component rule, code signing and the key-derivation hash are not evaluated here, so this is a
  * guard against accidentally using ML-KEM-768 / ML-DSA-65, not a compliance certificate (see {@link report}).
+ *
+ * By default a hybrid such as `X25519+ML-KEM-1024` passes (its post-quantum half is right) although {@link report} calls it `partial`. Pass
+ * `{ strict: true }` to fail on anything that is not fully `compliant` there, for example when using this as a CI gate.
  * @throws {PolicyViolationError}
  */
-export function enforce(selection: { kem?: string; signature?: string } = {}): void {
+export function enforce(selection: { kem?: string; signature?: string } = {}, options: { strict?: boolean } = {}): void {
   const failures: string[] = [];
-  if (selection.kem !== undefined && pqcHalf(selection.kem) !== CNSA2_KEM) failures.push(checkKem(selection.kem).detail);
-  if (selection.signature !== undefined && pqcHalf(selection.signature) !== CNSA2_SIGNATURE) {
+  if (selection.kem !== undefined && (options.strict || !KNOWN_KEM.test(selection.kem) ? !checkKem(selection.kem).ok : pqcHalf(selection.kem) !== CNSA2_KEM)) {
+    failures.push(checkKem(selection.kem).detail);
+  }
+  if (selection.signature !== undefined && (options.strict || !KNOWN_SIGNATURE.test(selection.signature) ? !checkSignature(selection.signature).ok : pqcHalf(selection.signature) !== CNSA2_SIGNATURE)) {
     failures.push(checkSignature(selection.signature).detail);
   }
   if (failures.length > 0) {

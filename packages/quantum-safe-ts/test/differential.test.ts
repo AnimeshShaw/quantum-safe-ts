@@ -152,7 +152,7 @@ describe('quantum-safe-py ML-DSA construction is plain FIPS 204 over len(ctx)||c
       const blob = new Uint8Array([0, ...sig]);
       const sm = SignedMessage.fromParts({ message: msg, signature: blob, algorithm: name, context: ctx });
       using pub = PublicKey.fromBytes(name, publicKey);
-      signer.verify(sm, pub);
+      new Sign(name, { hedged: false }).verify(sm, pub, { expectedContext: ctx }); // an empty prefix is the un-hedged mode
     });
     it(`${name}: noble's expanded secret key is accepted by ours`, () => {
       const signer = new Sign(name);
@@ -160,6 +160,7 @@ describe('quantum-safe-py ML-DSA construction is plain FIPS 204 over len(ctx)||c
       using sk = SecretKey.fromBytes(name, secretKey);
       using pub = PublicKey.fromBytes(name, publicKey);
       signer.verify(signer.sign(utf8('m'), sk), pub);
+      void signer;
     });
   }
 });
@@ -185,7 +186,7 @@ describe('SLH-DSA (FIPS 205) vs noble', () => {
       const nsig = noble.sign(new Uint8Array([0, ...msg]), kp.secretKey);
       const blob = new Uint8Array([0, ...nsig]);
       using pub = PublicKey.fromBytes(name, kp.publicKey);
-      signer.verify(SignedMessage.fromParts({ message: msg, signature: blob, algorithm: name }), pub);
+      new Sign(name, { hedged: false }).verify(SignedMessage.fromParts({ message: msg, signature: blob, algorithm: name }), pub);
     });
   }
 });

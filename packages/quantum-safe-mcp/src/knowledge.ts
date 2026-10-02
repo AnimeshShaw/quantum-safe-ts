@@ -18,7 +18,7 @@ export interface Recommendation {
 }
 
 const COMMON_CAVEATS = [
-  'quantum-safe-ts is pre-1.0, not independently audited, and not FIPS 140-3 validated. Do not claim otherwise.',
+  'quantum-safe-ts is pre-1.0, not independently audited, and not FIPS 140-3 validated.',
   'JavaScript/WebAssembly runtimes give no constant-time guarantee.',
   'Outside Node.js call `await init()` once before use; in Cloudflare Workers pass the precompiled module: init({ wasm }).',
   'Secret objects live in WASM memory: free() them or use `using`; wipe() any bytes you export.',
@@ -62,7 +62,10 @@ using pair = kem.generateKeyPair();
 const sealed = Envelope.seal(plaintext, pair.publicKey, { aad: utf8('context-binding') });
 const recovered = Envelope.open(sealed, pair.secretKey); // wipe(recovered) when done${useCase === 'file-or-vault-encryption' ? '\n// For per-item keys derive subkeys from a master key: (await deriveMasterKey(password, salt)).deriveKey(32, utf8("item-key-v1"))' : ''}`,
         compatibility: interopNote,
-        alternatives: ['If you only need a raw KEM primitive, use WebCrypto ML-KEM (Node >= 24.7) or @noble/post-quantum.'],
+        alternatives: [
+          'For the shortest code with nothing to free, use the easy layer: const { publicKey, secretKey } = easy.generateEncryptionKeys(); easy.encrypt(publicKey, data); easy.decrypt(secretKey, sealed). Keys are PEM strings in the JS heap, so prefer the class API when keys must stay in WASM memory.',
+          'If you only need a raw KEM primitive, use WebCrypto ML-KEM (Node >= 24.7) or @noble/post-quantum.',
+        ],
       };
     case 'key-exchange':
       return {
@@ -153,7 +156,7 @@ export const ERRORS: readonly ErrorInfo[] = [
   { name: 'UnsupportedFormatError', code: 'QS_UNSUPPORTED_FORMAT', meaning: 'The requested serialization is unsupported (for example a secret key as JWK).', fix: 'Export secret keys as CBOR or PEM.' },
   { name: 'UnsupportedAlgorithmError', code: 'QS_UNSUPPORTED_ALGORITHM', meaning: 'The algorithm name is unknown or not approved.', fix: 'Use kemSuites()/sigSuites() for valid names, e.g. "X25519+ML-KEM-768".' },
   { name: 'InvalidArgumentError', code: 'QS_INVALID_ARGUMENT', meaning: 'An argument has the wrong type or violates a limit (empty message, context > 255 bytes, freed object).', fix: 'Check argument types and limits.' },
-  { name: 'PolicyViolationError', code: 'QS_POLICY_VIOLATION', meaning: 'A configured policy (for example CNSA 2.0 enforcement) rejected an algorithm.', fix: 'Use cnsa2.hybridKem() / cnsa2.hybridSign().' },
+  { name: 'PolicyViolationError', code: 'QS_POLICY_VIOLATION', meaning: 'A configured policy (for example CNSA 2.0 enforcement) rejected an algorithm.', fix: 'Use cnsa2.kem() (pure ML-KEM-1024) and cnsa2.hybridSign() or ML-DSA-87; cnsa2.report() lists what is still missing.' },
   { name: 'CryptoError', code: 'QS_INTERNAL_ERROR', meaning: 'Unexpected internal error in the WASM module (a bug).', fix: 'Report at https://github.com/AnimeshShaw/quantum-safe-ts/issues without secret data.' },
 ];
 

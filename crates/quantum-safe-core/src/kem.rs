@@ -294,7 +294,8 @@ fn classical_decaps(c: Classical, secret: &[u8], ct: &[u8]) -> Result<Zeroizing<
 
 /// Reject an all-zero X25519 output (low-order point), as `cryptography` does.
 fn nonzero(ss: &[u8]) -> Result<(), KemError> {
-    if ss.iter().all(|&b| b == 0) {
+    // Fold instead of `all()`: no early exit on the first non-zero byte of a secret DH output.
+    if ss.iter().fold(0u8, |acc, b| acc | b) == 0 {
         Err(KemError::ClassicalFailure)
     } else {
         Ok(())

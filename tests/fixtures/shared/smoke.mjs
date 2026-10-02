@@ -16,7 +16,7 @@ export async function smoke(q) {
   const signer = new q.HybridSign();
   const sp = signer.generateKeyPair();
   const sm = signer.sign(q.utf8('m'), sp.secretKey, { context: q.utf8('c') });
-  signer.verify(sm, sp.publicKey);
+  signer.verify(sm, sp.publicKey, { expectedContext: q.utf8('c') });
   checks.hybridSign = true;
   const { publicJwk, privateJwk } = q.StandardJwt.generateKeyPair('ML-DSA-44');
   checks.standardJwt = q.StandardJwt.verify(q.StandardJwt.sign({ sub: 'fx' }, privateJwk), publicJwk).sub === 'fx';

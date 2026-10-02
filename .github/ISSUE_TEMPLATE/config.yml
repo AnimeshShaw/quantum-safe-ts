@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/AnimeshShaw/quantum-safe-ts/security/advisories/new
+    about: Do not open a public issue for vulnerabilities. See SECURITY.md.
+  - name: Ask a usage question
+    url: https://github.com/AnimeshShaw/quantum-safe-ts/discussions
+    about: Questions about using the library, choosing algorithms, or migrating.

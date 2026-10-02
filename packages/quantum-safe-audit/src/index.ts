@@ -7,3 +7,5 @@ export type { Policy, ScanReport } from './walk.js';
 export { toText, toJson, toSarif, summary, shouldFail } from './report.js';
 export { buildCbom } from './cbom.js';
 export type { CbomOptions } from './cbom.js';
+export { enrichSbom, assessComponent, npmNameOf, KNOWLEDGE_DATE } from './sbom.js';
+export type { ComponentAssessment, EnrichResult, Readiness } from './sbom.js';

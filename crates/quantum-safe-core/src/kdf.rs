@@ -106,9 +106,9 @@ use argon2::{Algorithm, Argon2, Params, Version};
 
 /// OWASP-recommended Argon2id parameters for interactive, client-side use
 /// (memory-hard master-password stretching): 19 MiB memory, 2 iterations,
-/// 1 degree of parallelism, 32-byte output. This is the application's own
-/// choice — quantum-safe-py has no master-password concept, so there is no
-/// upstream construction to match here.
+/// 1 degree of parallelism, 32-byte output. quantum-safe-py has no
+/// master-password concept, so there is no upstream construction to match here;
+/// these follow OWASP's recommended minimum for interactive use.
 const ARGON2ID_MEMORY_KIB: u32 = 19 * 1024;
 const ARGON2ID_ITERATIONS: u32 = 2;
 const ARGON2ID_PARALLELISM: u32 = 1;
