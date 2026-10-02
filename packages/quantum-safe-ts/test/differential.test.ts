@@ -3,20 +3,23 @@
  * Node's native WebCrypto (OpenSSL). A bug in our Rust core or bindings that also happened to
  * agree with quantum-safe-py would still be caught here.
  */
-import { webcrypto } from 'node:crypto';
+import { createCipheriv, createDecipheriv, hkdfSync as nodeHkdf, randomBytes, webcrypto } from 'node:crypto';
 import { ml_dsa44, ml_dsa65, ml_dsa87 } from '@noble/post-quantum/ml-dsa.js';
 import { ml_kem1024, ml_kem512, ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 import { ml_kem768_x25519 } from '@noble/post-quantum/hybrid.js';
 import { slh_dsa_shake_128f, slh_dsa_sha2_128f } from '@noble/post-quantum/slh-dsa.js';
 import { describe, expect, it } from 'vitest';
 import {
+  Envelope,
   HybridKEM,
   KEM,
   PublicKey,
+  SealedMessage,
   SecretKey,
   Sign,
   SignedMessage,
   StandardJwt,
+  cnsa2,
   deriveMasterKey,
   fromBase64Url,
   toBase64Url,
@@ -58,6 +61,46 @@ describe('pure ML-KEM vs @noble/post-quantum', () => {
       eq(ss.exportBytes(), sharedSecret);
     });
   }
+});
+
+describe('CNSA 2.0 envelope v2 verified end to end by independent implementations', () => {
+  it('a v2 envelope built ONLY from noble ML-KEM-1024 + Node HKDF-SHA384 + Node AES-256-GCM opens in ours', () => {
+    const kem = cnsa2.kem();
+    using pair = kem.generateKeyPair();
+    // Independent sender: noble encapsulates to our public key; Node derives the key and encrypts.
+    const { cipherText, sharedSecret } = ml_kem1024.encapsulate(pair.publicKey.toBytes());
+    const key = new Uint8Array(nodeHkdf('sha384', sharedSecret, new Uint8Array(0), utf8('qs-envelope-enc-v2-cnsa2'), 32));
+    const algo = utf8('ML-KEM-1024');
+    const aad = utf8('independent-sender');
+    const builtAad = new Uint8Array([2, algo.length, ...algo, ...aad]);
+    const nonce = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, nonce);
+    cipher.setAAD(builtAad);
+    const body = Buffer.concat([cipher.update(utf8('built without our code')), cipher.final()]);
+    const sealed = SealedMessage.fromParts({
+      version: 2,
+      algorithm: 'ML-KEM-1024',
+      kemCiphertext: cipherText,
+      nonce,
+      ciphertext: new Uint8Array(Buffer.concat([body, cipher.getAuthTag()])),
+      aad,
+    });
+    expect(new TextDecoder().decode(Envelope.open(sealed, pair.secretKey))).toBe('built without our code');
+  });
+  it('a v2 envelope sealed by us decrypts with noble + Node primitives only', () => {
+    const kem = cnsa2.kem();
+    using pair = kem.generateKeyPair();
+    const sealed = Envelope.seal(utf8('sealed by ts'), pair.publicKey, { aad: utf8('x') });
+    const ss = ml_kem1024.decapsulate(sealed.kemCiphertext, pair.secretKey.exportBytes());
+    const key = new Uint8Array(nodeHkdf('sha384', ss, new Uint8Array(0), utf8('qs-envelope-enc-v2-cnsa2'), 32));
+    const algo = utf8('ML-KEM-1024');
+    const builtAad = new Uint8Array([2, algo.length, ...algo, ...utf8('x')]);
+    const d = createDecipheriv('aes-256-gcm', key, sealed.nonce);
+    d.setAAD(builtAad);
+    d.setAuthTag(sealed.ciphertext.slice(-16));
+    const plain = Buffer.concat([d.update(sealed.ciphertext.slice(0, -16)), d.final()]);
+    expect(plain.toString()).toBe('sealed by ts');
+  });
 });
 
 describe('X-Wing vs @noble/post-quantum ml_kem768_x25519 (X-Wing)', () => {

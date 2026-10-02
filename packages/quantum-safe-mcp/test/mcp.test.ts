@@ -131,10 +131,12 @@ describe('knowledge tools', () => {
       }
     }
     const cnsa = recommend('encrypt-data', true, 'none');
-    expect(cnsa.algorithm).toBe('X25519+ML-KEM-1024');
-    expect(cnsa.caveats.join(' ')).toContain('SHA-384');
+    expect(cnsa.algorithm).toBe('ML-KEM-1024');
+    expect(cnsa.code).toContain("new KEM('ML-KEM-1024')");
+    expect(cnsa.caveats.join(' ')).toContain('HKDF-SHA-384');
+    expect(cnsa.caveats.join(' ')).toContain('P-384');
     expect(recommend('encrypt-data', false, 'other-ecosystems').algorithm).toBe('X-Wing');
-    expect(recommend('encrypt-data', true, 'other-ecosystems').algorithm).toBe('X25519+ML-KEM-1024'); // CNSA wins over X-Wing
+    expect(recommend('encrypt-data', true, 'other-ecosystems').algorithm).toBe('ML-KEM-1024'); // CNSA wins over X-Wing
     expect(recommend('sign-data', true, 'none').algorithm).toBe('Ed25519+ML-DSA-87');
     expect(recommend('jwt', false, 'none').algorithm).toBe('ML-DSA-65');
   });
