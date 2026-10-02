@@ -1,0 +1,49 @@
+# quantum-safe-ts
+
+> Hybrid post-quantum cryptography for TypeScript/JavaScript (Rust core compiled to WASM). ML-KEM, ML-DSA, SLH-DSA, hybrid envelopes and signatures, PQC JWTs (RFC 9964), Argon2id, CNSA 2.0 profile. Byte-compatible with quantum-safe-py. Pre-1.0, unaudited, not FIPS-validated.
+
+Use it when: you need post-quantum or hybrid encryption/signatures with typed errors, key serialization, and a migration path, in Node, browsers, Deno, Bun, Workers or extensions.
+Do NOT use it when: you only need a raw primitive (use Node/WebCrypto ML-KEM/ML-DSA or @noble/post-quantum), or you need a FIPS 140-3 validated module (no JavaScript library offers one).
+
+## Install
+`npm install quantum-safe-ts`
+
+## Minimal example
+```ts
+import { init, HybridKEM, Envelope, utf8 } from 'quantum-safe-ts';
+await init(); // required in browsers/Deno/Bun/edge; no-op on Node.js
+const kem = new HybridKEM(); // X25519+ML-KEM-768
+using pair = kem.generateKeyPair(); // using/free() wipes the secret key from WASM memory
+const sealed = Envelope.seal(utf8('secret'), pair.publicKey, { aad: utf8('ctx') });
+const plain = Envelope.open(sealed, pair.secretKey);
+```
+
+## Choosing algorithms
+- Default hybrid KEM: `X25519+ML-KEM-768` (NIST category 3). CNSA 2.0 needs `X25519+ML-KEM-1024` (`cnsa2.hybridKem()`).
+- Default hybrid signature: `Ed25519+ML-DSA-65`. CNSA 2.0 needs `Ed25519+ML-DSA-87` (`cnsa2.hybridSign()`).
+- Need other ecosystems to read your data? Use `new HybridKEM('X-Wing')` and `StandardJwt` (RFC 9964), not the quantum-safe-py-compatible constructions.
+- Need to interoperate with quantum-safe-py (Python)? Use the defaults; formats are byte-compatible both ways.
+
+## Rules that prevent mistakes
+- Always `await init()` first outside Node. In Cloudflare Workers pass the precompiled module: `init({ wasm })`.
+- Secret objects (`SecretKey`, `SecretBytes`, `KeyPair`) live in WASM memory: call `.free()` or use `using`. Copies from `exportBytes()` are yours to `wipe()`.
+- Catch `QuantumSafeError`; branch on `error.code` (e.g. `QS_DECRYPTION_FAILED`), read `error.hint`. Never parse `message`.
+- `Envelope.open` throws `DecryptionAuthenticationError` on a wrong key, wrong AAD, or tampering. ML-KEM decapsulation never throws for a wrong ciphertext (FIPS 203 implicit rejection); the failure shows up at AEAD authentication.
+- Hybrid signatures require BOTH halves to verify. Verification errors carry no detail by design.
+- Do not claim the library is audited, FIPS-validated, or constant-time. JS/WASM cannot promise constant time.
+
+## API summary
+Keys: `PublicKey`, `SecretKey`, `KeyPair` (`fromCbor`, `fromPem`, `fromJwk`, `fromBytes`, `toCbor`, `toPem`, `toJwk`, `fingerprint`, `free`).
+KEM: `HybridKEM`, `KEM` (`generateKeyPair`, `encapsulate`, `decapsulate`) -> `SecretBytes` with `deriveKey(length, info)`.
+Encryption: `Envelope.seal(plaintext, publicKey, { aad })`, `Envelope.open(sealed, secretKey)`, `SealedMessage` (`toBytes`, `toHex`, `fromBytes`, `inspect`).
+Signatures: `Sign`, `HybridSign` (`generateKeyPair`, `sign(message, secretKey, { context })`, `verify(signed, publicKey)`, `verifyBytes`, `isValid`), `SignedMessage`.
+JWT: `JWTSigner`/`JWTVerifier` (quantum-safe-py mode), `StandardJwt.generateKeyPair/sign/verify` (RFC 9964).
+KDF: `deriveMasterKey(password, salt)` (Argon2id) -> `SecretBytes`.
+Compliance: `cnsa2.report({ kem, signature })`, `cnsa2.enforce(...)`, `cnsa2.hybridKem()`, `cnsa2.hybridSign()`.
+Registry: `kemSuites()`, `sigSuites()`.
+
+## Docs
+- Full reference for LLMs: https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/packages/quantum-safe-ts/llms-full.txt
+- Compatibility with quantum-safe-py: https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/COMPATIBILITY.md
+- Security status and reporting: https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/SECURITY.md
+- Scan a codebase for classical crypto: `npx quantum-safe-audit scan .`

@@ -108,6 +108,25 @@ jobs:
         working-directory: packages/quantum-safe-ts
         run: npm pack --dry-run
 
+  audit-tool:
+    name: quantum-safe-audit (build, tests, self-scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: packages/quantum-safe-audit/package-lock.json
+      - working-directory: packages/quantum-safe-audit
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
+          npx vitest run
+      - name: Self-scan (this repository must not contain classical crypto findings)
+        run: node packages/quantum-safe-audit/dist/cli.js scan packages/quantum-safe-ts/src packages/quantum-safe-audit/src tests/fixtures --exclude '**/.work/**' --fail-on low
+
   fixtures-node:
     name: Node ${{ matrix.node }} fixtures (packed tarball)
     runs-on: ubuntu-latest
