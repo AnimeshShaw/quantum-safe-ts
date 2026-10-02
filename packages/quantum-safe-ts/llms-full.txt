@@ -219,6 +219,23 @@ QS_POLICY_VIOLATION, QS_INTERNAL_ERROR (a bug: report it without secret data).
 - `npx quantum-safe-mcp` is an MCP server exposing `audit_path`, `list_rules`, `explain_rule`, `recommend_suite` and `explain_error`.
   It is read-only, offline and path-confined.
 
+## 13b. Migration helpers
+
+`Upgrader` adds a fresh post-quantum half to an existing classical key (the classical bytes are kept); `MigrationStateManager` records
+`classical_only -> hybrid_transition -> pqc_preferred -> pqc_only` transitions over a store you provide. It does not find classical
+crypto (use `quantum-safe-audit`), re-encrypt data, or lock across processes (give your store `compareAndSet`, or hold an external lock).
+
+```ts test
+import { MemoryMigrationStore, MigrationStateManager, Upgrader } from 'quantum-safe-ts';
+
+const manager = new MigrationStateManager(new MemoryMigrationStore());
+await manager.transition({
+  keyId: 'k1', fromState: 'classical_only', toState: 'hybrid_transition', algorithm: 'X25519+ML-KEM-768', actor: 'ci',
+});
+if ((await manager.getCurrentState('k1')) !== 'hybrid_transition') throw new Error('state');
+if (!Upgrader.checkNeedsUpgrade('classical_only')) throw new Error('needs upgrade');
+```
+
 ## 14. Links
 
 Repository: https://github.com/AnimeshShaw/quantum-safe-ts

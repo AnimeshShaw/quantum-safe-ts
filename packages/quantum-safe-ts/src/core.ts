@@ -35,3 +35,12 @@ export type {
 } from './jwt.js';
 export * as cnsa2 from './cnsa2.js';
 export { toHex, fromHex, utf8, wipe, equalBytes, toBase64Url, fromBase64Url } from './utils.js';
+export { Upgrader, MigrationStateManager, MemoryMigrationStore } from './migrate.js';
+export type {
+  UpgradeResult,
+  UpgradeKemKeyInput,
+  UpgradeSigningKeyInput,
+  MigrationRecord,
+  MigrationStore,
+  TransitionOptions,
+} from './migrate.js';
