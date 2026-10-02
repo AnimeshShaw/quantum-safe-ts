@@ -1,0 +1,3 @@
+{ "compilerOptions": { "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext", "strict": true,
+    "noUncheckedIndexedAccess": true, "skipLibCheck": false, "outDir": "dist", "lib": ["ES2022", "ESNext.Disposable"], "types": ["node"] },
+  "include": ["main.ts"] }

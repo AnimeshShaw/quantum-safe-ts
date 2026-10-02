@@ -1,0 +1,2 @@
+{ "description": "Next.js 16 (App Router, client component, static export) with Turbopack and with webpack, in Chromium/Firefox/WebKit",
+  "steps": [["npx", "next", "build"], ["node", "shared/browser-check.mjs", "out"], ["npx", "next", "build", "--webpack"], ["node", "shared/browser-check.mjs", "out"]] }

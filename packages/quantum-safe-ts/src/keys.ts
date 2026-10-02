@@ -1,3 +1,4 @@
+/// <reference lib="esnext.disposable" />
 import type { MigrationState } from './algorithms.js';
 import { InvalidArgumentError } from './errors.js';
 import { call } from './runtime.js';
@@ -7,7 +8,7 @@ import type {
   SecretBytes as WBytes,
   SecretKey as WSecret,
 } from '../wasm/quantum_safe_wasm.js';
-import { DISPOSE, bytes, str } from './utils.js';
+import { bytes, str } from './utils.js';
 
 const MIGRATION: readonly MigrationState[] = ['classical_only', 'hybrid_transition', 'pqc_preferred', 'pqc_only'];
 
@@ -107,7 +108,7 @@ export class PublicKey {
     this.#h.free();
   }
   /** Supports `using key = ...`. */
-  [DISPOSE](): void {
+  [Symbol.dispose](): void {
     this.free();
   }
   toString(): string {
@@ -171,7 +172,7 @@ export class SecretKey {
   free(): void {
     this.#h.free();
   }
-  [DISPOSE](): void {
+  [Symbol.dispose](): void {
     this.free();
   }
   /** Never reveals key material. */
@@ -223,7 +224,7 @@ export class KeyPair {
     this.#sec?.free();
     this.#h.free();
   }
-  [DISPOSE](): void {
+  [Symbol.dispose](): void {
     this.free();
   }
   toString(): string {
@@ -274,7 +275,7 @@ export class SecretBytes {
   free(): void {
     this.#h.free();
   }
-  [DISPOSE](): void {
+  [Symbol.dispose](): void {
     this.free();
   }
   toString(): string {

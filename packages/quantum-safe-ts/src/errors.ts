@@ -222,7 +222,7 @@ export function fromWasmError(e: unknown): Error {
     case 'unsupported_format':
       return new UnsupportedFormatError(message);
     case 'verification_failed':
-      return new VerificationError(message);
+      return new VerificationError(); // fixed text: never reveal why verification failed
     case 'signing_failed':
       return new SigningError(message);
     case 'invalid_argument':

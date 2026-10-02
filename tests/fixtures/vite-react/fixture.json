@@ -1,0 +1,2 @@
+{ "description": "Vite + React 19 production build (no WASM plugin) in Chromium/Firefox/WebKit",
+  "steps": [["npx", "vite", "build"], ["node", "shared/browser-check.mjs", "dist"]] }
