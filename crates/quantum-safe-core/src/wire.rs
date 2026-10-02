@@ -11,9 +11,7 @@ use thiserror::Error;
 pub enum WireError {
     #[error("wire data too short: need at least 2 bytes for the length prefix")]
     TooShortForPrefix,
-    #[error(
-        "wire data too short: length prefix claims {claimed} bytes, only {available} available"
-    )]
+    #[error("wire data too short: length prefix claims {claimed} bytes, only {available} available")]
     TooShortForComponent { claimed: usize, available: usize },
 }
 
@@ -74,7 +72,10 @@ mod tests {
         let data = [0x00, 0x05, 0x01, 0x02];
         assert_eq!(
             unpack_components(&data),
-            Err(WireError::TooShortForComponent { claimed: 5, available: 2 })
+            Err(WireError::TooShortForComponent {
+                claimed: 5,
+                available: 2
+            })
         );
     }
 }

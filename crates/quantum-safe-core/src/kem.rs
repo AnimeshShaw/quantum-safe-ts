@@ -59,13 +59,16 @@ impl HybridCiphertext {
         if pqc_ct.is_empty() {
             return Err(KemError::MalformedCiphertext);
         }
-        Ok(Self { classical_ct: classical_ct.to_vec(), pqc_ct: pqc_ct.to_vec() })
+        Ok(Self {
+            classical_ct: classical_ct.to_vec(),
+            pqc_ct: pqc_ct.to_vec(),
+        })
     }
 }
 
-use ml_kem::{Decapsulate, Encapsulate, ExpandedDecapsulationKey, Kem as _, KeyExport, MlKem768};
 #[allow(deprecated)]
 use ml_kem::ExpandedKeyEncoding;
+use ml_kem::{Decapsulate, Encapsulate, ExpandedDecapsulationKey, Kem as _, KeyExport, MlKem768};
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519SecretKey};
 
 pub fn generate_keypair() -> KeyPair {
@@ -83,8 +86,14 @@ pub fn generate_keypair() -> KeyPair {
     let combined_sec = pack_components(&x25519_secret.to_bytes(), dk_expanded.as_slice());
 
     KeyPair {
-        public: PublicKey { raw: combined_pub, algorithm: ALGORITHM.to_string() },
-        secret: SecretKey { raw: combined_sec, algorithm: ALGORITHM.to_string() },
+        public: PublicKey {
+            raw: combined_pub,
+            algorithm: ALGORITHM.to_string(),
+        },
+        secret: SecretKey {
+            raw: combined_sec,
+            algorithm: ALGORITHM.to_string(),
+        },
     }
 }
 
@@ -96,7 +105,9 @@ pub fn encapsulate(public_key: &PublicKey) -> Result<(HybridCiphertext, [u8; 32]
         unpack_components(&public_key.raw).map_err(|_| KemError::MalformedKey)?;
 
     // Classical half: ephemeral X25519, "ciphertext" is our ephemeral public key
-    let classical_pub_arr: [u8; 32] = classical_pub_bytes.try_into().map_err(|_| KemError::MalformedKey)?;
+    let classical_pub_arr: [u8; 32] = classical_pub_bytes
+        .try_into()
+        .map_err(|_| KemError::MalformedKey)?;
     let recipient_x25519_pub = X25519PublicKey::from(classical_pub_arr);
     let ephemeral_secret = X25519SecretKey::random();
     let ephemeral_public = X25519PublicKey::from(&ephemeral_secret);
@@ -117,7 +128,13 @@ pub fn encapsulate(public_key: &PublicKey) -> Result<(HybridCiphertext, [u8; 32]
         pqc_ct.as_slice(),
     );
 
-    Ok((HybridCiphertext { classical_ct, pqc_ct: pqc_ct.as_slice().to_vec() }, combined))
+    Ok((
+        HybridCiphertext {
+            classical_ct,
+            pqc_ct: pqc_ct.as_slice().to_vec(),
+        },
+        combined,
+    ))
 }
 
 pub fn decapsulate(secret_key: &SecretKey, ciphertext: &HybridCiphertext) -> Result<[u8; 32], KemError> {
@@ -127,17 +144,23 @@ pub fn decapsulate(secret_key: &SecretKey, ciphertext: &HybridCiphertext) -> Res
     let (classical_sec_bytes, pqc_sec_bytes) =
         unpack_components(&secret_key.raw).map_err(|_| KemError::MalformedKey)?;
 
-    let classical_sec_arr: [u8; 32] = classical_sec_bytes.try_into().map_err(|_| KemError::MalformedKey)?;
+    let classical_sec_arr: [u8; 32] = classical_sec_bytes
+        .try_into()
+        .map_err(|_| KemError::MalformedKey)?;
     let our_secret = X25519SecretKey::from(classical_sec_arr);
-    let sender_ephemeral_arr: [u8; 32] =
-        ciphertext.classical_ct.as_slice().try_into().map_err(|_| KemError::MalformedCiphertext)?;
+    let sender_ephemeral_arr: [u8; 32] = ciphertext
+        .classical_ct
+        .as_slice()
+        .try_into()
+        .map_err(|_| KemError::MalformedCiphertext)?;
     let sender_ephemeral_pub = X25519PublicKey::from(sender_ephemeral_arr);
     let classical_ss = our_secret.diffie_hellman(&sender_ephemeral_pub);
 
-    let dk_expanded = ExpandedDecapsulationKey::<MlKem768>::try_from(pqc_sec_bytes)
-        .map_err(|_| KemError::MalformedKey)?;
+    let dk_expanded =
+        ExpandedDecapsulationKey::<MlKem768>::try_from(pqc_sec_bytes).map_err(|_| KemError::MalformedKey)?;
     #[allow(deprecated)]
-    let dk = ml_kem::DecapsulationKey::<MlKem768>::from_expanded(&dk_expanded).map_err(|_| KemError::MalformedKey)?;
+    let dk = ml_kem::DecapsulationKey::<MlKem768>::from_expanded(&dk_expanded)
+        .map_err(|_| KemError::MalformedKey)?;
 
     let pqc_ct_typed = ml_kem::Ciphertext::<MlKem768>::try_from(ciphertext.pqc_ct.as_slice())
         .map_err(|_| KemError::MalformedCiphertext)?;
