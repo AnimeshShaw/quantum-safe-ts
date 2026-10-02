@@ -41,7 +41,13 @@ pub fn decrypt(
     let cipher = Aes256Gcm::new(key.into());
     let nonce = Nonce::try_from(nonce.as_slice()).expect("NONCE_LEN-sized array always converts");
     cipher
-        .decrypt(&nonce, Payload { msg: ciphertext_with_tag, aad })
+        .decrypt(
+            &nonce,
+            Payload {
+                msg: ciphertext_with_tag,
+                aad,
+            },
+        )
         .map_err(|_| AeadError::AuthenticationFailed)
 }
 
@@ -112,7 +118,10 @@ mod tests {
         ciphertext[0] ^= 0xFF;
         let aad = from_hex(&v.aad);
 
-        assert_eq!(decrypt(&key, &nonce, &ciphertext, &aad), Err(AeadError::AuthenticationFailed));
+        assert_eq!(
+            decrypt(&key, &nonce, &ciphertext, &aad),
+            Err(AeadError::AuthenticationFailed)
+        );
     }
 
     #[test]

@@ -1,2 +1,6 @@
 /target
-Cargo.lock
+# Cargo.lock is committed for reproducible WASM builds.
+node_modules/
+dist/
+pkg/
+*.tgz
