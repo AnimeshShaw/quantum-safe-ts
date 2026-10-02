@@ -1,0 +1,71 @@
+{
+  "name": "quantum-safe-audit",
+  "version": "0.1.0",
+  "description": "Find classical (quantum-vulnerable) cryptography in JavaScript and TypeScript projects. SARIF and CycloneDX 1.6 CBOM output, CNSA 2.0 gap reporting, and migration hints to quantum-safe-ts.",
+  "license": "Apache-2.0",
+  "author": "Animesh Shaw",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnimeshShaw/quantum-safe-ts.git",
+    "directory": "packages/quantum-safe-audit"
+  },
+  "homepage": "https://github.com/AnimeshShaw/quantum-safe-ts/tree/master/packages/quantum-safe-audit#readme",
+  "keywords": [
+    "post-quantum",
+    "pqc",
+    "cbom",
+    "cryptography",
+    "sarif",
+    "cyclonedx",
+    "cnsa-2.0",
+    "audit",
+    "scanner",
+    "migration"
+  ],
+  "type": "module",
+  "bin": {
+    "qs-audit": "./dist/cli.js"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "llms.txt",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "ajv": "^8.20.0",
+    "ajv-draft-04": "^1.0.0",
+    "ajv-formats": "^3.0.1",
+    "fast-check": "^4.10.2",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9",
+    "vitest": "^5.0.3"
+  }
+}
