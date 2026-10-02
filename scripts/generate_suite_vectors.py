@@ -17,7 +17,8 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-from quantum_safe import KEM, HybridKEM  # noqa: E402
+from quantum_safe import KEM, HybridKEM, HybridSign  # noqa: E402
+from quantum_safe.signatures import Sign  # noqa: E402
 from quantum_safe.protocols.envelope import Envelope  # noqa: E402
 
 HYBRID_SUITES = [
@@ -34,12 +35,14 @@ vectors: dict = {"_meta": {"generator": "scripts/generate_suite_vectors.py", "qu
 
 # ---- KEM: every suite, py encapsulates, ts must decapsulate to the same secret ----
 kem_vectors = []
+keypairs = []  # (label, KeyPair) reused for key-serialization vectors
 for classical, pqc in HYBRID_SUITES:
     kem = HybridKEM(classical=classical, pqc=pqc)
     assert kem.backend_name == "liboqs", kem.backend_name
     kp = kem.generate_keypair()
     ct, ss = kem.encapsulate(kp.public)
     assert bytes(kem.decapsulate(kp.secret, ct)) == bytes(ss)
+    keypairs.append(kp)
     kem_vectors.append(
         {
             "algorithm": kp.public.algorithm,
@@ -54,6 +57,7 @@ for name in PURE_SUITES:
     kp = kem.generate_keypair()
     ct, ss = kem.encapsulate(kp.public)
     assert bytes(kem.decapsulate(kp.secret, ct)) == bytes(ss)
+    keypairs.append(kp)
     kem_vectors.append(
         {
             "algorithm": name,
@@ -86,6 +90,64 @@ for classical, pqc in HYBRID_SUITES:
     )
 vectors["envelope"] = env_vectors
 
+# ---- Key serialization: py's exact CBOR / PEM / JWK / fingerprint / bundle bytes ----
+key_vectors = []
+for kp in keypairs:
+    key_vectors.append(
+        {
+            "algorithm": kp.public.algorithm,
+            "migration_state": kp.public.migration_state.value,
+            "public_raw": hx(kp.public.raw_bytes),
+            "secret_raw": hx(kp.secret.raw_bytes),
+            "public_cbor": hx(kp.public.to_cbor()),
+            "secret_cbor": hx(kp.secret.to_cbor()),
+            "public_pem": kp.public.to_pem(),
+            "secret_pem": kp.secret.to_pem(),
+            "public_jwk": kp.public.to_jwk(),
+            "fingerprint": kp.public.fingerprint(),
+            "fingerprint_colon": kp.public.fingerprint_colon(),
+            "bundle": hx(kp.to_cbor_bundle()),
+        }
+    )
+vectors["keys"] = key_vectors
+
+# ---- Signatures: py signs, ts must verify (and sign with py keys, py verifies later) ----
+PURE_SIGS = ["ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHAKE-128s", "SLH-DSA-SHAKE-128f", "SLH-DSA-SHAKE-256s"]
+HYBRID_SIGS = [("Ed25519", "ML-DSA-44"), ("Ed25519", "ML-DSA-65"), ("Ed25519", "ML-DSA-87"), ("P-256", "ML-DSA-44"), ("P-256", "ML-DSA-65")]
+sig_vectors = []
+
+
+def add_sig(signer, kp, label, hedged):
+    msg = f"py signed {label}".encode()
+    ctx = b"vector-ctx"
+    sm = signer.sign(msg, kp.secret, context=ctx)
+    signer.verify(sm, kp.public)
+    sig_vectors.append(
+        {
+            "algorithm": kp.public.algorithm,
+            "hedged": hedged,
+            "public_key": hx(kp.public.raw_bytes),
+            "secret_key": hx(kp.secret.raw_bytes),
+            "message": hx(msg),
+            "context": hx(ctx),
+            "signed_message": hx(sm.to_cbor()),
+            "signature_blob": hx(sm.signature),
+        }
+    )
+
+
+for name in PURE_SIGS:
+    signer = Sign(name)
+    add_sig(signer, signer.generate_keypair(), name, True)
+    signer = Sign(name, hedged=False)
+    add_sig(signer, signer.generate_keypair(), name, False)
+for classical, pqc in HYBRID_SIGS:
+    signer = HybridSign(classical=classical, pqc=pqc)
+    add_sig(signer, signer.generate_keypair(), f"{classical}+{pqc}", True)
+    signer = HybridSign(classical=classical, pqc=pqc, hedged=False)
+    add_sig(signer, signer.generate_keypair(), f"{classical}+{pqc}", False)
+vectors["signatures"] = sig_vectors
+
 out = pathlib.Path(__file__).resolve().parent.parent / "tests" / "vectors" / "suite_vectors.json"
 out.write_text(json.dumps(vectors, indent=1) + "\n")
-print(f"Wrote {len(kem_vectors)} KEM and {len(env_vectors)} envelope vectors to {out}")
+print(f"Wrote {len(kem_vectors)} KEM, {len(env_vectors)} envelope, {len(key_vectors)} key, {len(sig_vectors)} signature vectors to {out}")

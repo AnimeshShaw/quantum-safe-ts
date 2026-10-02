@@ -14,7 +14,10 @@ warnings.filterwarnings("ignore")
 
 from quantum_safe import KEM, HybridKEM  # noqa: E402
 from quantum_safe.protocols.envelope import Envelope, SealedMessage  # noqa: E402
+from quantum_safe import HybridSign  # noqa: E402
+from quantum_safe.signatures import Sign  # noqa: E402
 from quantum_safe.types import PublicKey, SecretKey  # noqa: E402
+from quantum_safe.types.signatures import SignedMessage  # noqa: E402
 from quantum_safe.types.kem import CipherText, HybridCipherText  # noqa: E402
 
 root = pathlib.Path(__file__).resolve().parent.parent / "tests" / "vectors"
@@ -54,5 +57,40 @@ for e in v["envelope"]:
         check(f"envelope {algo}", pt.hex() == e["plaintext"])
     except Exception as exc:  # noqa: BLE001
         check(f"envelope {algo} ({type(exc).__name__}: {exc})", False)
+
+for k in v["keys"]:
+    algo = k["algorithm"]
+    try:
+        pub = PublicKey.from_cbor(bytes.fromhex(k["public_cbor"]))
+        sec = SecretKey.from_cbor(bytes.fromhex(k["secret_cbor"]))
+        pub_pem = PublicKey.from_pem(k["public_pem"])
+        sec_pem = SecretKey.from_pem(k["secret_pem"])
+        pub_jwk = PublicKey.from_jwk(k["public_jwk"])
+        ok = (
+            pub.raw_bytes.hex() == k["public_raw"]
+            and pub_pem.raw_bytes == pub.raw_bytes
+            and sec_pem.raw_bytes == sec.raw_bytes
+            and pub_jwk.raw_bytes == pub.raw_bytes
+            and pub.fingerprint() == k["fingerprint"]
+            and pub.algorithm == algo
+        )
+        check(f"keys {algo}", ok)
+    except Exception as exc:  # noqa: BLE001
+        check(f"keys {algo} ({type(exc).__name__}: {exc})", False)
+
+for s in v["signatures"]:
+    algo = s["algorithm"]
+    label = f"signature {algo} hedged={s['hedged']}"
+    try:
+        sm = SignedMessage.from_cbor(bytes.fromhex(s["signed_message"]))
+        pub = PublicKey(raw=bytes.fromhex(s["public_key"]), algorithm=algo)
+        if "+" in algo:
+            classical, pqc = algo.split("+", 1)
+            HybridSign(classical=classical, pqc=pqc).verify(sm, pub)
+        else:
+            Sign(algo).verify(sm, pub)
+        check(label, sm.message == b"ts signed message" and sm.context == b"ts-ctx")
+    except Exception as exc:  # noqa: BLE001
+        check(f"{label} ({type(exc).__name__}: {exc})", False)
 
 sys.exit(1 if fails else 0)

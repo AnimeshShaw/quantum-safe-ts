@@ -8,5 +8,7 @@ pub mod aead;
 pub mod envelope;
 pub mod kdf;
 pub mod kem;
+pub mod keys;
+pub mod sig;
 pub mod suite;
 pub mod wire;

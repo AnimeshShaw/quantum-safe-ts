@@ -205,7 +205,7 @@ fn pqc_decaps(p: Pqc, dk: &[u8], ct: &[u8]) -> Result<SharedSecret, KemError> {
 use p256::pkcs8::{DecodePrivateKey, EncodePrivateKey};
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519SecretKey};
 
-fn p256_random_secret() -> p256::SecretKey {
+pub(crate) fn p256_random_secret() -> p256::SecretKey {
     loop {
         let mut b = Zeroizing::new([0u8; 32]);
         getrandom::fill(&mut b[..]).expect("OS RNG must be available");
@@ -216,7 +216,7 @@ fn p256_random_secret() -> p256::SecretKey {
     }
 }
 
-fn p256_public_bytes(pk: &p256::PublicKey) -> Vec<u8> {
+pub(crate) fn p256_public_bytes(pk: &p256::PublicKey) -> Vec<u8> {
     use p256::elliptic_curve::sec1::ToSec1Point;
     pk.to_sec1_point(false).as_bytes().to_vec()
 }
