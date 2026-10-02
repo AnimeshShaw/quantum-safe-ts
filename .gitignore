@@ -1,5 +1,9 @@
 /target
-Cargo.lock
+# Cargo.lock is committed for reproducible WASM builds.
 # Internal planning docs stay local; research reports ship with the repo.
 /docs/*
 !/docs/research/
+node_modules/
+dist/
+pkg/
+*.tgz

@@ -1,9 +1,11 @@
 //! HKDF-SHA256-based key derivation, matching two constructions from
 //! quantum-safe-py exactly:
-//!   - the hybrid KEM combiner: `quantum_safe.types.kem.combine_shared_secrets`
-//!   - the envelope's per-message key derivation: `SharedSecret.derive_key`
+//!
+//! - the hybrid KEM combiner: `quantum_safe.types.kem.combine_shared_secrets`
+//! - the envelope's per-message key derivation: `SharedSecret.derive_key`
+//!
 //! Both use `cryptography.hazmat.primitives.kdf.hkdf.HKDF`, which follows
-//! RFC 5869 exactly — including substituting a zero-filled salt of the
+//! RFC 5869 exactly, including substituting a zero-filled salt of the
 //! hash's output length when `salt=None`, which the Rust `hkdf` crate's
 //! `Hkdf::new(None, ikm)` also does. This is why `derive_key` below passes
 //! `None` rather than an explicit zero buffer: both sides apply the same
@@ -67,7 +69,10 @@ pub fn combine_shared_secrets(
 /// panicking on an out-of-range request.
 pub fn derive_key(shared_secret: &[u8], info: &[u8], length: usize) -> Result<Vec<u8>, KdfError> {
     if length > MAX_HKDF_OUTPUT_SHA256 {
-        return Err(KdfError::OutputTooLong { requested: length, max: MAX_HKDF_OUTPUT_SHA256 });
+        return Err(KdfError::OutputTooLong {
+            requested: length,
+            max: MAX_HKDF_OUTPUT_SHA256,
+        });
     }
     let hk = Hkdf::<Sha256>::new(None, shared_secret);
     let mut okm = vec![0u8; length];
@@ -88,8 +93,13 @@ const ARGON2ID_ITERATIONS: u32 = 2;
 const ARGON2ID_PARALLELISM: u32 = 1;
 
 pub fn derive_master_key(password: &[u8], salt: &[u8]) -> Result<[u8; 32], KdfError> {
-    let params = Params::new(ARGON2ID_MEMORY_KIB, ARGON2ID_ITERATIONS, ARGON2ID_PARALLELISM, Some(32))
-        .map_err(|e| KdfError::Argon2(e.to_string()))?;
+    let params = Params::new(
+        ARGON2ID_MEMORY_KIB,
+        ARGON2ID_ITERATIONS,
+        ARGON2ID_PARALLELISM,
+        Some(32),
+    )
+    .map_err(|e| KdfError::Argon2(e.to_string()))?;
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     let mut out = [0u8; 32];
     argon2
@@ -165,7 +175,10 @@ mod tests {
         let err = derive_key(&[0u8; 32], b"info", MAX_HKDF_OUTPUT_SHA256 + 1).unwrap_err();
         assert_eq!(
             err,
-            KdfError::OutputTooLong { requested: MAX_HKDF_OUTPUT_SHA256 + 1, max: MAX_HKDF_OUTPUT_SHA256 }
+            KdfError::OutputTooLong {
+                requested: MAX_HKDF_OUTPUT_SHA256 + 1,
+                max: MAX_HKDF_OUTPUT_SHA256
+            }
         );
     }
 

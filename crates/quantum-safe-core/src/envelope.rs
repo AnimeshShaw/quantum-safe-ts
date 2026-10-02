@@ -44,7 +44,9 @@ pub enum EnvelopeError {
 pub fn build_aad(version: u8, algorithm: &str, extra: &[u8]) -> Result<Vec<u8>, EnvelopeError> {
     let algo_bytes = algorithm.as_bytes();
     if algo_bytes.len() > 255 {
-        return Err(EnvelopeError::AlgorithmNameTooLong { len: algo_bytes.len() });
+        return Err(EnvelopeError::AlgorithmNameTooLong {
+            len: algo_bytes.len(),
+        });
     }
     let mut aad = Vec::with_capacity(2 + algo_bytes.len() + extra.len());
     aad.push(version);
@@ -69,7 +71,10 @@ impl SealedMessage {
     /// dict with the same five keys).
     pub fn to_cbor(&self) -> Result<Vec<u8>, EnvelopeError> {
         let value = Value::Map(vec![
-            (Value::Text("v".into()), Value::Integer((self.version as i64).into())),
+            (
+                Value::Text("v".into()),
+                Value::Integer((self.version as i64).into()),
+            ),
             (Value::Text("algo".into()), Value::Text(self.algorithm.clone())),
             (Value::Text("kct".into()), Value::Bytes(self.kem_ct.clone())),
             (Value::Text("n".into()), Value::Bytes(self.nonce.clone())),
@@ -85,7 +90,9 @@ impl SealedMessage {
         let value: Value =
             ciborium::from_reader(data).map_err(|e| EnvelopeError::CborDecode(e.to_string()))?;
         let Value::Map(entries) = value else {
-            return Err(EnvelopeError::CborDecode("top-level CBOR value is not a map".into()));
+            return Err(EnvelopeError::CborDecode(
+                "top-level CBOR value is not a map".into(),
+            ));
         };
         let get_bytes = |key: &str| -> Option<Vec<u8>> {
             entries.iter().find_map(|(k, v)| match (k, v) {
@@ -130,7 +137,9 @@ pub fn seal(
 ) -> Result<SealedMessage, EnvelopeError> {
     let (kem_ct, shared_secret) = kem::encapsulate(recipient_public_key)?;
     let enc_key_vec = kdf::derive_key(&shared_secret, ENC_KEY_INFO, aead::KEY_LEN)?;
-    let enc_key: [u8; 32] = enc_key_vec.try_into().expect("derive_key(length=32) always returns 32 bytes");
+    let enc_key: [u8; 32] = enc_key_vec
+        .try_into()
+        .expect("derive_key(length=32) always returns 32 bytes");
 
     let mut nonce_bytes = [0u8; aead::NONCE_LEN];
     getrandom::fill(&mut nonce_bytes).expect("OS RNG must be available to generate a nonce");
@@ -152,16 +161,24 @@ pub fn seal(
 /// rebuild the same AAD, then AES-256-GCM-decrypt+verify.
 pub fn open(sealed: &SealedMessage, recipient_secret_key: &kem::SecretKey) -> Result<Vec<u8>, EnvelopeError> {
     if sealed.nonce.len() != aead::NONCE_LEN {
-        return Err(EnvelopeError::BadNonceLength { expected: aead::NONCE_LEN, actual: sealed.nonce.len() });
+        return Err(EnvelopeError::BadNonceLength {
+            expected: aead::NONCE_LEN,
+            actual: sealed.nonce.len(),
+        });
     }
     let kem_ct = kem::HybridCiphertext::from_bytes(&sealed.kem_ct)?;
     let shared_secret = kem::decapsulate(recipient_secret_key, &kem_ct)?;
     let enc_key_vec = kdf::derive_key(&shared_secret, ENC_KEY_INFO, aead::KEY_LEN)?;
-    let enc_key: [u8; 32] = enc_key_vec.try_into().expect("derive_key(length=32) always returns 32 bytes");
+    let enc_key: [u8; 32] = enc_key_vec
+        .try_into()
+        .expect("derive_key(length=32) always returns 32 bytes");
 
     let built_aad = build_aad(sealed.version, &sealed.algorithm, &sealed.aad)?;
-    let nonce: [u8; aead::NONCE_LEN] =
-        sealed.nonce.clone().try_into().expect("length already checked above");
+    let nonce: [u8; aead::NONCE_LEN] = sealed
+        .nonce
+        .clone()
+        .try_into()
+        .expect("length already checked above");
     Ok(aead::decrypt(&enc_key, &nonce, &sealed.ciphertext, &built_aad)?)
 }
 
@@ -263,7 +280,10 @@ mod tests {
         // deliberately doesn't derive PartialEq (it holds key-derived
         // secrets transiently; no reason to enable content comparison), so
         // `matches!` is used instead.
-        assert!(matches!(SealedMessage::from_cbor(&data), Err(EnvelopeError::MissingField("algo"))));
+        assert!(matches!(
+            SealedMessage::from_cbor(&data),
+            Err(EnvelopeError::MissingField("algo"))
+        ));
     }
 
     #[test]
@@ -284,28 +304,40 @@ mod tests {
     fn from_cbor_rejects_version_above_u8_range() {
         let value = Value::Map(vec![
             (Value::Text("v".into()), Value::Integer(257.into())),
-            (Value::Text("algo".into()), Value::Text("X25519+ML-KEM-768".into())),
+            (
+                Value::Text("algo".into()),
+                Value::Text("X25519+ML-KEM-768".into()),
+            ),
             (Value::Text("kct".into()), Value::Bytes(vec![0u8; 4])),
             (Value::Text("n".into()), Value::Bytes(vec![0u8; 12])),
             (Value::Text("ct".into()), Value::Bytes(vec![0u8; 4])),
         ]);
         let mut data = Vec::new();
         ciborium::into_writer(&value, &mut data).unwrap();
-        assert!(matches!(SealedMessage::from_cbor(&data), Err(EnvelopeError::InvalidVersion(257))));
+        assert!(matches!(
+            SealedMessage::from_cbor(&data),
+            Err(EnvelopeError::InvalidVersion(257))
+        ));
     }
 
     #[test]
     fn from_cbor_rejects_negative_version() {
         let value = Value::Map(vec![
             (Value::Text("v".into()), Value::Integer((-1i64).into())),
-            (Value::Text("algo".into()), Value::Text("X25519+ML-KEM-768".into())),
+            (
+                Value::Text("algo".into()),
+                Value::Text("X25519+ML-KEM-768".into()),
+            ),
             (Value::Text("kct".into()), Value::Bytes(vec![0u8; 4])),
             (Value::Text("n".into()), Value::Bytes(vec![0u8; 12])),
             (Value::Text("ct".into()), Value::Bytes(vec![0u8; 4])),
         ]);
         let mut data = Vec::new();
         ciborium::into_writer(&value, &mut data).unwrap();
-        assert!(matches!(SealedMessage::from_cbor(&data), Err(EnvelopeError::InvalidVersion(-1))));
+        assert!(matches!(
+            SealedMessage::from_cbor(&data),
+            Err(EnvelopeError::InvalidVersion(-1))
+        ));
     }
 
     /// Code-review finding: the "wire-compatible with quantum-safe-py" claim
