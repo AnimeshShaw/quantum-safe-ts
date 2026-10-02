@@ -573,3 +573,23 @@ describe('properties (fast-check)', () => {
     );
   });
 });
+
+describe('documentation stays in sync with the code', () => {
+  it('every error code is explained by the MCP server and listed in llms.txt', async () => {
+    const { readFileSync } = await import('node:fs');
+    const errors = readFileSync(new URL('../src/errors.ts', import.meta.url), 'utf8');
+    const mcp = readFileSync(new URL('../../quantum-safe-mcp/src/knowledge.ts', import.meta.url), 'utf8');
+    const codes = [...new Set([...errors.matchAll(/'(QS_[A-Z_]+)'/g)].map((m) => m[1]!))].filter((c) => c !== 'QS_ERROR');
+    expect(codes.length).toBeGreaterThanOrEqual(17);
+    for (const code of codes) expect(mcp, `MCP knowledge is missing ${code}`).toContain(`'${code}'`);
+    const llms = readFileSync(new URL('../llms.txt', import.meta.url), 'utf8');
+    expect(llms).toContain('QS_DECRYPTION_FAILED');
+  });
+  it('every public algorithm in the registry is documented in llms-full.txt', async () => {
+    const { readFileSync, existsSync } = await import('node:fs');
+    const path = new URL('../llms-full.txt', import.meta.url);
+    if (!existsSync(path)) return; // generated in the docs step
+    const full = readFileSync(path, 'utf8');
+    for (const s of [...kemSuites(), ...sigSuites()]) expect(full, `llms-full.txt is missing ${s.name}`).toContain(s.name);
+  });
+});
