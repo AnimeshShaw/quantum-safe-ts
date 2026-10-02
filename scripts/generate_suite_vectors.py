@@ -19,6 +19,7 @@ warnings.filterwarnings("ignore")
 
 from quantum_safe import KEM, HybridKEM, HybridSign  # noqa: E402
 from quantum_safe.signatures import Sign  # noqa: E402
+from quantum_safe.protocols.jwt import JWTSigner  # noqa: E402
 from quantum_safe.protocols.envelope import Envelope  # noqa: E402
 
 HYBRID_SUITES = [
@@ -147,6 +148,24 @@ for classical, pqc in HYBRID_SIGS:
     signer = HybridSign(classical=classical, pqc=pqc, hedged=False)
     add_sig(signer, signer.generate_keypair(), f"{classical}+{pqc}", False)
 vectors["signatures"] = sig_vectors
+
+# ---- JWT (quantum-safe-py mode): py signs, ts must verify ----
+jwt_vectors = []
+for algo in ["ML-DSA-65", "Ed25519+ML-DSA-65", "ML-DSA-44", "Ed25519+ML-DSA-87"]:
+    signer = HybridSign(*algo.split("+")) if "+" in algo else Sign(algo)
+    kp = signer.generate_keypair()
+    token = JWTSigner(kp, issuer="https://issuer.example").sign(
+        {"sub": "user-123", "role": "admin"}, expires_in=10**9
+    )
+    jwt_vectors.append(
+        {
+            "algorithm": algo,
+            "public_key": hx(kp.public.raw_bytes),
+            "token": token,
+            "issuer": "https://issuer.example",
+        }
+    )
+vectors["jwt"] = jwt_vectors
 
 out = pathlib.Path(__file__).resolve().parent.parent / "tests" / "vectors" / "suite_vectors.json"
 out.write_text(json.dumps(vectors, indent=1) + "\n")
