@@ -1,0 +1,16 @@
+{
+  "description": "SvelteKit 2 + Svelte 5 (adapter-static) production build in Chromium/Firefox/WebKit",
+  "steps": [
+    [
+      "npx",
+      "vite",
+      "build"
+    ],
+    [
+      "node",
+      "shared/browser-check.mjs",
+      "build",
+      "/"
+    ]
+  ]
+}

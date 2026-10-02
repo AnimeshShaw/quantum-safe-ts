@@ -1,0 +1,2 @@
+{ "description": "Cloudflare Workers runtime (workerd via wrangler), precompiled WASM module passed to init({ wasm })",
+  "steps": [["node", "run-worker.mjs"]] }

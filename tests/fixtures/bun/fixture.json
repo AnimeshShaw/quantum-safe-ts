@@ -1,0 +1,1 @@
+{ "description": "Bun running the packed tarball from node_modules", "steps": [["npx", "bun", "run", "check.mjs"]] }

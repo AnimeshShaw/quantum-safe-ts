@@ -28,7 +28,7 @@ const all = readdirSync(here, { withFileTypes: true })
 const wanted = process.argv.slice(2);
 const names = wanted.length ? wanted : all;
 
-rmSync(work, { recursive: true, force: true });
+rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
 mkdirSync(work, { recursive: true });
 console.log('Packing quantum-safe-ts ...');
 const packOut = execFileSync('npm', ['pack', '--pack-destination', work, '--silent'], { cwd: pkgDir, shell: isWin }).toString().trim().split('\n').pop();
