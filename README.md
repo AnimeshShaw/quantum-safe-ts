@@ -39,8 +39,9 @@ const plain = Envelope.open(sealed, pair.secretKey); // Uint8Array
 | Compliance | `cnsa2.report()`, `cnsa2.enforce()` | NSA CNSA 2.0 parameter-set check, with limits stated |
 
 The default hybrid is `X25519+ML-KEM-768` (NIST category 3), as in quantum-safe-py. **CNSA 2.0 requires
-ML-KEM-1024 / ML-DSA-87**; use `cnsa2.hybridKem()` / `cnsa2.hybridSign()`, or `cnsa2.report()` to see
-exactly where a configuration falls short.
+ML-KEM-1024 / ML-DSA-87**: use `cnsa2.kem()` (pure ML-KEM-1024; sealed as a CNSA-profile envelope with HKDF-SHA-384) and
+`cnsa2.hybridSign()`, or run `cnsa2.report()` to see exactly where a configuration falls short. (Hybrid is optional under CNSA 2.0, and the
+classical half of a CNSA 2.0 hybrid must be P-384, which is not implemented.)
 
 ## Compatibility with quantum-safe-py
 

@@ -14,7 +14,12 @@ use thiserror::Error;
 use zeroize::Zeroizing;
 
 pub const ENVELOPE_VERSION: u8 = 1;
+/// Envelope v2: the CNSA 2.0 profile (pure ML-KEM-1024, HKDF-SHA384, AES-256-GCM). TypeScript-only.
+pub const ENVELOPE_VERSION_CNSA2: u8 = 2;
+/// The only KEM suite v2 envelopes use.
+pub const CNSA2_ENVELOPE_ALGORITHM: &str = "ML-KEM-1024";
 const ENC_KEY_INFO: &[u8] = b"qs-envelope-enc-v1";
+const ENC_KEY_INFO_V2: &[u8] = b"qs-envelope-enc-v2-cnsa2";
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum EnvelopeError {
@@ -36,8 +41,10 @@ pub enum EnvelopeError {
     BadNonceLength { expected: usize, actual: usize },
     #[error("envelope version {0} is out of range for a single byte (0-255)")]
     InvalidVersion(i64),
-    #[error("envelopes require a hybrid suite; '{0}' is not supported for sealing")]
+    #[error("envelope suite '{0}' is not supported (v1 needs a hybrid KEM; v2 needs ML-KEM-1024)")]
     UnsupportedSuite(String),
+    #[error("envelope version {0} is not supported")]
+    UnsupportedVersion(u8),
     #[error("sealed message algorithm does not match the secret key algorithm")]
     AlgorithmMismatch,
 }
@@ -141,18 +148,18 @@ pub fn seal(
     recipient_public_key: &kem::PublicKey,
     aad: &[u8],
 ) -> Result<SealedMessage, EnvelopeError> {
-    require_hybrid(&recipient_public_key.algorithm)?;
+    let version = version_for(&recipient_public_key.algorithm)?;
     let (kem_ct, shared_secret) = kem::encapsulate(recipient_public_key)?;
-    let enc_key = derive_enc_key(&shared_secret[..])?;
+    let enc_key = derive_enc_key(version, &shared_secret[..])?;
 
     let mut nonce_bytes = [0u8; aead::NONCE_LEN];
     getrandom::fill(&mut nonce_bytes).expect("OS RNG must be available to generate a nonce");
 
-    let built_aad = build_aad(ENVELOPE_VERSION, &recipient_public_key.algorithm, aad)?;
+    let built_aad = build_aad(version, &recipient_public_key.algorithm, aad)?;
     let ciphertext = aead::encrypt(&enc_key, &nonce_bytes, plaintext, &built_aad);
 
     Ok(SealedMessage {
-        version: ENVELOPE_VERSION,
+        version,
         algorithm: recipient_public_key.algorithm.clone(),
         kem_ct,
         nonce: nonce_bytes.to_vec(),
@@ -161,16 +168,23 @@ pub fn seal(
     })
 }
 
-/// Envelopes are hybrid-only (as in quantum-safe-py): pure ML-KEM is rejected.
-fn require_hybrid(algorithm: &str) -> Result<(), EnvelopeError> {
+/// Which envelope version a KEM suite uses. v1 (quantum-safe-py compatible): any hybrid suite.
+/// v2 (CNSA 2.0 profile): pure ML-KEM-1024 only. Everything else is rejected, including the other
+/// pure KEMs (pure ML-KEM-512/768 envelopes are neither recommended nor produced).
+fn version_for(algorithm: &str) -> Result<u8, EnvelopeError> {
     match KemSuite::parse(algorithm) {
-        Some(s) if s.is_hybrid() => Ok(()),
+        Some(s) if s.is_hybrid() => Ok(ENVELOPE_VERSION),
+        Some(KemSuite::Pure(crate::suite::Pqc::MlKem1024)) => Ok(ENVELOPE_VERSION_CNSA2),
         _ => Err(EnvelopeError::UnsupportedSuite(algorithm.to_string())),
     }
 }
 
-fn derive_enc_key(shared_secret: &[u8]) -> Result<Zeroizing<[u8; 32]>, EnvelopeError> {
-    let okm = Zeroizing::new(kdf::derive_key(shared_secret, ENC_KEY_INFO, aead::KEY_LEN)?);
+fn derive_enc_key(version: u8, shared_secret: &[u8]) -> Result<Zeroizing<[u8; 32]>, EnvelopeError> {
+    let okm = Zeroizing::new(match version {
+        ENVELOPE_VERSION => kdf::derive_key(shared_secret, ENC_KEY_INFO, aead::KEY_LEN)?,
+        ENVELOPE_VERSION_CNSA2 => kdf::derive_key_sha384(shared_secret, ENC_KEY_INFO_V2, aead::KEY_LEN)?,
+        v => return Err(EnvelopeError::UnsupportedVersion(v)),
+    });
     let mut key = Zeroizing::new([0u8; 32]);
     key.copy_from_slice(&okm);
     Ok(key)
@@ -185,12 +199,22 @@ pub fn open(sealed: &SealedMessage, recipient_secret_key: &kem::SecretKey) -> Re
             actual: sealed.nonce.len(),
         });
     }
-    require_hybrid(&sealed.algorithm)?;
+    // The version must agree with the suite: a message cannot be relabelled into another profile.
+    let expected_version = version_for(&sealed.algorithm)?;
+    if sealed.version != expected_version {
+        return Err(
+            if sealed.version == ENVELOPE_VERSION || sealed.version == ENVELOPE_VERSION_CNSA2 {
+                EnvelopeError::UnsupportedSuite(sealed.algorithm.clone())
+            } else {
+                EnvelopeError::UnsupportedVersion(sealed.version)
+            },
+        );
+    }
     if sealed.algorithm != recipient_secret_key.algorithm {
         return Err(EnvelopeError::AlgorithmMismatch);
     }
     let shared_secret = kem::decapsulate(recipient_secret_key, &sealed.kem_ct)?;
-    let enc_key = derive_enc_key(&shared_secret[..])?;
+    let enc_key = derive_enc_key(sealed.version, &shared_secret[..])?;
 
     let built_aad = build_aad(sealed.version, &sealed.algorithm, &sealed.aad)?;
     let nonce: [u8; aead::NONCE_LEN] = sealed
@@ -256,6 +280,50 @@ mod tests {
     fn build_aad_accepts_algorithm_name_at_255_bytes() {
         let max_algo = "A".repeat(255);
         assert!(build_aad(1, &max_algo, &[]).is_ok());
+    }
+
+    #[test]
+    fn cnsa2_profile_roundtrips_and_is_isolated_from_v1() {
+        let kp = kem::generate_keypair_for("ML-KEM-1024").unwrap();
+        let sealed = seal(b"cnsa2 payload", &kp.public, b"aad").unwrap();
+        assert_eq!(sealed.version, ENVELOPE_VERSION_CNSA2);
+        assert_eq!(sealed.algorithm, CNSA2_ENVELOPE_ALGORITHM);
+        assert_eq!(sealed.kem_ct.len(), 1568);
+        assert_eq!(open(&sealed, &kp.secret).unwrap(), b"cnsa2 payload");
+
+        // Relabelling the version must fail (the profile is checked and the version is bound into the AAD).
+        let mut relabelled = SealedMessage::from_cbor(&sealed.to_cbor().unwrap()).unwrap();
+        relabelled.version = ENVELOPE_VERSION;
+        assert!(open(&relabelled, &kp.secret).is_err());
+        let mut v3 = SealedMessage::from_cbor(&sealed.to_cbor().unwrap()).unwrap();
+        v3.version = 3;
+        assert_eq!(open(&v3, &kp.secret), Err(EnvelopeError::UnsupportedVersion(3)));
+
+        // A hybrid envelope relabelled v2 must fail too.
+        let hk = kem::generate_keypair();
+        let mut hybrid = seal(b"x", &hk.public, b"").unwrap();
+        hybrid.version = ENVELOPE_VERSION_CNSA2;
+        assert!(open(&hybrid, &hk.secret).is_err());
+
+        // Other pure KEMs are not valid envelope suites.
+        for pure in ["ML-KEM-512", "ML-KEM-768"] {
+            let k = kem::generate_keypair_for(pure).unwrap();
+            assert!(matches!(seal(b"x", &k.public, b""), Err(EnvelopeError::UnsupportedSuite(_))));
+        }
+    }
+
+    #[test]
+    fn cnsa2_profile_authenticates_everything() {
+        let kp = kem::generate_keypair_for("ML-KEM-1024").unwrap();
+        let sealed = seal(b"hello", &kp.public, b"aad").unwrap();
+        let mut c = SealedMessage::from_cbor(&sealed.to_cbor().unwrap()).unwrap();
+        c.ciphertext[0] ^= 1;
+        assert!(open(&c, &kp.secret).is_err());
+        let mut a = SealedMessage::from_cbor(&sealed.to_cbor().unwrap()).unwrap();
+        a.aad = b"other".to_vec();
+        assert!(open(&a, &kp.secret).is_err());
+        let other = kem::generate_keypair_for("ML-KEM-1024").unwrap();
+        assert!(open(&sealed, &other.secret).is_err());
     }
 
     #[test]

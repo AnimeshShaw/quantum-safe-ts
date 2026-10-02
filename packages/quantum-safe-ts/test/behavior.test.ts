@@ -400,13 +400,40 @@ describe('CNSA 2.0 profile', () => {
     expect(r.render()).toContain('NOT compliant');
     expect(r.render()).toContain('not a validation');
   });
-  it('even ML-KEM-1024 is not fully compliant while KDF/code-signing gaps exist (honest report)', () => {
+  it('hybrid X25519+ML-KEM-1024 is only partial: the classical half of a CNSA 2.0 hybrid must be P-384', () => {
     const r = cnsa2.report({ kem: 'X25519+ML-KEM-1024', signature: 'Ed25519+ML-DSA-87', hashAlgorithm: 'sha384' });
-    expect(r.checks.find((c) => c.requirement === 'Key establishment')!.ok).toBe(true);
+    const kem = r.checks.find((c) => c.requirement === 'Key establishment')!;
+    expect(kem.finding).toBe('partial');
+    expect(kem.ok).toBe(false);
+    expect(kem.detail).toContain('P-384');
     expect(r.checks.find((c) => c.requirement === 'Signatures')!.ok).toBe(true);
     expect(r.checks.find((c) => c.requirement === 'Hashing')!.ok).toBe(true);
     expect(r.compliant).toBe(false);
-    expect(r.failures.map((f) => f.requirement).sort()).toEqual(['Key-derivation hash (this library)', 'Software/firmware signing (SP 800-208)']);
+    expect(r.failures.map((f) => f.requirement).sort()).toEqual([
+      'Key establishment',
+      'Key-derivation hash (this library)',
+      'Software/firmware signing (SP 800-208)',
+    ]);
+  });
+  it('pure ML-KEM-1024 with envelope v2 meets every parameter/KDF requirement; only code signing remains', () => {
+    const r = cnsa2.report({ kem: 'ML-KEM-1024', signature: 'ML-DSA-87', hashAlgorithm: 'SHA-384' });
+    expect(r.failures.map((f) => f.requirement)).toEqual(['Software/firmware signing (SP 800-208)']);
+    expect(r.checks.find((c) => c.requirement === 'Key-derivation hash (this library)')!.ok).toBe(true);
+    expect(cnsa2.report({ kem: 'ML-KEM-1024', includeCodeSigning: false }).compliant).toBe(true);
+    expect(cnsa2.report({ kem: 'X-Wing', includeCodeSigning: false }).compliant).toBe(false);
+  });
+  it('envelope v2 (CNSA 2.0 profile): pure ML-KEM-1024 seals with HKDF-SHA-384 and is isolated from v1', () => {
+    using pair = cnsa2.kem().generateKeyPair();
+    const sealed = Envelope.seal(utf8('cnsa payload'), pair.publicKey, { aad: utf8('a') });
+    expect(sealed.version).toBe(2);
+    expect(sealed.algorithm).toBe('ML-KEM-1024');
+    expect(sealed.kemCiphertext).toHaveLength(1568);
+    expect(toHex(Envelope.open(sealed, pair.secretKey))).toBe(toHex(utf8('cnsa payload')));
+    expect(() => Envelope.open(SealedMessage.fromParts({ ...sealed, version: 1 }), pair.secretKey)).toThrow(QuantumSafeError);
+    expect(() => Envelope.open(SealedMessage.fromParts({ ...sealed, version: 3 }), pair.secretKey)).toThrow(QuantumSafeError);
+    expect(() => Envelope.open(SealedMessage.fromParts({ ...sealed, aad: utf8('b') }), pair.secretKey)).toThrow(DecryptionAuthenticationError);
+    using weak = new KEM('ML-KEM-768').generateKeyPair();
+    expect(() => Envelope.seal(utf8('x'), weak.publicKey)).toThrow(UnsupportedAlgorithmError);
   });
   it('enforce() guards parameter sets only', () => {
     expect(() => cnsa2.enforce({ kem: 'X25519+ML-KEM-768' })).toThrow(PolicyViolationError);
@@ -418,6 +445,7 @@ describe('CNSA 2.0 profile', () => {
     for (const bad of ['SHA-256', 'sha1', 'md5']) expect(cnsa2.checkHash(bad).ok).toBe(false);
   });
   it('configured constructors are pinned to the CNSA 2.0 parameter sets', () => {
+    expect(cnsa2.kem().algorithm).toBe('ML-KEM-1024');
     expect(cnsa2.hybridKem().algorithm).toBe('X25519+ML-KEM-1024');
     expect(cnsa2.hybridSign().algorithm).toBe('Ed25519+ML-DSA-87');
     expect(() => cnsa2.hybridKem('P-384')).toThrow(UnsupportedAlgorithmError);

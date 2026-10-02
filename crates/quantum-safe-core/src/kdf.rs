@@ -27,7 +27,28 @@ pub enum KdfError {
 }
 
 use hkdf::Hkdf;
-use sha2::Sha256;
+use sha2::{Sha256, Sha384};
+
+/// RFC 5869 §2.3: HKDF-Expand output is capped at 255 * HashLen (SHA-384: 48 bytes).
+const MAX_HKDF_OUTPUT_SHA384: usize = 255 * 48;
+
+/// HKDF-SHA384 with no salt: the key derivation used by the CNSA 2.0 envelope profile (envelope v2).
+/// CNSA 2.0 requires SHA-384 or SHA-512 for key derivation; the quantum-safe-py-compatible suites use
+/// HKDF-SHA256 and therefore cannot satisfy that requirement. TypeScript-only: not readable by
+/// quantum-safe-py.
+pub fn derive_key_sha384(shared_secret: &[u8], info: &[u8], length: usize) -> Result<Vec<u8>, KdfError> {
+    if length > MAX_HKDF_OUTPUT_SHA384 {
+        return Err(KdfError::OutputTooLong {
+            requested: length,
+            max: MAX_HKDF_OUTPUT_SHA384,
+        });
+    }
+    let hk = Hkdf::<Sha384>::new(None, shared_secret);
+    let mut okm = vec![0u8; length];
+    hk.expand(info, &mut okm)
+        .expect("length was already checked against the HKDF output cap above");
+    Ok(okm)
+}
 
 /// Combine a classical and a PQC KEM shared secret into one 32-byte key,
 /// matching `quantum_safe.types.kem.combine_shared_secrets` exactly:
@@ -168,6 +189,19 @@ mod tests {
         let v = load_vectors().enc_key_derivation;
         let result = derive_key(&from_hex(&v.shared_secret), v.info.as_bytes(), 32).unwrap();
         assert_eq!(hex::encode(result), v.expected_enc_key);
+    }
+
+    #[test]
+    fn hkdf_sha384_is_deterministic_domain_separated_and_capped() {
+        let a = derive_key_sha384(&[7u8; 32], b"info", 32).unwrap();
+        let b = derive_key_sha384(&[7u8; 32], b"info", 32).unwrap();
+        let c = derive_key_sha384(&[7u8; 32], b"other", 32).unwrap();
+        let d = derive_key(&[7u8; 32], b"info", 32).unwrap();
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+        assert_ne!(a, d, "SHA-384 and SHA-256 derivations must differ");
+        assert!(derive_key_sha384(&[0u8; 32], b"i", 255 * 48).is_ok());
+        assert!(derive_key_sha384(&[0u8; 32], b"i", 255 * 48 + 1).is_err());
     }
 
     #[test]

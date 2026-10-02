@@ -25,13 +25,18 @@ const COMMON_CAVEATS = [
 ];
 
 export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Interop): Recommendation {
-  const kemName = requireCnsa2 ? 'X25519+ML-KEM-1024' : interop === 'other-ecosystems' ? 'X-Wing' : 'X25519+ML-KEM-768';
+  // CNSA 2.0: pure ML-KEM-1024 satisfies key establishment (hybrid is optional, and the classical half of a CNSA 2.0
+  // hybrid must be P-384, which this library does not implement). Pure ML-KEM-1024 seals as envelope v2 (HKDF-SHA-384).
+  const kemName = requireCnsa2 ? 'ML-KEM-1024' : interop === 'other-ecosystems' ? 'X-Wing' : 'X25519+ML-KEM-768';
+  const kemCtor = requireCnsa2 ? 'new KEM' : 'new HybridKEM';
+  const kemImport = requireCnsa2 ? 'KEM' : 'HybridKEM';
   const sigName = requireCnsa2 ? 'Ed25519+ML-DSA-87' : 'Ed25519+ML-DSA-65';
   const cnsaCaveats = requireCnsa2
     ? [
-        'CNSA 2.0 parameter sets are selected, but compliance for National Security Systems runs through FIPS 140-3 validated modules, which this library is not.',
-        "This library's combiner/envelope key derivation uses HKDF-SHA-256 (for byte compatibility with quantum-safe-py); CNSA 2.0 requires SHA-384/512 for key derivation. Run cnsa2.report() to see the gaps.",
-        'X-Wing is ML-KEM-768 based and does not meet the ML-KEM-1024 requirement.',
+        'CNSA 2.0 parameter sets are selected (pure ML-KEM-1024, ML-DSA-87), but compliance for National Security Systems runs through FIPS 140-3 validated modules, which this library is not.',
+        'CNSA 2.0 software/firmware signing requires LMS or XMSS (SP 800-208); neither is implemented yet.',
+        'Pure ML-KEM-1024 envelopes (v2: HKDF-SHA-384 + AES-256-GCM) are TypeScript-only: quantum-safe-py cannot read them. X25519+ML-KEM-1024 hybrids are NOT CNSA 2.0 compliant (the classical half must be P-384).',
+        'Run cnsa2.report() to see exactly which requirements are and are not met.',
       ]
     : [];
   const interopNote =
@@ -49,10 +54,10 @@ export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Inte
         ...base,
         summary: 'Encrypt data to a recipient public key with a hybrid KEM + AES-256-GCM envelope.',
         algorithm: kemName,
-        api: 'HybridKEM + Envelope.seal / Envelope.open',
-        code: `import { init, HybridKEM, Envelope, utf8 } from 'quantum-safe-ts';
+        api: `${kemImport} + Envelope.seal / Envelope.open`,
+        code: `import { init, ${kemImport}, Envelope, utf8 } from 'quantum-safe-ts';
 await init(); // no-op on Node.js
-const kem = new HybridKEM('${kemName}');
+const kem = ${kemCtor}('${kemName}');
 using pair = kem.generateKeyPair();
 const sealed = Envelope.seal(plaintext, pair.publicKey, { aad: utf8('context-binding') });
 const recovered = Envelope.open(sealed, pair.secretKey); // wipe(recovered) when done${useCase === 'file-or-vault-encryption' ? '\n// For per-item keys derive subkeys from a master key: (await deriveMasterKey(password, salt)).deriveKey(32, utf8("item-key-v1"))' : ''}`,
@@ -64,8 +69,8 @@ const recovered = Envelope.open(sealed, pair.secretKey); // wipe(recovered) when
         ...base,
         summary: 'Establish a shared secret with a hybrid KEM, then derive purpose-specific keys with HKDF.',
         algorithm: kemName,
-        api: 'HybridKEM.encapsulate / decapsulate, SecretBytes.deriveKey',
-        code: `const kem = new HybridKEM('${kemName}');
+        api: `${kemImport}.encapsulate / decapsulate, SecretBytes.deriveKey`,
+        code: `const kem = ${kemCtor}('${kemName}');
 // Receiver: pair = kem.generateKeyPair(); publish pair.publicKey
 const { ciphertext, sharedSecret } = kem.encapsulate(receiverPublicKey); // sender
 using recovered = kem.decapsulate(pair.secretKey, ciphertext);          // receiver
@@ -158,7 +163,7 @@ export function findError(query: string): ErrorInfo | undefined {
 
 export const LLMS_TXT = `quantum-safe-ts: hybrid post-quantum cryptography for TypeScript/JavaScript (Rust core compiled to WASM).
 Install: npm install quantum-safe-ts. Outside Node.js call await init() first.
-Defaults: X25519+ML-KEM-768 (HybridKEM), Ed25519+ML-DSA-65 (HybridSign). CNSA 2.0 needs ML-KEM-1024 / ML-DSA-87 (cnsa2.hybridKem()/hybridSign()).
+Defaults: X25519+ML-KEM-768 (HybridKEM), Ed25519+ML-DSA-65 (HybridSign). CNSA 2.0 needs pure ML-KEM-1024 (cnsa2.kem(); Envelope v2 uses HKDF-SHA-384) and ML-DSA-87 (cnsa2.hybridSign()).
 Envelope.seal(plaintext, publicKey, {aad}) / Envelope.open(sealed, secretKey). StandardJwt for RFC 9964 tokens. deriveMasterKey for Argon2id.
 Pre-1.0, unaudited, not FIPS-validated, no constant-time guarantee in JS/WASM.
 Docs: https://github.com/AnimeshShaw/quantum-safe-ts`;
