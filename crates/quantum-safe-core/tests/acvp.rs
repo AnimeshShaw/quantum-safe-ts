@@ -35,6 +35,12 @@ fn load(suite: &str) -> Option<(Value, Value)> {
 }
 
 fn require_vectors(suite: &str) -> Option<(Value, Value)> {
+    // The full run takes several minutes, so a plain `cargo test` skips it. CI sets QS_REQUIRE_ACVP=1;
+    // locally opt in with QS_ACVP=1.
+    if std::env::var("QS_ACVP").is_err() && std::env::var("QS_REQUIRE_ACVP").is_err() {
+        eprintln!("SKIP {suite}: set QS_ACVP=1 to run the NIST ACVP known-answer tests");
+        return None;
+    }
     let v = load(suite);
     if v.is_none() {
         assert!(

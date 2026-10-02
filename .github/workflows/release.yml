@@ -1,0 +1,54 @@
+name: Release
+
+# Manual only. Publishes ONE package per run, with npm provenance (links the tarball to this commit and workflow).
+# Requires the repository secret NPM_TOKEN (an npm automation/granular token with publish rights).
+# See docs/maintainer/PUBLISHING.md. Order: audit -> quantum-safe-ts -> mcp.
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Which package to publish
+        type: choice
+        required: true
+        options: [quantum-safe-audit, quantum-safe-ts, quantum-safe-mcp]
+      dry_run:
+        description: Dry run (npm publish --dry-run)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install wasm-pack --locked
+      - name: "Prepare (rewrites the MCP package's local file dependency to a version range)"
+        run: node scripts/prepare-release.mjs
+      - name: Build, test, publish
+        working-directory: packages/${{ inputs.package }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # The MCP package's lockfile pins the local file: dependency, which prepare-release.mjs replaced
+          # with a version range, so install it fresh; the other packages use their lockfiles.
+          if [ "${{ inputs.package }}" = "quantum-safe-mcp" ]; then npm install; else npm ci; fi
+          npm run build
+          npx vitest run
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            npm publish --access public --provenance --dry-run
+          else
+            npm publish --access public --provenance
+          fi

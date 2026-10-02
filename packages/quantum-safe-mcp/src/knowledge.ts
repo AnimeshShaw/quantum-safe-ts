@@ -143,6 +143,7 @@ export const ERRORS: readonly ErrorInfo[] = [
   { name: 'SigningError', code: 'QS_SIGNING_FAILED', meaning: 'Signing failed (RNG unavailable or key problem).', fix: 'Check the secret key matches the algorithm.' },
   { name: 'MalformedKeyError', code: 'QS_MALFORMED_KEY', meaning: 'A key has the wrong length or encoding for its algorithm.', fix: 'Use keys produced by this library or quantum-safe-py for the same algorithm; look for truncation.' },
   { name: 'MalformedCiphertextError', code: 'QS_MALFORMED_CIPHERTEXT', meaning: 'A ciphertext, sealed message or signature blob is truncated or invalid.', fix: 'Pass the exact bytes produced by seal()/encapsulate().' },
+  { name: 'MalformedSignatureError', code: 'QS_MALFORMED_SIGNATURE', meaning: 'A signature (for example an LMS/HSS signature) is truncated, has trailing bytes, or disagrees with the level count of the key.', fix: 'Pass the exact signature bytes the signer produced.' },
   { name: 'AlgorithmMismatchError', code: 'QS_ALGORITHM_MISMATCH', meaning: 'Key and message algorithm identifiers disagree.', fix: 'Use a key generated for the same algorithm string.' },
   { name: 'HkdfOutputTooLongError', code: 'QS_HKDF_OUTPUT_TOO_LONG', meaning: 'Requested more than 8160 bytes from HKDF-SHA256.', fix: 'Request at most 8160 bytes from deriveKey().' },
   { name: 'KdfError', code: 'QS_KDF_FAILED', meaning: 'Argon2id derivation failed (for example salt shorter than 8 bytes).', fix: 'Use a random salt of at least 16 bytes.' },

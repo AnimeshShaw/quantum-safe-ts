@@ -19,6 +19,8 @@ export type { SealOptions, SealedInfo } from './envelope.js';
 export { Sign, HybridSign, SignedMessage } from './signatures.js';
 export type { SignOptions, SignedInfo } from './signatures.js';
 export { deriveMasterKey } from './kdf.js';
+export { Lms } from './lms.js';
+export type { HssPublicKeyInfo } from './lms.js';
 export { JWTSigner, JWTVerifier, StandardJwt } from './jwt.js';
 export type {
   JwtClaims,

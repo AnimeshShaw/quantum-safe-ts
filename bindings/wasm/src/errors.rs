@@ -7,6 +7,7 @@ use quantum_safe_core::envelope::EnvelopeError;
 use quantum_safe_core::kdf::KdfError;
 use quantum_safe_core::kem::KemError;
 use quantum_safe_core::keys::KeyError;
+use quantum_safe_core::lms::LmsError;
 use quantum_safe_core::sig::SigError;
 use std::fmt::Display;
 
@@ -75,6 +76,16 @@ impl Kinded for KeyError {
     }
 }
 
+impl Kinded for LmsError {
+    fn kind(&self) -> &'static str {
+        match self {
+            LmsError::MalformedKey | LmsError::BadLevelCount(_) => "malformed_key",
+            LmsError::MalformedSignature => "malformed_signature",
+            LmsError::UnsupportedParameters(_) => "unsupported_algorithm",
+        }
+    }
+}
+
 impl Kinded for SigError {
     fn kind(&self) -> &'static str {
         match self {
@@ -131,6 +142,13 @@ mod tests {
         assert_eq!(SigError::VerificationFailed.kind(), "verification_failed");
         assert_eq!(SigError::ContextTooLong(300).kind(), "invalid_argument");
         assert_eq!(SigError::MalformedKey.kind(), "malformed_key");
+        assert_eq!(LmsError::MalformedKey.kind(), "malformed_key");
+        assert_eq!(LmsError::BadLevelCount(9).kind(), "malformed_key");
+        assert_eq!(LmsError::MalformedSignature.kind(), "malformed_signature");
+        assert_eq!(
+            LmsError::UnsupportedParameters(99).kind(),
+            "unsupported_algorithm"
+        );
     }
 
     #[test]
