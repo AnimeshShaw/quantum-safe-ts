@@ -98,19 +98,34 @@ mod tests {
         assert_eq!(KemError::MalformedKey.kind(), "malformed_key");
         assert_eq!(KemError::MalformedCiphertext.kind(), "malformed_ciphertext");
         assert_eq!(KemError::AlgorithmMismatch.kind(), "algorithm_mismatch");
-        assert_eq!(KemError::UnsupportedAlgorithm("x".into()).kind(), "unsupported_algorithm");
+        assert_eq!(
+            KemError::UnsupportedAlgorithm("x".into()).kind(),
+            "unsupported_algorithm"
+        );
         assert_eq!(KemError::ClassicalFailure.kind(), "classical_failure");
         assert_eq!(AeadError::AuthenticationFailed.kind(), "decryption_failed");
-        assert_eq!(KdfError::OutputTooLong { requested: 1, max: 0 }.kind(), "hkdf_output_too_long");
+        assert_eq!(
+            KdfError::OutputTooLong { requested: 1, max: 0 }.kind(),
+            "hkdf_output_too_long"
+        );
         assert_eq!(KdfError::Argon2("x".into()).kind(), "kdf_failed");
         assert_eq!(EnvelopeError::MissingField("v").kind(), "malformed_ciphertext");
-        assert_eq!(EnvelopeError::Aead(AeadError::AuthenticationFailed).kind(), "decryption_failed");
+        assert_eq!(
+            EnvelopeError::Aead(AeadError::AuthenticationFailed).kind(),
+            "decryption_failed"
+        );
         assert_eq!(EnvelopeError::Kem(KemError::MalformedKey).kind(), "malformed_key");
         assert_eq!(EnvelopeError::AlgorithmMismatch.kind(), "algorithm_mismatch");
-        assert_eq!(EnvelopeError::UnsupportedSuite("ML-KEM-768".into()).kind(), "unsupported_algorithm");
+        assert_eq!(
+            EnvelopeError::UnsupportedSuite("ML-KEM-768".into()).kind(),
+            "unsupported_algorithm"
+        );
         assert_eq!(KeyError::TooLarge(1).kind(), "payload_too_large");
         assert_eq!(KeyError::VersionRollback(0).kind(), "key_parse_error");
-        assert_eq!(KeyError::IncompatibleVersion { found: 2, max: 1 }.kind(), "incompatible_key_version");
+        assert_eq!(
+            KeyError::IncompatibleVersion { found: 2, max: 1 }.kind(),
+            "incompatible_key_version"
+        );
         assert_eq!(KeyError::JwkSecretForbidden.kind(), "unsupported_format");
         assert_eq!(SigError::VerificationFailed.kind(), "verification_failed");
         assert_eq!(SigError::ContextTooLong(300).kind(), "invalid_argument");

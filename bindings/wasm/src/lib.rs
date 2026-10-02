@@ -107,25 +107,36 @@ impl PublicKey {
             Some(_) => parse_ms(migration_state)?,
             None => default_ms(algorithm),
         };
-        Ok(PublicKey { inner: EncodedKey::new(algorithm, KeyType::Public, raw.to_vec(), ms) })
+        Ok(PublicKey {
+            inner: EncodedKey::new(algorithm, KeyType::Public, raw.to_vec(), ms),
+        })
     }
     #[wasm_bindgen(js_name = fromCbor)]
     pub fn from_cbor(data: &[u8]) -> Result<PublicKey, JsValue> {
-        Ok(PublicKey { inner: EncodedKey::from_cbor(data, KeyType::Public).map_err(err)? })
+        Ok(PublicKey {
+            inner: EncodedKey::from_cbor(data, KeyType::Public).map_err(err)?,
+        })
     }
     #[wasm_bindgen(js_name = fromPem)]
     pub fn from_pem(pem: &str) -> Result<PublicKey, JsValue> {
-        Ok(PublicKey { inner: EncodedKey::from_pem(pem, KeyType::Public).map_err(err)? })
+        Ok(PublicKey {
+            inner: EncodedKey::from_pem(pem, KeyType::Public).map_err(err)?,
+        })
     }
     #[wasm_bindgen(js_name = fromJwk)]
     pub fn from_jwk(json: &str) -> Result<PublicKey, JsValue> {
-        Ok(PublicKey { inner: EncodedKey::from_jwk(json).map_err(err)? })
+        Ok(PublicKey {
+            inner: EncodedKey::from_jwk(json).map_err(err)?,
+        })
     }
 }
 
 impl PublicKey {
     fn core(&self) -> kem::PublicKey {
-        kem::PublicKey { raw: self.inner.raw.to_vec(), algorithm: self.inner.algorithm.clone() }
+        kem::PublicKey {
+            raw: self.inner.raw.to_vec(),
+            algorithm: self.inner.algorithm.clone(),
+        }
     }
 }
 
@@ -173,15 +184,21 @@ impl SecretKey {
             Some(_) => parse_ms(migration_state)?,
             None => default_ms(algorithm),
         };
-        Ok(SecretKey { inner: EncodedKey::new(algorithm, KeyType::Secret, raw.to_vec(), ms) })
+        Ok(SecretKey {
+            inner: EncodedKey::new(algorithm, KeyType::Secret, raw.to_vec(), ms),
+        })
     }
     #[wasm_bindgen(js_name = fromCbor)]
     pub fn from_cbor(data: &[u8]) -> Result<SecretKey, JsValue> {
-        Ok(SecretKey { inner: EncodedKey::from_cbor(data, KeyType::Secret).map_err(err)? })
+        Ok(SecretKey {
+            inner: EncodedKey::from_cbor(data, KeyType::Secret).map_err(err)?,
+        })
     }
     #[wasm_bindgen(js_name = fromPem)]
     pub fn from_pem(pem: &str) -> Result<SecretKey, JsValue> {
-        Ok(SecretKey { inner: EncodedKey::from_pem(pem, KeyType::Secret).map_err(err)? })
+        Ok(SecretKey {
+            inner: EncodedKey::from_pem(pem, KeyType::Secret).map_err(err)?,
+        })
     }
 }
 
@@ -202,11 +219,15 @@ pub struct KeyPair {
 impl KeyPair {
     #[wasm_bindgen(getter, js_name = publicKey)]
     pub fn public_key(&self) -> PublicKey {
-        PublicKey { inner: self.public.clone() }
+        PublicKey {
+            inner: self.public.clone(),
+        }
     }
     #[wasm_bindgen(getter, js_name = secretKey)]
     pub fn secret_key(&self) -> SecretKey {
-        SecretKey { inner: self.secret.clone() }
+        SecretKey {
+            inner: self.secret.clone(),
+        }
     }
     #[wasm_bindgen(getter)]
     pub fn algorithm(&self) -> String {
@@ -249,7 +270,9 @@ impl SecretBytes {
         if bytes.is_empty() {
             return Err(invalid("secret bytes cannot be empty"));
         }
-        Ok(SecretBytes { inner: Zeroizing::new(bytes.to_vec()) })
+        Ok(SecretBytes {
+            inner: Zeroizing::new(bytes.to_vec()),
+        })
     }
     #[wasm_bindgen(getter)]
     pub fn length(&self) -> usize {
@@ -304,13 +327,18 @@ impl Encapsulation {
 #[wasm_bindgen(js_name = kemEncapsulate)]
 pub fn kem_encapsulate(public_key: &PublicKey) -> Result<Encapsulation, JsValue> {
     let (ciphertext, ss) = kem::encapsulate(&public_key.core()).map_err(err)?;
-    Ok(Encapsulation { ciphertext, shared: Some(Zeroizing::new(ss.to_vec())) })
+    Ok(Encapsulation {
+        ciphertext,
+        shared: Some(Zeroizing::new(ss.to_vec())),
+    })
 }
 
 #[wasm_bindgen(js_name = kemDecapsulate)]
 pub fn kem_decapsulate(secret_key: &SecretKey, ciphertext: &[u8]) -> Result<SecretBytes, JsValue> {
     let ss = kem::decapsulate(&secret_key.core(), ciphertext).map_err(err)?;
-    Ok(SecretBytes { inner: Zeroizing::new(ss.to_vec()) })
+    Ok(SecretBytes {
+        inner: Zeroizing::new(ss.to_vec()),
+    })
 }
 
 // ------------------------------------------------------------------------------------------
@@ -381,7 +409,9 @@ impl SealedParts {
 
 #[wasm_bindgen(js_name = sealedMessageParse)]
 pub fn sealed_message_parse(data: &[u8]) -> Result<SealedParts, JsValue> {
-    Ok(SealedParts { inner: envelope::SealedMessage::from_cbor(data).map_err(err)? })
+    Ok(SealedParts {
+        inner: envelope::SealedMessage::from_cbor(data).map_err(err)?,
+    })
 }
 
 #[wasm_bindgen(js_name = sealedMessageEncode)]
@@ -417,7 +447,9 @@ pub fn aes_gcm_nonce_length() -> usize {
 #[wasm_bindgen(js_name = deriveMasterKey)]
 pub fn derive_master_key(password: &[u8], salt: &[u8]) -> Result<SecretBytes, JsValue> {
     let key = kdf::derive_master_key(password, salt).map_err(err)?;
-    Ok(SecretBytes { inner: Zeroizing::new(key.to_vec()) })
+    Ok(SecretBytes {
+        inner: Zeroizing::new(key.to_vec()),
+    })
 }
 
 // ------------------------------------------------------------------------------------------
@@ -427,7 +459,9 @@ pub fn derive_master_key(password: &[u8], salt: &[u8]) -> Result<SecretBytes, Js
 #[wasm_bindgen(js_name = sigGenerateKeyPair)]
 pub fn sig_generate_key_pair(algorithm: &str) -> Result<KeyPair, JsValue> {
     let kp = sig::generate_keypair(algorithm).map_err(err)?;
-    let ms = sig::SigSuite::parse(algorithm).map(|s| s.migration_state()).unwrap_or(MigrationState::PqcOnly);
+    let ms = sig::SigSuite::parse(algorithm)
+        .map(|s| s.migration_state())
+        .unwrap_or(MigrationState::PqcOnly);
     Ok(keypair_from_core(kp.public, kp.secret, ms))
 }
 
@@ -441,8 +475,14 @@ pub fn sig_sign(
     signer_fingerprint: &str,
     signed_at: f64,
 ) -> Result<Vec<u8>, JsValue> {
-    let opts = sig::SignOptions { deterministic, signer_fingerprint: signer_fingerprint.to_string(), signed_at };
-    sig::sign(&secret_key.core(), message, context, &opts).map(|m| m.to_cbor()).map_err(err)
+    let opts = sig::SignOptions {
+        deterministic,
+        signer_fingerprint: signer_fingerprint.to_string(),
+        signed_at,
+    };
+    sig::sign(&secret_key.core(), message, context, &opts)
+        .map(|m| m.to_cbor())
+        .map_err(err)
 }
 
 #[wasm_bindgen(js_name = sigVerify)]
@@ -518,7 +558,9 @@ impl SignedParts {
 
 #[wasm_bindgen(js_name = signedMessageParse)]
 pub fn signed_message_parse(data: &[u8]) -> Result<SignedParts, JsValue> {
-    Ok(SignedParts { inner: sig::SignedMessage::from_cbor(data).map_err(err)? })
+    Ok(SignedParts {
+        inner: sig::SignedMessage::from_cbor(data).map_err(err)?,
+    })
 }
 
 #[wasm_bindgen(js_name = signedMessageEncode)]
@@ -557,7 +599,8 @@ pub fn signed_message_encode(
 // ------------------------------------------------------------------------------------------
 
 fn level_of(name: &str) -> Result<sig::MlDsaLevel, JsValue> {
-    sig::MlDsaLevel::from_name(name).ok_or_else(|| err_kind("unsupported_algorithm", "unsupported ML-DSA parameter set"))
+    sig::MlDsaLevel::from_name(name)
+        .ok_or_else(|| err_kind("unsupported_algorithm", "unsupported ML-DSA parameter set"))
 }
 
 /// A standards-mode ML-DSA key pair: public key bytes plus a 32-byte secret seed.
@@ -575,14 +618,20 @@ impl SeedKeyPair {
     }
     #[wasm_bindgen(js_name = takeSeed)]
     pub fn take_seed(&mut self) -> Result<SecretBytes, JsValue> {
-        self.seed.take().map(|inner| SecretBytes { inner }).ok_or_else(|| invalid("seed was already taken"))
+        self.seed
+            .take()
+            .map(|inner| SecretBytes { inner })
+            .ok_or_else(|| invalid("seed was already taken"))
     }
 }
 
 #[wasm_bindgen(js_name = mldsaStandardKeyGen)]
 pub fn mldsa_standard_key_gen(level: &str) -> Result<SeedKeyPair, JsValue> {
     let (seed, public) = sig::standard::keygen(level_of(level)?);
-    Ok(SeedKeyPair { public, seed: Some(seed) })
+    Ok(SeedKeyPair {
+        public,
+        seed: Some(seed),
+    })
 }
 
 #[wasm_bindgen(js_name = mldsaStandardPublicFromSeed)]

@@ -1,0 +1,50 @@
+[package]
+name = "quantum-safe-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+quantum-safe-core = { path = "../crates/quantum-safe-core" }
+
+[workspace]
+
+[[bin]]
+name = "fuzz_envelope"
+path = "fuzz_targets/fuzz_envelope.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_kem_decapsulate"
+path = "fuzz_targets/fuzz_kem_decapsulate.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_keys"
+path = "fuzz_targets/fuzz_keys.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_signed_message"
+path = "fuzz_targets/fuzz_signed_message.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_sig_secret_key"
+path = "fuzz_targets/fuzz_sig_secret_key.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_wire"
+path = "fuzz_targets/fuzz_wire.rs"
+test = false
+doc = false
