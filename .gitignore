@@ -4,3 +4,4 @@ node_modules/
 dist/
 pkg/
 *.tgz
+/tests/acvp/_vectors/
