@@ -14,14 +14,17 @@ application built with it. Do not add application-specific code or names.
 ## Read first
 1. `ROADMAP.md` — phases, exit criteria. Work the **lowest unfinished phase** in order.
 2. `COMPATIBILITY.md` — every quantum-safe-py feature with status; wire formats; known quirks.
-3. `docs/research/2026-10-02-ecosystem-and-parity-research.md` — evidence and sources.
+3. `docs/research/` — ecosystem research (2026-10-02) and `standards-alignment.md` (gaps vs NIST/CNSA/IETF).
 4. `docs/superpowers/specs/` (git-ignored, local) — approved designs, incl. the WASM/npm design.
 
 ## Current state (update this section when it changes)
-- Rust core: hybrid X25519+ML-KEM-768, HKDF combiner, AES-256-GCM, envelope + CBOR, Argon2id.
-  29 tests pass; `cargo check --target wasm32-unknown-unknown` clean.
-- Not started: `bindings/wasm`, `packages/quantum-safe-ts`, `fuzz/`, `.github/workflows`.
-- Next: **Phase 0**, then **Phase 1** in `ROADMAP.md`.
+- **Rust core** (`crates/quantum-safe-core`): every suite in COMPATIBILITY.md; ACVP (1,317 cases), py parity, LMS verification, robustness tests.
+- **Bindings** (`bindings/wasm`) and **npm package** (`packages/quantum-safe-ts`): complete; 170+ tests; fixture matrix in `tests/fixtures`.
+- **Tooling packages**: `packages/quantum-safe-audit` (scanner/CBOM/SARIF), `packages/quantum-safe-mcp` (MCP server).
+- **Phases 0-3 done; Phases 4-6 partly done** (see ROADMAP.md for the exact checklist). Nothing has been published: publishing is the
+  maintainer's step (`docs/maintainer/PUBLISHING.md`).
+- Next work, in order: `Upgrader`/`MigrationStateManager` and a GitHub Action (Phase 4); docs site and discoverability measurement (Phase 5);
+  timing harness, reproducible builds, threat model (Phase 6). Do not start downstream applications.
 
 ## Non-negotiable rules
 1. **Parity by fixture.** Never change a wire format. Generate vectors from the real
@@ -63,8 +66,14 @@ fixtures, CHANGELOG updated, docs and snippets tested.
 
 ## Useful facts
 - Local toolchain (maintainer machine): rustc/cargo 1.98, wasm-pack 0.15, node 24.18
-  (native WebCrypto ML-KEM/ML-DSA available as a test oracle). `clippy` needs
-  `rustup component add clippy`.
+  (native WebCrypto ML-KEM/ML-DSA available as a test oracle), Playwright 1.60 browsers.
+- Build everything: `cd packages/quantum-safe-ts && npm run build` (wasm-pack + tsup). Tests: `cargo test --workspace` (ACVP needs
+  `python scripts/fetch_acvp.py`, ~6 min), `npx vitest run` in each package, `node tests/fixtures/run.mjs [fixture...]`.
+- Files with markdown tables/CRLF: the repo normalises to LF (`.gitattributes`); do not hand-edit with tools that write CRLF.
+- Shell heredocs with mixed quotes sometimes fail in the agent harness: write multi-line files with the editor tool, not `cat <<EOF`.
 - Hybrid combiner: `HKDF-SHA256(ss_c‖ss_pqc, salt=ct_c‖ct_pqc, info="quantum-safe hybrid KEM v1"‖0x00‖algo, 32)`.
 - py ML-DSA sub-signature = plain FIPS 204 ML-DSA, **empty ctx**, over `len(ctx)‖ctx‖rand32‖msg`.
-- npm name `quantum-safe-ts` was unclaimed on 2026-10-02.
+- Envelope v1 = hybrid (py-compatible, HKDF-SHA-256). Envelope v2 = pure ML-KEM-1024 + HKDF-SHA-384 (CNSA 2.0 profile, TS-only).
+- CNSA 2.0: hybrid is optional; the classical half of an NSS hybrid must be P-384 (not implemented), so X25519 hybrids report `partial`.
+- npm names `quantum-safe-ts`, `quantum-safe-audit`, `quantum-safe-mcp` were unclaimed on 2026-10-02.
+- A cargo `Cargo.lock` pin (`signature 2.3.0-pre.4`) is REQUIRED: `slh-dsa 0.1.0` does not compile against newer pre-releases.

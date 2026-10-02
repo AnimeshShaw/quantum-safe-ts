@@ -308,7 +308,10 @@ mod tests {
         // Other pure KEMs are not valid envelope suites.
         for pure in ["ML-KEM-512", "ML-KEM-768"] {
             let k = kem::generate_keypair_for(pure).unwrap();
-            assert!(matches!(seal(b"x", &k.public, b""), Err(EnvelopeError::UnsupportedSuite(_))));
+            assert!(matches!(
+                seal(b"x", &k.public, b""),
+                Err(EnvelopeError::UnsupportedSuite(_))
+            ));
         }
     }
 
