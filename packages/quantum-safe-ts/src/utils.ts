@@ -74,6 +74,9 @@ export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-/** Symbol used for `using` declarations; falls back for runtimes without `Symbol.dispose`. */
-export const DISPOSE: symbol =
-  (Symbol as unknown as { dispose?: symbol }).dispose ?? Symbol.for('Symbol.dispose');
+// `using key = ...` needs Symbol.dispose, which older runtimes (Node < 20.5, some browsers) lack. Define it
+// with the same registry key other polyfills (tslib, core-js) use, so objects stay disposable everywhere.
+const sym = Symbol as unknown as { dispose?: symbol };
+if (typeof sym.dispose !== 'symbol') {
+  Object.defineProperty(Symbol, 'dispose', { value: Symbol.for('Symbol.dispose'), configurable: false, writable: false });
+}

@@ -11,6 +11,4 @@ export default defineConfig({
   splitting: true,
   shims: true,
   treeshake: true,
-  // Node built-ins are referenced only from the Node entry via dynamic `node:` imports.
-  external: ['node:fs', 'node:path', 'node:url', 'node:module'],
 });

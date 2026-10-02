@@ -1,0 +1,2 @@
+{ "description": "esbuild browser bundle (no WASM config) in Chromium/Firefox/WebKit",
+  "steps": [["node", "build.mjs"], ["node", "shared/browser-check.mjs", "out"]] }

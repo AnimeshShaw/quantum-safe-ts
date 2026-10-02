@@ -55,7 +55,9 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./quantum_safe_wasm_bg.wasm": "./dist/quantum_safe_wasm_bg.wasm",
+    "./wasm": "./dist/quantum_safe_wasm_bg.wasm"
   },
   "files": [
     "dist",

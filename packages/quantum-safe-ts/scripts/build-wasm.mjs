@@ -17,6 +17,20 @@ if (!process.env.QS_SKIP_WASM_PACK) {
   );
 }
 
+// wasm-bindgen's glue falls back to `new URL('quantum_safe_wasm_bg.wasm', import.meta.url)` when no
+// source is given. We always pass the bytes/module explicitly, but bundlers (Vite, webpack) see that
+// expression statically and emit a second, unused copy of the .wasm. Replace it with an error.
+const gluePath = resolve(pkg, 'wasm', 'quantum_safe_wasm.js');
+let glue = readFileSync(gluePath, 'utf8');
+const marker = "new URL('quantum_safe_wasm_bg.wasm', import.meta.url)";
+if (glue.includes(marker)) {
+  glue = glue.replace(marker, "(() => { throw new Error('quantum-safe-ts: no WASM source was provided; call init()'); })()");
+  writeFileSync(gluePath, glue);
+  console.log('patched wasm-bindgen glue: removed implicit .wasm URL');
+} else if (!glue.includes('no WASM source was provided')) {
+  throw new Error('wasm-bindgen glue layout changed; update scripts/build-wasm.mjs');
+}
+
 const wasm = readFileSync(resolve(pkg, 'wasm', 'quantum_safe_wasm_bg.wasm'));
 mkdirSync(resolve(pkg, 'src'), { recursive: true });
 writeFileSync(

@@ -93,4 +93,29 @@ for s in v["signatures"]:
     except Exception as exc:  # noqa: BLE001
         check(f"{label} ({type(exc).__name__}: {exc})", False)
 
+# ---- Vectors produced by the TypeScript *facade* (built npm package) ----
+js_path = root / "ts_js_vectors.json"
+if js_path.exists():
+    from quantum_safe.protocols.jwt import JWTVerifier
+
+    jv = json.loads(js_path.read_text())
+    for t in jv["jwt"]:
+        algo = t["algorithm"]
+        try:
+            pub = PublicKey(raw=bytes.fromhex(t["public_key"]), algorithm=algo)
+            claims = JWTVerifier(pub, issuer=t["issuer"]).verify(t["token"])
+            check(f"jwt {algo}", claims.get("sub") == "ts-user" and claims.get("n") == 7)
+        except Exception as exc:  # noqa: BLE001
+            check(f"jwt {algo} ({type(exc).__name__}: {exc})", False)
+    for e in jv["envelope"]:
+        algo = e["algorithm"]
+        try:
+            sk = SecretKey(raw=bytes.fromhex(e["secret_key"]), algorithm=algo)
+            pt = Envelope.open(SealedMessage.from_hex(e["sealed"]), sk)
+            check(f"facade envelope {algo}", pt.hex() == e["plaintext"])
+        except Exception as exc:  # noqa: BLE001
+            check(f"facade envelope {algo} ({type(exc).__name__}: {exc})", False)
+else:
+    check("ts_js_vectors.json present (run scripts/gen_ts_js_vectors.mjs)", False)
+
 sys.exit(1 if fails else 0)
