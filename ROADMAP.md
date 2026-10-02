@@ -38,7 +38,8 @@ ML-DSA-44/65/87, `HybridSign` (Ed25519, P-256), all 12 SLH-DSA sets, exact py co
 - ✅ `quantum-safe-audit`: AST scanner (JS/TS/Vue/Svelte/Astro, `package.json`), 18 rules, migration hints, SARIF 2.1.0 and CycloneDX 1.6 CBOM **validated against the official schemas**, policy file, suppressions, CLI, labelled corpus, output sanitisation against prompt injection.
 - ✅ LMS/HSS verification (RFC 8554), checked against the RFC and pyhsslms.
 - 🟡 Differentiation check vs `cdxgen`/`cbom-scan`: positioning is verdicts + policy + fix hints, but a fresh head-to-head survey should precede any marketing claim.
-- ⬜ `Upgrader` / `MigrationStateManager` (async store interface; distributed-lock caveat), GitHub Action wrapper.
+- ✅ `Upgrader` / `MigrationStateManager` (async store interface; distributed-lock caveat documented).
+- ⬜ GitHub Action wrapper for the audit tool.
 - ⬜ Independent accuracy measurement of the scanner on third-party repositories (the committed corpus was written by the authors; it is a regression guard, not an accuracy claim).
 
 ## Phase 5: v0.5.0 "Agent and developer surface" 🟡

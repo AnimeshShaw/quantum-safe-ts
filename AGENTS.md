@@ -23,7 +23,7 @@ application built with it. Do not add application-specific code or names.
 - **Tooling packages**: `packages/quantum-safe-audit` (scanner/CBOM/SARIF), `packages/quantum-safe-mcp` (MCP server).
 - **Phases 0-3 done; Phases 4-6 partly done** (see ROADMAP.md for the exact checklist). Nothing has been published: publishing is the
   maintainer's step (`docs/maintainer/PUBLISHING.md`).
-- Next work, in order: `Upgrader`/`MigrationStateManager` and a GitHub Action (Phase 4); docs site and discoverability measurement (Phase 5);
+- Next work, in order: GitHub Action wrapper for the audit tool (Phase 4; `Upgrader`/`MigrationStateManager` are done); docs site and discoverability measurement (Phase 5);
   timing harness, reproducible builds, threat model (Phase 6). Do not start downstream applications.
 
 ## Non-negotiable rules

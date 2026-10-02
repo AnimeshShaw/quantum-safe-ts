@@ -65,7 +65,7 @@ Status reflects **quantum-safe-ts 0.1.0** and **quantum-safe-py 0.3.0**, as of 2
 | 26 | CycloneDX 1.6 CBOM | **DONE** | validated against the official CycloneDX 1.6 JSON schema in CI |
 | 27 | SARIF output, CI exit codes | **DONE** | validated against the official SARIF 2.1.0 schema |
 | 28 | CNSA 2.0 report/enforce | **DONE, with deliberate differences** | See §3. TS reports hybrid X25519+ML-KEM-1024 as `partial` and adds a key-derivation-hash row. |
-| 29 | `Upgrader`, `MigrationStateManager` | **Not implemented** | Planned (Phase 4). |
+| 29 | `Upgrader`, `MigrationStateManager` | **DONE (API-level port)** | `Upgrader` packs keys with py's `u16_be(len)‖classical‖pqc` layout and `hybrid_transition` state (tested for round-trip and classical-half preservation; no py fixture yet, and the P-256 path is argument-validated but not round-trip tested). `MigrationStateManager` ports the transition rules (forward chain, backward only with `allowBackward` + reason, `pqc_only` terminal, stale-state check, per-key in-process serialisation) over a user-supplied async `MigrationStore`. Records are JSON, **not** interchangeable with py's CBOR store. No cross-process locking: supply `compareAndSet` or an external lock. |
 | 30 | ACVP known-answer harness | **DONE (more)** | **1,317** NIST ACVP cases (py: 225): ML-KEM, ML-DSA, SLH-DSA keyGen/sigGen/sigVer/encap/decap. |
 | 31 | Timing-leakage harness | **Not implemented** | Planned (Phase 6); JS/WASM cannot give a constant-time guarantee. |
 | 32 | `ctypes.memset` zeroization | **N/A → replaced** | Rust `zeroize` + explicit `.free()` / `using`. JS-heap copies cannot be wiped; documented. |

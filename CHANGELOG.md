@@ -16,6 +16,8 @@ as a new, explicitly identified algorithm suite.
   `using`-compatible memory management, `HybridKEM`/`KEM`, `Envelope`, `Sign`/`HybridSign`, `JWTSigner`/`JWTVerifier` (quantum-safe-py
   compatible) and `StandardJwt` (RFC 9964), `deriveMasterKey`, `Lms`, `cnsa2`, key classes. ESM + CJS + types; zero-config inline WASM.
 - **`quantum-safe-audit`**: AST-based JS/TS scanner with 18 rules, SARIF 2.1.0 and CycloneDX 1.6 CBOM output, policy file, suppressions.
+- **Migration helpers**: `Upgrader` (classical -> hybrid key upgrade, strip classical half, needs-upgrade check) and
+  `MigrationStateManager` (validated transitions, history, progress) over a user-supplied async store.
 - **`quantum-safe-mcp`**: read-only, offline, path-confined MCP server for coding agents.
 - **Evidence**: bidirectional parity with the real quantum-safe-py (52 checks + 70 WASM tests); 1,317 NIST ACVP cases; RFC 8554 vectors and
   13 independent LMS signatures; differential tests against `@noble/post-quantum` and Node WebCrypto; cargo-fuzz targets and mutation fuzzing;

@@ -1,0 +1,192 @@
+{
+  "node": "v24.18.0",
+  "platform": "win32 10.0.26300",
+  "cpu": "Intel(R) Core(TM) i9-14900HX",
+  "cores": 32,
+  "results": [
+    {
+      "name": "quantum-safe-ts HybridKEM X25519+ML-KEM-768 keygen",
+      "opsPerSec": 4001.6006402557005,
+      "medianMs": 0.2499000000000251,
+      "p10Ms": 0.18739999999999668,
+      "p90Ms": 0.3038999999999987,
+      "samples": 2001
+    },
+    {
+      "name": "quantum-safe-ts HybridKEM encapsulate",
+      "opsPerSec": 2801.1204481795003,
+      "medianMs": 0.3569999999999709,
+      "p10Ms": 0.3000000000000682,
+      "p90Ms": 0.41830000000004475,
+      "samples": 2001
+    },
+    {
+      "name": "quantum-safe-ts HybridKEM decapsulate",
+      "opsPerSec": 2674.511901577613,
+      "medianMs": 0.37390000000004875,
+      "p10Ms": 0.2830999999998767,
+      "p90Ms": 0.4493999999999687,
+      "samples": 2001
+    },
+    {
+      "name": "quantum-safe-ts ML-KEM-768 keygen",
+      "opsPerSec": 4873.294346981478,
+      "medianMs": 0.20519999999987704,
+      "p10Ms": 0.15510000000040236,
+      "p90Ms": 0.24089999999978318,
+      "samples": 2001
+    },
+    {
+      "name": "quantum-safe-ts ML-KEM-768 encapsulate",
+      "opsPerSec": 4970.178926442053,
+      "medianMs": 0.20119999999997162,
+      "p10Ms": 0.15299999999979264,
+      "p90Ms": 0.26270000000022264,
+      "samples": 2001
+    },
+    {
+      "name": "quantum-safe-ts ML-KEM-768 decapsulate",
+      "opsPerSec": 726.5329845974462,
+      "medianMs": 1.3764000000001033,
+      "p10Ms": 0.26010000000042055,
+      "p90Ms": 1.6576000000000022,
+      "samples": 1322
+    },
+    {
+      "name": "noble ML-KEM-768 keygen",
+      "opsPerSec": 589.9705014750275,
+      "medianMs": 1.694999999999709,
+      "p10Ms": 1.1068000000004758,
+      "p90Ms": 2.1477999999997337,
+      "samples": 865
+    },
+    {
+      "name": "noble ML-KEM-768 encapsulate",
+      "opsPerSec": 474.0909306404798,
+      "medianMs": 2.1093000000000757,
+      "p10Ms": 1.884200000000419,
+      "p90Ms": 2.5845999999992273,
+      "samples": 689
+    },
+    {
+      "name": "noble ML-KEM-768 decapsulate",
+      "opsPerSec": 389.45359660402465,
+      "medianMs": 2.567699999999604,
+      "p10Ms": 2.15940000000046,
+      "p90Ms": 3.152900000000045,
+      "samples": 565
+    },
+    {
+      "name": "node WebCrypto ML-KEM-768 encapsulateBits (async)",
+      "opsPerSec": 3322.2591362184066,
+      "medianMs": 0.30099999999947613,
+      "p10Ms": 0.2176999999992404,
+      "p90Ms": 0.408900000000358,
+      "samples": 4490
+    },
+    {
+      "name": "node WebCrypto ML-KEM-768 decapsulateBits (async)",
+      "opsPerSec": 3127.932436659254,
+      "medianMs": 0.31970000000001164,
+      "p10Ms": 0.17000000000007276,
+      "p90Ms": 0.47450000000026193,
+      "samples": 4017
+    },
+    {
+      "name": "quantum-safe-ts Envelope.seal 1 KiB",
+      "opsPerSec": 401.3807497794056,
+      "medianMs": 2.4913999999989755,
+      "p10Ms": 1.385099999999511,
+      "p90Ms": 3.796699999998964,
+      "samples": 563
+    },
+    {
+      "name": "quantum-safe-ts Envelope.open 1 KiB",
+      "opsPerSec": 459.74897705844484,
+      "medianMs": 2.175100000000384,
+      "p10Ms": 1.8742999999994936,
+      "p90Ms": 2.8672999999998865,
+      "samples": 659
+    },
+    {
+      "name": "quantum-safe-ts Envelope.seal 1 MiB",
+      "opsPerSec": 12.499359407830331,
+      "medianMs": 80.00410000000011,
+      "p10Ms": 71.35089999999946,
+      "p90Ms": 97.60570000000007,
+      "samples": 19
+    },
+    {
+      "name": "quantum-safe-ts ML-DSA-65 keygen",
+      "opsPerSec": 137.4211546125956,
+      "medianMs": 7.276899999997113,
+      "p10Ms": 5.7127999999975145,
+      "p90Ms": 8.42109999999957,
+      "samples": 207
+    },
+    {
+      "name": "quantum-safe-ts ML-DSA-65 sign (256 B, hedged)",
+      "opsPerSec": 77.87676780264049,
+      "medianMs": 12.840799999998126,
+      "p10Ms": 6.90599999999904,
+      "p90Ms": 33.42450000000099,
+      "samples": 88
+    },
+    {
+      "name": "quantum-safe-ts ML-DSA-65 verify",
+      "opsPerSec": 250.47590421806572,
+      "medianMs": 3.9923999999991793,
+      "p10Ms": 3.643899999999121,
+      "p90Ms": 4.537000000000262,
+      "samples": 373
+    },
+    {
+      "name": "quantum-safe-ts Ed25519+ML-DSA-65 sign",
+      "opsPerSec": 76.34986562423087,
+      "medianMs": 13.097600000000966,
+      "p10Ms": 6.3747999999977765,
+      "p90Ms": 30.52270000000135,
+      "samples": 91
+    },
+    {
+      "name": "quantum-safe-ts Ed25519+ML-DSA-65 verify",
+      "opsPerSec": 219.19729948913437,
+      "medianMs": 4.562100000002829,
+      "p10Ms": 4.030699999999342,
+      "p90Ms": 5.212999999999738,
+      "samples": 328
+    },
+    {
+      "name": "noble ML-DSA-65 keygen",
+      "opsPerSec": 113.99388992752569,
+      "medianMs": 8.772399999998015,
+      "p10Ms": 7.665600000000268,
+      "p90Ms": 9.825600000000122,
+      "samples": 173
+    },
+    {
+      "name": "noble ML-DSA-65 sign (256 B)",
+      "opsPerSec": 27.79739038099278,
+      "medianMs": 35.974599999997736,
+      "p10Ms": 19.46060000000216,
+      "p90Ms": 71.2523000000001,
+      "samples": 37
+    },
+    {
+      "name": "noble ML-DSA-65 verify",
+      "opsPerSec": 110.58521696820473,
+      "medianMs": 9.04279999999926,
+      "p10Ms": 6.167999999997846,
+      "p90Ms": 10.454499999999825,
+      "samples": 173
+    },
+    {
+      "name": "quantum-safe-ts Argon2id (19 MiB, t=2, p=1)",
+      "opsPerSec": 8.005700058441606,
+      "medianMs": 124.91100000000006,
+      "p10Ms": 120.34820000000036,
+      "p90Ms": 132.0125999999982,
+      "samples": 7
+    }
+  ]
+}
