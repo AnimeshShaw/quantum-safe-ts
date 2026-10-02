@@ -3,3 +3,4 @@ dist/
 wasm/
 src/wasm-inline.generated.ts
 *.tgz
+.generated-docs/

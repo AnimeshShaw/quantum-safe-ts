@@ -99,6 +99,17 @@ const MODULES: Array<{ match: RegExp; rule?: string; inventory?: string; pq?: bo
 // Helpers
 // ----------------------------------------------------------------------------------------------
 
+/**
+ * Finding details echo literals from the scanned code (algorithm names, module specifiers). That code
+ * may be hostile, and reports are routinely pasted into LLM context (agents, MCP tools, PR bots), so a
+ * literal is a prompt-injection channel. Keep only short, identifier-like text; redact the rest.
+ */
+export function safeDetail(text: string | undefined): string | undefined {
+  if (text === undefined) return undefined;
+  if (text.length <= 64 && /^[A-Za-z0-9_.@/:+#\- ]*$/.test(text)) return text;
+  return '[redacted: not an identifier-like string]';
+}
+
 function literalText(node: ts.Node | undefined): string | undefined {
   if (!node) return undefined;
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
@@ -201,7 +212,10 @@ function suppressions(text: string): { fileWide: Set<string> | 'all' | null; lin
 function scanCode(file: string, code: string, lineOffset: number, kind: ts.ScriptKind, options: ScanOptions): Finding[] {
   const sf = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, kind);
   const pending: Pending[] = [];
-  const add = (ruleId: string, node: ts.Node, detail?: string) => pending.push({ ruleId, node, ...(detail !== undefined ? { detail } : {}) });
+  const add = (ruleId: string, node: ts.Node, detail?: string) => {
+    const safe = safeDetail(detail);
+    pending.push({ ruleId, node, ...(safe !== undefined ? { detail: safe } : {}) });
+  };
 
   const handleModule = (spec: string, node: ts.Node) => {
     for (const m of MODULES) {
@@ -500,8 +514,8 @@ function scanPackageJson(file: string, text: string): Finding[] {
         file,
         line: idx >= 0 ? idx + 1 : 1,
         column: 1,
-        message: `${rule.title} (${dep} in ${section})`,
-        detail: dep,
+        message: `${rule.title} (${safeDetail(dep)} in ${section})`,
+        detail: safeDetail(dep) ?? '',
       });
     }
   }
