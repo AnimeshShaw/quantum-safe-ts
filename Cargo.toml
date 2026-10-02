@@ -1,3 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/quantum-safe-core"]
+
+# Cryptographic crates are far too slow unoptimized (SLH-DSA especially).
+[profile.test]
+opt-level = 3
