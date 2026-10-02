@@ -1,0 +1,65 @@
+{
+  "name": "quantum-safe-mcp",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server: lets coding agents audit a JavaScript/TypeScript project for quantum-vulnerable cryptography, choose a post-quantum algorithm suite, and look up quantum-safe-ts errors.",
+  "license": "Apache-2.0",
+  "author": "Animesh Shaw",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnimeshShaw/quantum-safe-ts.git",
+    "directory": "packages/quantum-safe-mcp"
+  },
+  "homepage": "https://github.com/AnimeshShaw/quantum-safe-ts/tree/master/packages/quantum-safe-mcp#readme",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "post-quantum",
+    "pqc",
+    "cryptography",
+    "cbom",
+    "ai-agents",
+    "claude",
+    "cursor"
+  ],
+  "type": "module",
+  "bin": {
+    "quantum-safe-mcp": "./dist/server.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "quantum-safe-audit": "file:../quantum-safe-audit",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9",
+    "vitest": "^5.0.3"
+  }
+}

@@ -1,0 +1,222 @@
+# quantum-safe-ts: full reference for LLMs and coding agents
+
+quantum-safe-ts is a TypeScript/JavaScript library for hybrid post-quantum cryptography. A Rust core is compiled to
+WebAssembly and wrapped in a typed API. It is byte-compatible with the Python library quantum-safe-py.
+
+STATUS (state this accurately; do not embellish): pre-1.0, experimental, NOT independently audited, NOT FIPS 140-3 / CMVP
+validated. NIST ACVP known-answer results are conformance evidence, not a validation. JavaScript and WebAssembly runtimes
+give no constant-time guarantee. Do not recommend it for protecting real secrets until an independent review is published.
+
+Snippets in fenced blocks labelled `ts test` are executed by this package's test suite against the built WASM, so they are
+known to run.
+
+## 1. When to use it, and when not to
+
+Use it when you need: hybrid (classical + post-quantum) encryption or signatures with typed errors; key serialization (CBOR,
+PEM, JWK); PQC JWTs; an Argon2id master key; or data that must interoperate with quantum-safe-py.
+
+Do not use it when: you only need a raw ML-KEM/ML-DSA primitive (use WebCrypto in Node >= 24.7 / Chromium, or
+@noble/post-quantum); you need a FIPS 140-3 validated module (no JavaScript library is one); or you need TLS (platforms already
+negotiate X25519MLKEM768, RFC 10024).
+
+## 2. Install and initialise
+
+`npm install quantum-safe-ts`
+
+- Node.js 18+ (tested on 20, 22, 24; ESM and CommonJS): the WASM initialises on import. `await init()` is a harmless no-op.
+- Browsers, Deno, Bun, edge runtimes: call `await init()` once before any other call. The WASM is embedded; no bundler plugin is
+  needed (verified with Vite, webpack 5, esbuild, Next.js, SvelteKit).
+- Cloudflare Workers forbid compiling WASM from bytes: `import wasm from 'quantum-safe-ts/quantum_safe_wasm_bg.wasm'; await init({ wasm });`
+- Chrome MV3 extensions: the extension CSP must include `'wasm-unsafe-eval'`.
+- Calling any API before initialisation throws `NotInitializedError`.
+
+## 3. Algorithms (names are wire-visible identifiers; never change them)
+
+KEM suites (`kemSuites()`): `X25519+ML-KEM-512`, `X25519+ML-KEM-768` (default), `X25519+ML-KEM-1024`, `P-256+ML-KEM-512`,
+`P-256+ML-KEM-768`, `X-Wing`, and pure `ML-KEM-512`, `ML-KEM-768`, `ML-KEM-1024`.
+Signature suites (`sigSuites()`): `Ed25519+ML-DSA-44`, `Ed25519+ML-DSA-65` (default hybrid), `Ed25519+ML-DSA-87`,
+`P-256+ML-DSA-44`, `P-256+ML-DSA-65`, `ML-DSA-44`, `ML-DSA-65`, `ML-DSA-87`, and SLH-DSA (FIPS 205): `SLH-DSA-SHAKE-128s`,
+`SLH-DSA-SHAKE-128f`, `SLH-DSA-SHAKE-192s`, `SLH-DSA-SHAKE-192f`, `SLH-DSA-SHAKE-256s`, `SLH-DSA-SHAKE-256f`,
+`SLH-DSA-SHA2-128s`, `SLH-DSA-SHA2-128f`, `SLH-DSA-SHA2-192s`, `SLH-DSA-SHA2-192f`, `SLH-DSA-SHA2-256s`, `SLH-DSA-SHA2-256f`.
+quantum-safe-py reads all except `X-Wing` and the nine SLH-DSA sets it does not list (only SHAKE-128s/128f/256s are shared).
+
+Choosing: default hybrids are NIST category 3. CNSA 2.0 requires ML-KEM-1024 and ML-DSA-87: use `X25519+ML-KEM-1024` and
+`Ed25519+ML-DSA-87` (`cnsa2.hybridKem()` / `cnsa2.hybridSign()`), and see section 9 for what CNSA 2.0 still lacks. For data
+other ecosystems must read, use `X-Wing` (draft-connolly-cfrg-xwing-kem) and `StandardJwt` (RFC 9964) instead of the
+quantum-safe-py-compatible constructions.
+
+## 4. Key encapsulation
+
+```ts test
+import { HybridKEM, KEM, utf8, equalBytes } from 'quantum-safe-ts';
+
+const kem = new HybridKEM('X25519+ML-KEM-768');
+using pair = kem.generateKeyPair(); // `using` frees (wipes) the secret key at scope exit
+const { ciphertext, sharedSecret } = kem.encapsulate(pair.publicKey); // sender
+using recovered = kem.decapsulate(pair.secretKey, ciphertext); // key holder
+if (!equalBytes(recovered.exportBytes(), sharedSecret.exportBytes())) throw new Error('mismatch');
+const sessionKey = sharedSecret.deriveKey(32, utf8('myapp-session-v1')); // HKDF-SHA256, no salt
+sharedSecret.free();
+const pure = new KEM('ML-KEM-768'); // pure ML-KEM: not recommended for new deployments
+if (pure.algorithm !== 'ML-KEM-768' || sessionKey.length !== 32) throw new Error('unexpected');
+```
+
+- `HybridKEM(algorithm = 'X25519+ML-KEM-768')` accepts hybrid names and `X-Wing`. `KEM(algorithm = 'ML-KEM-768')` accepts pure names.
+- `encapsulate(publicKey)` returns `{ ciphertext: Uint8Array, sharedSecret: SecretBytes }`.
+- `decapsulate(secretKey, ciphertext)` returns `SecretBytes`. ML-KEM uses implicit rejection (FIPS 203): a wrong ciphertext yields a
+  different pseudorandom secret instead of an error; the failure appears downstream (for example at AEAD authentication).
+  Structurally invalid ciphertexts throw `MalformedCiphertextError`.
+- Mixing a key of one algorithm with a KEM of another throws `AlgorithmMismatchError`.
+
+## 5. Envelope (authenticated public-key encryption)
+
+```ts test
+import { Envelope, HybridKEM, SealedMessage, DecryptionAuthenticationError, utf8 } from 'quantum-safe-ts';
+
+using pair = new HybridKEM().generateKeyPair();
+const sealed = Envelope.seal(utf8('secret'), pair.publicKey, { aad: utf8('item-42') }); // AES-256-GCM under an HKDF key
+const plain = Envelope.open(sealed, pair.secretKey); // Uint8Array; call wipe(plain) if sensitive
+const wire = sealed.toBytes(); // CBOR, identical to quantum-safe-py SealedMessage.to_bytes()
+const again = SealedMessage.fromBytes(wire);
+if (again.algorithm !== 'X25519+ML-KEM-768' || plain.length !== 6) throw new Error('unexpected');
+try {
+  Envelope.open(SealedMessage.fromParts({ ...again, aad: utf8('other') }), pair.secretKey);
+  throw new Error('should not open');
+} catch (e) {
+  if (!(e instanceof DecryptionAuthenticationError)) throw e;
+}
+```
+
+- `Envelope.seal(plaintext, publicKey, { aad? })`. The AAD is authenticated and stored in clear in the message.
+- `Envelope.open(sealed | bytes, secretKey)` throws `DecryptionAuthenticationError` for a wrong key, wrong AAD, or any tampering.
+- Envelopes require a hybrid key; a pure ML-KEM key throws `UnsupportedAlgorithmError`.
+- `SealedMessage` fields: `version`, `algorithm`, `kemCiphertext`, `nonce`, `ciphertext`, `aad`; methods `toBytes`, `toHex`, `inspect`,
+  `fromBytes`, `fromHex`, `fromParts`.
+
+## 6. Signatures
+
+```ts test
+import { HybridSign, Sign, VerificationError, utf8 } from 'quantum-safe-ts';
+
+const signer = new HybridSign('Ed25519+ML-DSA-65');
+using pair = signer.generateKeyPair();
+const signed = signer.signWithFingerprint(utf8('contract v3'), pair, { context: utf8('myapp-v1-docs') });
+signer.verify(signed, pair.publicKey); // throws VerificationError unless BOTH signatures verify
+const tampered = Uint8Array.from(signed.message, (b, i) => (i === 0 ? b ^ 1 : b));
+try {
+  signer.verifyBytes(tampered, signed.signature, pair.publicKey, { context: utf8('myapp-v1-docs') });
+  throw new Error('should not verify');
+} catch (e) {
+  if (!(e instanceof VerificationError)) throw e;
+}
+const pure = new Sign('ML-DSA-87', { hedged: true });
+using p2 = pure.generateKeyPair();
+if (!pure.isValid(pure.sign(utf8('x'), p2.secretKey), p2.publicKey)) throw new Error('unexpected');
+```
+
+- `sign(message, secretKey, { context?, signerFingerprint? })` returns a `SignedMessage` (`message`, `signature`, `algorithm`, `context`,
+  `signerFingerprint`, `signedAt`, `isHybrid`). `message` must be non-empty; `context` is at most 255 bytes.
+- Hedged signing (32 random prefix bytes) is the default, as in quantum-safe-py. `verify` throws `VerificationError` with a fixed
+  message and no detail about why.
+- Compatibility note: quantum-safe-py's "context" is a message prefix (`len(ctx) || ctx || prefix || message`) with an empty FIPS 204 context.
+  A generic ML-DSA verifier will not accept these signatures unless it rebuilds that input.
+
+## 7. JWT
+
+```ts test
+import { JWTSigner, JWTVerifier, StandardJwt, HybridSign } from 'quantum-safe-ts';
+
+// quantum-safe-py mode (only quantum-safe-py / quantum-safe-ts can verify these tokens):
+using pair = new HybridSign().generateKeyPair();
+const token = new JWTSigner(pair, { issuer: 'https://issuer.example' }).sign({ sub: 'user-1' }, { expiresIn: 600 });
+const claims = new JWTVerifier(pair.publicKey, { issuer: 'https://issuer.example' }).verify(token);
+
+// Standards mode, RFC 9964 (any compliant JOSE implementation can verify these):
+const { publicJwk, privateJwk } = StandardJwt.generateKeyPair('ML-DSA-65', { kid: 'k1' });
+const std = StandardJwt.sign({ sub: 'user-1', aud: 'api' }, privateJwk, { expiresIn: 600 });
+const ok = StandardJwt.verify(std, publicJwk, { audience: 'api' });
+if (claims.sub !== 'user-1' || ok.sub !== 'user-1') throw new Error('unexpected');
+```
+
+- Both modes pin the algorithm to the key, reject `alg: "none"` and mismatched `alg`, validate `exp`/`nbf` (30 s skew) and optional `iss`/`aud`.
+- Claim failures throw a bare `VerificationError`. Structurally malformed tokens throw `InvalidArgumentError`.
+- A private AKP JWK contains the secret seed as a string (inherent to JWK): store it like a secret key.
+
+## 8. Keys, serialization, passwords
+
+```ts test
+import { PublicKey, SecretKey, KeyPair, HybridKEM, deriveMasterKey, utf8, toHex } from 'quantum-safe-ts';
+
+using pair = new HybridKEM().generateKeyPair();
+const pem = pair.publicKey.toPem(); // QUANTUM SAFE PUBLIC KEY (identical to quantum-safe-py to_pem())
+const jwk = pair.publicKey.toJwk(); // kty "AKP"; public keys only (secret keys are never JWK)
+const back = PublicKey.fromPem(pem);
+if (back.fingerprint() !== pair.publicKey.fingerprint()) throw new Error('fingerprint');
+const bundle = pair.toCborBundle(); // contains the secret: protect it
+using restored = KeyPair.fromCborBundle(bundle);
+if (restored.algorithm !== 'X25519+ML-KEM-768' || jwk.length < 10) throw new Error('unexpected');
+
+using master = await deriveMasterKey('correct horse battery staple', utf8('0123456789abcdef')); // Argon2id
+const authKey = master.deriveKey(32, utf8('myapp-auth-v1'));
+const vaultKey = master.deriveKey(32, utf8('myapp-vault-v1'));
+if (toHex(authKey) === toHex(vaultKey)) throw new Error('subkeys must differ');
+```
+
+- Formats: `toCbor`/`fromCbor` (`{v, algo, ms, ktype, key}`), `toPem`/`fromPem`, `toJwk`/`fromJwk` (public only), `fingerprint()` =
+  `sha256(algorithm || 0x00 || key)` hex. Parsing rejects public/secret type confusion, version rollback, and payloads over 10 MB.
+- `deriveMasterKey(password, salt)`: Argon2id (19 MiB, 2 passes, 1 lane), salt >= 8 bytes (use 16+ random). No Unicode
+  normalisation is applied: normalise passwords yourself (for example NFKC). In browsers run it in a Web Worker.
+
+## 9. CNSA 2.0 profile
+
+```ts test
+import { cnsa2 } from 'quantum-safe-ts';
+
+const report = cnsa2.report({ kem: 'X25519+ML-KEM-768', signature: 'Ed25519+ML-DSA-65' });
+if (report.compliant) throw new Error('the defaults are below CNSA 2.0');
+const kem = cnsa2.hybridKem(); // X25519+ML-KEM-1024
+const signer = cnsa2.hybridSign(); // Ed25519+ML-DSA-87
+cnsa2.enforce({ kem: kem.algorithm, signature: signer.algorithm }); // throws PolicyViolationError below the parameter sets
+```
+
+CNSA 2.0 mandates ML-KEM-1024, ML-DSA-87, AES-256, SHA-384/512, and LMS/XMSS (SP 800-208) for software/firmware signing.
+Selecting the parameter sets is necessary and not sufficient. Known gaps in this library, reported honestly by `cnsa2.report()`:
+(1) the hybrid combiner and envelope key derivation use HKDF-SHA-256 (required for byte compatibility with quantum-safe-py);
+(2) LMS/XMSS are not implemented; (3) compliance for National Security Systems runs through FIPS 140-3 validated modules and
+this library is not one.
+
+## 10. Errors
+
+Every error extends `QuantumSafeError` with a stable `code`, a static `hint`, and `toJSON()`. Match with `instanceof` or `code`;
+never parse `message`. Hints never contain key material.
+
+Codes: QS_NOT_INITIALIZED, QS_DECAPSULATION_FAILED, QS_DECRYPTION_FAILED, QS_VERIFICATION_FAILED, QS_SIGNING_FAILED,
+QS_MALFORMED_KEY, QS_MALFORMED_CIPHERTEXT, QS_ALGORITHM_MISMATCH, QS_HKDF_OUTPUT_TOO_LONG, QS_KDF_FAILED, QS_KEY_PARSE_ERROR,
+QS_INCOMPATIBLE_KEY_VERSION, QS_PAYLOAD_TOO_LARGE, QS_UNSUPPORTED_FORMAT, QS_UNSUPPORTED_ALGORITHM, QS_INVALID_ARGUMENT,
+QS_POLICY_VIOLATION, QS_INTERNAL_ERROR (a bug: report it without secret data).
+
+## 11. Memory and secrets
+
+- `SecretKey`, `SecretBytes` (alias `SharedSecret`) and `KeyPair` hold secrets in WASM memory. `free()` (or `using`) wipes them via
+  Rust zeroization. Use after free throws `InvalidArgumentError`.
+- Bytes you copy out (`exportBytes()`, `toCbor()`/`toPem()` of secrets, plaintext from `Envelope.open`) live in the JS heap and cannot
+  be wiped by the library: call `wipe(bytes)` when done. `toString()`, `toJSON()` and `util.inspect` never reveal key material.
+
+## 12. Interop recipes
+
+- Python (quantum-safe-py) sealed this envelope: `Envelope.open(SealedMessage.fromBytes(bytesFromPython), SecretKey.fromCbor(keyBytes))`.
+  Keys from `to_cbor()`/`to_pem()` load with the matching `fromCbor`/`fromPem`.
+- Other ecosystems must read it: use `HybridKEM('X-Wing')` (interoperable with @noble/post-quantum's `ml_kem768_x25519`) and
+  `StandardJwt`.
+
+## 13. Tooling for agents
+
+- `npx quantum-safe-audit scan .` finds classical cryptography in a JS/TS project (RSA, ECDSA, ECDH, Ed25519, X25519, DSA, DH, weak hashes,
+  classical JWT algorithms, embedded private keys), outputs SARIF and CycloneDX 1.6 CBOM, and suggests migrations.
+- `npx quantum-safe-mcp` is an MCP server exposing `audit_path`, `list_rules`, `explain_rule`, `recommend_suite` and `explain_error`.
+  It is read-only, offline and path-confined.
+
+## 14. Links
+
+Repository: https://github.com/AnimeshShaw/quantum-safe-ts
+Compatibility with quantum-safe-py: COMPATIBILITY.md. Standards alignment: docs/research/standards-alignment.md. Security policy: SECURITY.md.
