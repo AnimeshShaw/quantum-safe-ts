@@ -1,0 +1,5 @@
+node_modules/
+dist/
+wasm/
+src/wasm-inline.generated.ts
+*.tgz

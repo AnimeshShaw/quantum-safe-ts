@@ -1,0 +1,86 @@
+{
+  "name": "quantum-safe-ts",
+  "version": "0.1.0",
+  "description": "Hybrid post-quantum cryptography for TypeScript and JavaScript: ML-KEM, ML-DSA, SLH-DSA, hybrid envelopes and signatures. Rust core compiled to WASM, wire-compatible with quantum-safe-py.",
+  "license": "Apache-2.0",
+  "author": "Animesh Shaw",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnimeshShaw/quantum-safe-ts.git",
+    "directory": "packages/quantum-safe-ts"
+  },
+  "homepage": "https://github.com/AnimeshShaw/quantum-safe-ts#readme",
+  "bugs": "https://github.com/AnimeshShaw/quantum-safe-ts/issues",
+  "keywords": [
+    "post-quantum",
+    "pqc",
+    "quantum-safe",
+    "ml-kem",
+    "ml-dsa",
+    "slh-dsa",
+    "kyber",
+    "dilithium",
+    "hybrid",
+    "x25519",
+    "cnsa-2.0",
+    "fips-203",
+    "fips-204",
+    "fips-205",
+    "wasm",
+    "encryption",
+    "typescript"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "node": {
+        "import": {
+          "types": "./dist/node.d.ts",
+          "default": "./dist/node.js"
+        },
+        "require": {
+          "types": "./dist/node.d.cts",
+          "default": "./dist/node.cjs"
+        }
+      },
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "llms.txt",
+    "llms-full.txt",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "build": "node scripts/build-wasm.mjs && tsup && node scripts/postbuild.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@noble/post-quantum": "^0.7.1",
+    "@types/node": "^26.6.4",
+    "fast-check": "^4.10.2",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9",
+    "vitest": "^5.0.3"
+  }
+}

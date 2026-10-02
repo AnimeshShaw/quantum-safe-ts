@@ -351,6 +351,48 @@ macro_rules! mldsa_level {
                 };
                 Ok(vk.verify_with_context(msg, &[], &sig))
             }
+
+            // --- standards mode (FIPS 204 / RFC 9964): seed keys, native context, no prefix ---
+
+            pub fn std_keygen() -> (Zeroizing<Vec<u8>>, Vec<u8>) {
+                let mut seed = Zeroizing::new([0u8; 32]);
+                getrandom::fill(&mut seed[..]).expect("OS RNG must be available");
+                let pk = std_public(&seed[..]).expect("a 32-byte seed is always valid");
+                (Zeroizing::new(seed.to_vec()), pk)
+            }
+
+            pub fn std_public(seed: &[u8]) -> Result<Vec<u8>, SigError> {
+                let seed: [u8; 32] = seed.try_into().map_err(|_| SigError::MalformedKey)?;
+                let esk = ExpandedSigningKey::<$ty>::from_seed(&ml_dsa::Seed::from(seed));
+                Ok(esk.verifying_key().encode().as_slice().to_vec())
+            }
+
+            pub fn std_sign(seed: &[u8], msg: &[u8], ctx: &[u8]) -> Result<Vec<u8>, SigError> {
+                if ctx.len() > MAX_CONTEXT_LEN {
+                    return Err(SigError::ContextTooLong(ctx.len()));
+                }
+                let seed: [u8; 32] = seed.try_into().map_err(|_| SigError::MalformedKey)?;
+                let esk = ExpandedSigningKey::<$ty>::from_seed(&ml_dsa::Seed::from(seed));
+                let mut rnd = Zeroizing::new([0u8; 32]);
+                getrandom::fill(&mut rnd[..]).map_err(|_| SigError::SigningFailed)?;
+                // M' = 0x00 || len(ctx) || ctx || M  (FIPS 204 Algorithm 2)
+                let prefix: Vec<u8> = [&[0u8, ctx.len() as u8][..], ctx].concat();
+                let sig = esk.sign_internal(&[&prefix, msg], &ml_dsa::B32::from(*rnd));
+                Ok(sig.encode().as_slice().to_vec())
+            }
+
+            pub fn std_verify(pk: &[u8], msg: &[u8], ctx: &[u8], sig: &[u8]) -> Result<bool, SigError> {
+                let enc =
+                    ml_dsa::EncodedVerifyingKey::<$ty>::try_from(pk).map_err(|_| SigError::MalformedKey)?;
+                let vk = VerifyingKey::<$ty>::decode(&enc);
+                let Ok(sig) = Signature::<$ty>::try_from(sig) else {
+                    return Ok(false);
+                };
+                if ctx.len() > MAX_CONTEXT_LEN {
+                    return Ok(false);
+                }
+                Ok(vk.verify_with_context(msg, ctx, &sig))
+            }
         }
     };
 }
@@ -911,6 +953,51 @@ pub fn verify(signed: &SignedMessage, public: &PublicKey) -> Result<(), SigError
     )
 }
 
+/// Standards-mode ML-DSA (FIPS 204 pure signing with the native context parameter, keys as
+/// 32-byte seeds). This is the construction RFC 9964 (ML-DSA for JOSE/COSE) uses, and is what any
+/// third-party ML-DSA library verifies. It is **not** the quantum-safe-py construction above.
+pub mod standard {
+    use super::*;
+
+    pub fn keygen(level: MlDsaLevel) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
+        match level {
+            MlDsaLevel::L44 => mldsa44::std_keygen(),
+            MlDsaLevel::L65 => mldsa65::std_keygen(),
+            MlDsaLevel::L87 => mldsa87::std_keygen(),
+        }
+    }
+
+    pub fn public_from_seed(level: MlDsaLevel, seed: &[u8]) -> Result<Vec<u8>, SigError> {
+        match level {
+            MlDsaLevel::L44 => mldsa44::std_public(seed),
+            MlDsaLevel::L65 => mldsa65::std_public(seed),
+            MlDsaLevel::L87 => mldsa87::std_public(seed),
+        }
+    }
+
+    pub fn sign(level: MlDsaLevel, seed: &[u8], msg: &[u8], ctx: &[u8]) -> Result<Vec<u8>, SigError> {
+        match level {
+            MlDsaLevel::L44 => mldsa44::std_sign(seed, msg, ctx),
+            MlDsaLevel::L65 => mldsa65::std_sign(seed, msg, ctx),
+            MlDsaLevel::L87 => mldsa87::std_sign(seed, msg, ctx),
+        }
+    }
+
+    pub fn verify(level: MlDsaLevel, pk: &[u8], msg: &[u8], ctx: &[u8], sig: &[u8]) -> Result<bool, SigError> {
+        if pk.len() != level.sizes().0 {
+            return Err(SigError::MalformedKey);
+        }
+        if sig.len() != level.sizes().2 {
+            return Ok(false);
+        }
+        match level {
+            MlDsaLevel::L44 => mldsa44::std_verify(pk, msg, ctx, sig),
+            MlDsaLevel::L65 => mldsa65::std_verify(pk, msg, ctx, sig),
+            MlDsaLevel::L87 => mldsa87::std_verify(pk, msg, ctx, sig),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1072,5 +1159,21 @@ mod tests {
         let mut bad = sm.clone();
         bad.signature[0] = 255;
         assert!(verify(&bad, &kp.public).is_err());
+    }
+
+    #[test]
+    fn standard_mode_roundtrips_and_binds_context() {
+        for l in [MlDsaLevel::L44, MlDsaLevel::L65, MlDsaLevel::L87] {
+            let (seed, pk) = standard::keygen(l);
+            assert_eq!(pk.len(), l.sizes().0);
+            assert_eq!(standard::public_from_seed(l, &seed).unwrap(), pk);
+            let sig = standard::sign(l, &seed, b"jws input", b"").unwrap();
+            assert_eq!(sig.len(), l.sizes().2);
+            assert!(standard::verify(l, &pk, b"jws input", b"", &sig).unwrap());
+            assert!(!standard::verify(l, &pk, b"jws input!", b"", &sig).unwrap());
+            assert!(!standard::verify(l, &pk, b"jws input", b"ctx", &sig).unwrap());
+            let sig2 = standard::sign(l, &seed, b"jws input", b"ctx").unwrap();
+            assert!(standard::verify(l, &pk, b"jws input", b"ctx", &sig2).unwrap());
+        }
     }
 }
