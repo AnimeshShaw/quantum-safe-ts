@@ -1,0 +1,102 @@
+name: 'Quantum-safe audit'
+description: 'Find classical (quantum-vulnerable) cryptography in JavaScript and TypeScript code. SARIF for GitHub code scanning, optional CycloneDX CBOM, optional CNSA 2.0 hash gaps.'
+author: 'Animesh Shaw'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  path:
+    description: 'Directory to scan, relative to the workspace.'
+    default: '.'
+  fail-on:
+    description: 'Fail the job at or above this severity: critical, high, medium, low, info or none.'
+    default: 'high'
+  format:
+    description: 'Report format: sarif, json, text or cbom.'
+    default: 'sarif'
+  output:
+    description: 'Report file, relative to the workspace.'
+    default: 'quantum-safe-audit.sarif'
+  upload-sarif:
+    description: 'Upload the SARIF report to GitHub code scanning (needs `security-events: write`, and code scanning to be available for the repository).'
+    default: 'false'
+  cbom:
+    description: 'Also write a CycloneDX 1.6 CBOM to quantum-safe-cbom.json.'
+    default: 'false'
+  cnsa2:
+    description: 'Also report CNSA 2.0 hash gaps (SHA-256).'
+    default: 'false'
+  policy:
+    description: 'Path to a JSON policy file (failOn, ignoreRules, exclude, cnsa2).'
+    default: ''
+  exclude:
+    description: 'Newline-separated glob patterns to exclude.'
+    default: ''
+  allow-incomplete:
+    description: 'Do not fail when files were skipped or could not be analysed, or nothing was scanned. Default false: an incomplete scan is an error, never a pass.'
+    default: 'false'
+  inline-ignores:
+    description: 'Honour // qs-audit-ignore comments in the scanned code. Default false: in a CI gate a pull request could otherwise add one to pass its own check. Use the policy input (from a trusted ref) for sanctioned exceptions.'
+    default: 'false'
+  version:
+    description: 'quantum-safe-audit version to run from npm. Defaults to the version this action release was made with; pin your own exact version in production, or use latest at your own risk.'
+    default: '0.1.0'
+  package-path:
+    description: 'Run a locally built copy of the audit package instead of npm (for this repository CI and monorepos).'
+    default: ''
+  node-version:
+    description: 'Node.js version used to run the audit.'
+    default: '22'
+
+outputs:
+  exit-code:
+    description: 'Exit code of the scan: 0 ok, 1 findings at or above fail-on, 2 error.'
+    value: ${{ steps.scan.outputs.exit-code }}
+  findings:
+    description: 'Total number of findings (all severities).'
+    value: ${{ steps.scan.outputs.findings }}
+  report-file:
+    description: 'Path of the written report.'
+    value: ${{ steps.scan.outputs.report-file }}
+  cbom-file:
+    description: 'Path of the CBOM, when cbom is true.'
+    value: ${{ steps.scan.outputs.cbom-file }}
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - id: scan
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/action/run.sh"
+      env:
+        QS_PATH: ${{ inputs.path }}
+        QS_FAIL_ON: ${{ inputs.fail-on }}
+        QS_FORMAT: ${{ inputs.format }}
+        QS_OUTPUT: ${{ inputs.output }}
+        QS_CBOM: ${{ inputs.cbom }}
+        QS_CNSA2: ${{ inputs.cnsa2 }}
+        QS_POLICY: ${{ inputs.policy }}
+        QS_EXCLUDE: ${{ inputs.exclude }}
+        QS_ALLOW_INCOMPLETE: ${{ inputs.allow-incomplete }}
+        QS_INLINE_IGNORES: ${{ inputs.inline-ignores }}
+        QS_VERSION: ${{ inputs.version }}
+        QS_PACKAGE_PATH: ${{ inputs.package-path }}
+
+    - if: ${{ always() && inputs.upload-sarif == 'true' && inputs.format == 'sarif' && (steps.scan.outputs.exit-code == '0' || steps.scan.outputs.exit-code == '1') }}
+      uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
+      with:
+        sarif_file: ${{ inputs.output }}
+        category: quantum-safe-audit
+
+    # Fail closed: a missing exit-code output (the scan step could not report) fails the job (70) instead of skipping the gate.
+    - if: ${{ steps.scan.outcome == 'success' }}
+      shell: bash
+      run: |
+        if [ "${QS_EXIT:-}" != "0" ]; then exit "${QS_EXIT:-70}"; fi
+      env:
+        QS_EXIT: ${{ steps.scan.outputs.exit-code }}

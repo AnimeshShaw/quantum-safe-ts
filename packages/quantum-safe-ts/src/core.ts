@@ -34,8 +34,11 @@ export type {
   StandardVerifyOptions,
 } from './jwt.js';
 export * as cnsa2 from './cnsa2.js';
+export * as easy from './easy.js';
+export type { EasyKeyPair } from './easy.js';
 export { toHex, fromHex, utf8, wipe, equalBytes, toBase64Url, fromBase64Url } from './utils.js';
-export { Upgrader, MigrationStateManager, MemoryMigrationStore } from './migrate.js';
+export { Upgrader, MigrationStateManager, MemoryMigrationStore, MIGRATION_DOC_PREFIX } from './migrate.js';
+export { exportToPyStore, importFromPyStore, recordFromPyBytes, recordToPyBytes } from './migrate-interop.js';
 export type {
   UpgradeResult,
   UpgradeKemKeyInput,

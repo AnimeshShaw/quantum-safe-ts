@@ -7,8 +7,10 @@ Conformance tests against NIST ACVP vectors are evidence of correctness, not a v
 third-party review is published and this notice is removed. The upstream RustCrypto crates it builds on (`ml-kem`, `ml-dsa`, `slh-dsa`,
 `x-wing`) also state that they have not been independently audited.
 
-JavaScript and WebAssembly runtimes give **no constant-time guarantee**. Secret-bearing objects are wiped on the WASM side with `.free()`, but any
-copy extracted into the JavaScript heap is outside this library's control.
+JavaScript and WebAssembly runtimes give **no constant-time guarantee**. The owned buffers of secret-bearing objects are zeroized on the WASM side by `.free()`, but that is not a promise that no copy remains: the
+buffers wasm-bindgen uses to pass arguments in, and intermediate values created while parsing or serialising a key (CBOR, PEM), are not all wiped, and a
+review found residual copies in WASM linear memory after `.free()`. Any copy extracted into the JavaScript heap is outside this library's control. Treat memory
+as not reliably scrubbed.
 
 ## Reporting a vulnerability
 
@@ -38,14 +40,34 @@ Only the latest released minor version receives fixes while the project is pre-1
 | Adversary | Capability | What the library does about it |
 |---|---|---|
 | Harvest-now-decrypt-later quantum adversary | Records ciphertext today, breaks classical public-key crypto later | Hybrid (classical + ML-KEM) and pure ML-KEM-1024 envelopes; the audit tool finds classical crypto to migrate |
-| Network attacker / malicious input supplier | Controls ciphertexts, sealed messages, keys, signatures, JWTs, CBOR/PEM/JWK, PEM files | Every parser fails closed with a typed error (never panics; mutation tests + cargo-fuzz); 10 MB payload cap; type-confusion and version-rollback rejection; AEAD authenticates version, algorithm and AAD; JWT algorithm is pinned to the key; no `alg: none` |
-| Curious JS code in the same page/process | Reads JS-heap memory, logs objects | Secrets stay in WASM memory behind opaque objects; `toString`/`toJSON`/`util.inspect` never reveal them; errors and hints never contain key material |
-| Hostile repository scanned by the audit tool/MCP server | Embeds prompt-injection text or malformed files | Reports contain only short identifier-like details (other literals are redacted); MCP server is read-only, offline, and path-confined (symlink-safe) |
+| Network attacker / malicious input supplier | Controls ciphertexts, sealed messages, keys, signatures, JWTs, CBOR/PEM/JWK, PEM files | Every parser fails closed with a typed error (never panics; mutation tests + cargo-fuzz); keys, signed messages and sealed messages are capped at 10 MB and shape-checked before decoding (flat, definite-length, no duplicate keys, no trailing bytes, bounded entry counts); type-confusion and version-rollback rejection; AEAD authenticates version, algorithm and AAD; JWT algorithm is pinned to the key; no `alg: none`; JWT signatures have one accepted spelling |
+| Curious JS code in the same page/process | Reads JS-heap memory, logs objects | Secrets are held in WASM memory behind opaque objects (see the zeroization caveat above); `toString`/`toJSON`/`util.inspect` never reveal them; errors and hints never contain key material |
+| Hostile repository scanned by the audit tool/MCP server | Embeds prompt-injection text or malformed files | Reports contain only short identifier-like details (other literals are redacted); the MCP server is read-only, offline and path-confined (symlink-safe), and limits the character set and length of file names and errors it echoes (it cannot make arbitrary words safe: file names are untrusted data) |
 | Supply-chain attacker | Compromises a dependency or build | Pinned `Cargo.lock`, `cargo-deny`, `npm audit` in CI, provenance-capable release workflow, no install scripts in the shipped packages |
+
+**Constructions inherited from quantum-safe-py, and what this library does about their weaknesses**
+
+- *Signature prefix/message boundary.* The signed bytes are `len(ctx) || ctx || prefix || message`, and the prefix length is stored in the **unsigned** signature blob. A verifier that
+  accepted any prefix length would let anyone move bytes between the prefix and the message of a valid signature and obtain a valid signature on a suffix or a prefixed version of the
+  signed message, from public data alone. (A review demonstrated this against the permissive verifier.) The TypeScript verifiers
+  therefore **pin the prefix length to the verifier's hedging mode**: exactly 32 bytes when `hedged` is true (the default), exactly 0 when it is false. To verify signatures made with hedging disabled,
+  construct the verifier with `{ hedged: false }`. The bytes on the wire are unchanged. The Rust core's own `verify` is still permissive; use it only through the TypeScript layer or enforce the same rule.
+  A future, additive suite that length-prefixes the prefix would remove the ambiguity for good.
+- *Do not use one signing key in both hedged and unhedged mode.* The prefix pin removes the forgery for a key used in one mode. A key whose owner signs both hedged and unhedged messages
+  has two prefix lengths in circulation, and a verifier for either mode accepts the other's signatures on shifted message splits; the only complete fix is a new additive suite that length-prefixes the prefix (open decision for the maintainer).
+  Pick one mode per key (hedged, the default) and never verify with both.
+- *Hybrid signature halves are unbound.* In `Ed25519+ML-DSA-*`, each half is an ordinary signature over the same input and neither commits to the other half. A verifier requires both, so forging one half does not help, but
+  a classical half and a post-quantum half taken from two different signatures on the same message by the same key pair can be recombined; this changes the signature bytes, not the signed message (see malleability).
+- *Key parsing is stricter than quantum-safe-py.* `ktype` must be present, a public key must have the exact length for its algorithm, a JWK must have `kty: "AKP"`, a hybrid signature has exactly four entries, CBOR integers are in shortest form. Anything py writes still loads.
+- *Context.* A verifier must be told which context it expects (`expectedContext`, default empty); reading it from the message would let an attacker choose it. The `easy` layer does this.
+- *Envelopes are anonymous.* Anyone holding the recipient's public key can seal a message with any AAD. The AAD detects tampering; it binds a message to a context only when the opener passes
+  `expectedAad`. Sign separately for sender authentication.
+- *Malleability.* Valid signatures and tokens can have more than one encoding in places (extra entries in a hybrid signature payload, the high-S twin of a P-256 signature). JWT signature text has one spelling.
+  Do not use signature bytes or token text as a unique identifier or replay key; use an identifier inside the signed data.
 
 **Explicitly not defended against**
 
-- Side channels: no constant-time guarantee in JS/WASM; ML-DSA rejection sampling leaks by design; browsers and JITs add noise and leakage.
+- Side channels: no constant-time guarantee in JS/WASM; ML-DSA signing time varies with the number of rejection-sampling iterations (by design not secret-dependent, but it makes timing screens noisy); browsers and JITs add noise and leakage. A timing-leakage *screen* (`bench/leakage.mjs`, results in `results/`) reports what it did and did not detect on one machine and runtime; it is not a proof.
 - Memory disclosure of the JS heap, swap, core dumps, browser extensions with page access, or a compromised runtime.
 - Fault attacks (hedged signing mitigates some lattice fault attacks; it is not a general defence).
 - Weak passwords: Argon2id slows guessing; it cannot rescue a guessable password. No Unicode normalisation is applied (documented).
@@ -53,12 +75,15 @@ Only the latest released minor version receives fixes while the project is pre-1
 - Compliance: nothing here makes a system CNSA 2.0, FIPS 140-3, or any other certification compliant.
 
 **Residual risks to weigh before any production use:** no independent audit; unaudited upstream crates; novel combination of constructions
-(compatible with quantum-safe-py, but neither library's custom hybrid combiner has been reviewed against NIST SP 800-227 §5.5.2).
+(compatible with quantum-safe-py, but neither library's custom hybrid combiner has been reviewed against NIST SP 800-227's key-combiner guidance).
 
 ## Defences verified by tests in this repository
 
-- Malformed or hostile bytes never panic any parser (mutation fuzzing in `crates/quantum-safe-core/tests/robustness.rs`, six cargo-fuzz targets,
+- Malformed or hostile bytes never panic any parser (mutation fuzzing in `crates/quantum-safe-core/tests/robustness.rs`, seven cargo-fuzz targets (including LMS),
   property tests in the TypeScript suite). A guard validates packed ML-DSA secret keys before decoding because the upstream decoder can panic.
 - Use-after-free, double-free, and secret redaction behaviour (`behavior.test.ts`).
 - X25519 low-order points are rejected; ML-KEM implicit rejection is documented and tested.
 - Version relabelling between envelope profiles fails; every authenticated field is tamper-tested.
+- A timing-leakage screen with null controls, a random-versus-random control, a public-key calibration and a deliberately leaky harness check (`bench/leakage.mjs`).
+- A reproducible-build check for the WebAssembly artifact (`scripts/repro-check.mjs`), a pinned Rust toolchain, and a CycloneDX SBOM and CBOM of the library (`scripts/generate-sboms.mjs`).
+- The migration state manager's cross-process behaviour is tested with real concurrent child processes (exactly one writer wins a race). `FileMigrationStore` locks carry an owner token, are kept fresh by a heartbeat, and are re-checked before each write; a process frozen for longer than `staleLockMs` can still lose its lock, in which case it fails instead of writing.

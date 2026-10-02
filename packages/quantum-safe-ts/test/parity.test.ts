@@ -16,6 +16,7 @@ import {
   SecretKey,
   Sign,
   SignedMessage,
+  VerificationError,
   toHex,
   utf8,
 } from '../src/core.js';
@@ -92,9 +93,10 @@ describe('Key serialization is byte-identical to quantum-safe-py', () => {
 describe('Signatures: every quantum-safe-py signature verifies', () => {
   for (const s of V.signatures) {
     const label = `${s.algorithm} hedged=${s.hedged}`;
+    // The verifier must know the signer's hedging mode (see HybridSign.hedged): py's hedged=False signatures need a hedged:false verifier.
     const signer = s.algorithm.includes('+')
-      ? new HybridSign(s.algorithm as never)
-      : new Sign(s.algorithm as never);
+      ? new HybridSign(s.algorithm as never, { hedged: s.hedged })
+      : new Sign(s.algorithm as never, { hedged: s.hedged });
     it(label, () => {
       using pub = PublicKey.fromBytes(s.algorithm, h(s.public_key));
       const sm = SignedMessage.fromCbor(h(s.signed_message));
@@ -102,7 +104,10 @@ describe('Signatures: every quantum-safe-py signature verifies', () => {
       expect(toHex(sm.context)).toBe(s.context);
       expect(toHex(sm.signature)).toBe(s.signature_blob);
       expect(sm.signature[0] === 32).toBe(s.hedged);
-      signer.verify(sm, pub);
+      signer.verify(sm, pub, { expectedContext: h(s.context) });
+      // A verifier with the wrong hedging mode must refuse it (prefix-length confusion is how signatures get forged).
+      const wrongMode = s.algorithm.includes('+') ? new HybridSign(s.algorithm as never, { hedged: !s.hedged }) : new Sign(s.algorithm as never, { hedged: !s.hedged });
+      expect(() => wrongMode.verify(sm, pub, { expectedContext: h(s.context) })).toThrow(VerificationError);
       // Negative control: a flipped message byte must fail.
       const bad = SignedMessage.fromParts({
         message: Uint8Array.from(sm.message, (b, i) => (i === 0 ? b ^ 1 : b)),
@@ -111,13 +116,13 @@ describe('Signatures: every quantum-safe-py signature verifies', () => {
         context: sm.context,
         isHybrid: sm.isHybrid,
       });
-      expect(() => signer.verify(bad, pub)).toThrowError(/verification/i);
+      expect(() => signer.verify(bad, pub, { expectedContext: h(s.context) })).toThrowError(/verification/i);
     });
     it(`${label}: a python secret key signs messages that verify here`, () => {
       using sec = SecretKey.fromBytes(s.algorithm, h(s.secret_key));
       using pub = PublicKey.fromBytes(s.algorithm, h(s.public_key));
       const sm = signer.sign(utf8('signed by ts with a py key'), sec, { context: utf8('c') });
-      signer.verify(sm, pub);
+      signer.verify(sm, pub, { expectedContext: utf8('c') });
     });
   }
 });

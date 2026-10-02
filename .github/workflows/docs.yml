@@ -1,0 +1,56 @@
+name: Documentation
+
+# Builds the documentation site on every change that touches it (including the library's doc comments, which feed the API reference).
+# Deploys to GitHub Pages only from master. One-time setup by the maintainer: Settings > Pages > Build and deployment > Source: GitHub Actions.
+
+on:
+  push:
+    branches: [master]
+    paths: ['website/**', 'packages/quantum-safe-ts/src/**', '.github/workflows/docs.yml']
+  pull_request:
+    paths: ['website/**', 'packages/quantum-safe-ts/src/**', '.github/workflows/docs.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      # TypeDoc needs the library's own dev dependencies to type-check the sources it documents.
+      - working-directory: packages/quantum-safe-ts
+        run: npm ci --ignore-scripts
+      - working-directory: website
+        run: |
+          npm ci
+          npm run build
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: website/.vitepress/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

@@ -130,6 +130,7 @@ fn cbor_from_slice(data: &[u8], format: &'static str) -> Result<Value, KeyError>
     if data.len() > MAX_PAYLOAD_BYTES {
         return Err(KeyError::TooLarge(data.len()));
     }
+    crate::cbor_guard::validate_shape(data).map_err(|e| parse_err(format, e))?;
     ciborium::from_reader(data).map_err(|e| parse_err(format, format!("CBOR decode failed: {e}")))
 }
 
@@ -138,6 +139,40 @@ fn map_get<'a>(entries: &'a [(Value, Value)], key: &str) -> Option<&'a Value> {
         Value::Text(t) if t == key => Some(v),
         _ => None,
     })
+}
+
+/// Exact length of a public key for the algorithms this library implements (`None` for names it does not know).
+/// Used to refuse a "public key" that is really a secret key (or anything else of the wrong size).
+pub fn expected_public_len(algorithm: &str) -> Option<usize> {
+    use crate::{sig, suite};
+    if let Some(kem) = suite::KemSuite::parse(algorithm) {
+        return Some(match kem {
+            suite::KemSuite::Pure(p) => p.sizes().0,
+            suite::KemSuite::Hybrid(c, p) => 2 + c.public_len() + p.sizes().0,
+            suite::KemSuite::XWing => 1216,
+        });
+    }
+    sig::SigSuite::parse(algorithm).map(|s| match s {
+        sig::SigSuite::MlDsa(l) => l.sizes().0,
+        sig::SigSuite::Slh(p) => p.sizes().0,
+        sig::SigSuite::Hybrid(c, l) => {
+            2 + match c {
+                sig::ClassicalSig::Ed25519 => 32,
+                sig::ClassicalSig::P256 => 64,
+            } + l.sizes().0
+        }
+    })
+}
+
+/// Errors unless `raw` has the exact public-key length for a known `algorithm`.
+pub fn check_public_len(algorithm: &str, raw: &[u8]) -> Result<(), KeyError> {
+    match expected_public_len(algorithm) {
+        Some(n) if raw.len() != n => Err(parse_err(
+            "key",
+            format!("a {algorithm} public key is {n} bytes, got {}", raw.len()),
+        )),
+        _ => Ok(()),
+    }
 }
 
 impl EncodedKey {
@@ -227,21 +262,21 @@ impl EncodedKey {
         if raw.is_empty() {
             return Err(parse_err(format, "raw key bytes cannot be empty"));
         }
-        // py rejects only the opposite, explicitly-tagged type; an absent ktype is accepted.
-        if let Some(Value::Text(kt)) = map_get(entries, "ktype") {
-            let found = match kt.as_str() {
-                "pub" => Some(KeyType::Public),
-                "sec" => Some(KeyType::Secret),
-                _ => None,
-            };
-            if let Some(found) = found {
-                if found != expected {
-                    return Err(KeyError::WrongKeyType {
-                        expected: expected.word(),
-                        found: found.word(),
-                    });
-                }
-            }
+        // Fail closed: the key type must be present and must match. (quantum-safe-py always writes it; accepting an absent one would let
+        // secret-key bytes be loaded as a "public" key and then exported.)
+        let found = match map_get(entries, "ktype") {
+            Some(Value::Text(kt)) if kt == "pub" => KeyType::Public,
+            Some(Value::Text(kt)) if kt == "sec" => KeyType::Secret,
+            _ => return Err(parse_err(format, "missing or unknown 'ktype' field")),
+        };
+        if found != expected {
+            return Err(KeyError::WrongKeyType {
+                expected: expected.word(),
+                found: found.word(),
+            });
+        }
+        if expected == KeyType::Public {
+            check_public_len(&algorithm, &raw)?;
         }
         let ms = MigrationState::parse_lenient(match map_get(entries, "ms") {
             Some(Value::Text(t)) => Some(t.as_str()),
@@ -340,6 +375,9 @@ impl EncodedKey {
         }
         let v: serde_json::Value =
             serde_json::from_str(json).map_err(|e| parse_err("jwk", format!("invalid JSON: {e}")))?;
+        if v.get("kty").and_then(|x| x.as_str()) != Some("AKP") {
+            return Err(parse_err("jwk", "'kty' must be \"AKP\""));
+        }
         let pub_b64 = v
             .get("pub")
             .and_then(|x| x.as_str())
@@ -355,6 +393,7 @@ impl EncodedKey {
         if raw.is_empty() {
             return Err(parse_err("jwk", "raw key bytes cannot be empty"));
         }
+        check_public_len(alg, &raw)?;
         let ms = MigrationState::parse_lenient(v.get("qs-migration").and_then(|x| x.as_str()));
         Ok(Self::new(alg, KeyType::Public, raw, ms))
     }
@@ -418,7 +457,7 @@ mod tests {
         EncodedKey::new(
             "X25519+ML-KEM-768",
             kt,
-            (0..=255u8).cycle().take(300).collect(),
+            (0..=255u8).cycle().take(1218).collect(),
             MigrationState::HybridTransition,
         )
     }
@@ -488,7 +527,8 @@ mod tests {
             cbor_to_vec(&Value::Map(vec![
                 (Value::Text("v".into()), Value::Integer(v.into())),
                 (Value::Text("algo".into()), Value::Text("ML-KEM-768".into())),
-                (Value::Text("key".into()), Value::Bytes(vec![1, 2, 3])),
+                (Value::Text("ktype".into()), Value::Text("pub".into())),
+                (Value::Text("key".into()), Value::Bytes(vec![1; 1184])),
             ]))
         };
         assert_eq!(

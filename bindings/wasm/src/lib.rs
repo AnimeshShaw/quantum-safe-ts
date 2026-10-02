@@ -107,6 +107,7 @@ impl PublicKey {
             Some(_) => parse_ms(migration_state)?,
             None => default_ms(algorithm),
         };
+        quantum_safe_core::keys::check_public_len(algorithm, raw).map_err(err)?;
         Ok(PublicKey {
             inner: EncodedKey::new(algorithm, KeyType::Public, raw.to_vec(), ms),
         })

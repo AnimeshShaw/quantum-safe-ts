@@ -1,16 +1,21 @@
 /target
+
 # Cargo.lock is committed for reproducible WASM builds.
-# Internal planning docs stay local; research reports ship with the repo.
-/docs/*
-!/docs/research/
+
+# /docs is local-only: research notes, maintainer instructions and drafts. The public documentation site lives in /website.
+/docs/
+
 node_modules/
 dist/
 pkg/
 *.tgz
+/sbom/
+/results/_*
 /tests/acvp/_vectors/
 tests/fixtures/.work/
 tests/fixtures/.tools/
 fuzz/target/
 fuzz/corpus/
 fuzz/artifacts/
-!/docs/maintainer/
+.superpowers/
+packages/quantum-safe-ts/test/.generated-docs/

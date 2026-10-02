@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software in research, please cite it as below."
+title: "quantum-safe-ts: hybrid post-quantum cryptography for TypeScript and JavaScript (Rust core compiled to WebAssembly)"
+type: software
+authors:
+  - family-names: Shaw
+    given-names: Animesh
+license: Apache-2.0
+repository-code: "https://github.com/AnimeshShaw/quantum-safe-ts"
+keywords:
+  - post-quantum cryptography
+  - ML-KEM
+  - ML-DSA
+  - hybrid key exchange
+  - WebAssembly
+  - TypeScript
+version: 0.1.0

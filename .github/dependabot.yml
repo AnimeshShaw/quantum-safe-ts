@@ -1,0 +1,37 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      actions: { patterns: ['*'] }
+  - package-ecosystem: cargo
+    directory: /
+    schedule: { interval: weekly }
+    # Crypto crates are pinned on purpose (see AGENTS.md): updates arrive as pull requests for review, never silently.
+    open-pull-requests-limit: 5
+    ignore:
+      # slh-dsa 0.1.0 does not compile against newer signature pre-releases (Cargo.lock pin is REQUIRED).
+      - dependency-name: signature
+  - package-ecosystem: npm
+    directory: /packages/quantum-safe-ts
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /packages/quantum-safe-audit
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /packages/quantum-safe-mcp
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: cargo
+    directory: /fuzz
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: signature
+  - package-ecosystem: npm
+    directory: /website
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 3

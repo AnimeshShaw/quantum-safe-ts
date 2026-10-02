@@ -10,7 +10,9 @@ npx quantum-safe-audit scan . --format sarif --output audit.sarif   # GitHub Cod
 npx quantum-safe-audit cbom . --app-name my-app > cbom.json         # CycloneDX 1.6 CBOM
 ```
 
-(The installed binary is `qs-audit`.)
+(The installed command is `quantum-safe-audit`. It is deliberately not called `qs-audit`, which is the name of quantum-safe-py's tool, so both can be installed side by side.)
+
+> Not published yet: the `npx` commands above work after the first release.
 
 ## What it finds
 
@@ -32,10 +34,22 @@ and `package.json` dependencies:
 | QSJ900 | info | Post-quantum libraries/algorithms already in use |
 
 Every finding carries a migration hint that names the replacement (for example `HybridKEM`, `HybridSign`, `StandardJwt` from
-`quantum-safe-ts`). `qs-audit explain QSJ010` prints the rule, the reasoning and a code example.
+`quantum-safe-ts`). `quantum-safe-audit explain QSJ010` prints the rule, the reasoning and a code example.
+
+## Enrich an SBOM
+
+```bash
+npx quantum-safe-audit sbom bom.json --output bom-pqc.json   # CycloneDX JSON with npm components
+```
+
+Adds `quantum-safe:pqc-readiness` (`READY`, `PARTIAL`, `NOT_READY`, `NOT_APPLICABLE` or `UNKNOWN`), `quantum-safe:reason` and `quantum-safe:action` properties to every npm component the tool has a record for, from a small
+name-based knowledge base that carries its review date. A component with no record is `UNKNOWN`, never `READY`; the knowledge base is best effort, ages quickly and is not a compliance verdict.
+
+Default exclusions (`node_modules`, `dist`, `build`, `vendor`, caches, minified files) are listed as notes in every report; `--no-default-excludes` scans them. Symbolic links to directories are errors (links to files are followed). Extensionless Node scripts, `.html` pages and `.github` are scanned. `--no-inline-ignore` disables `// qs-audit-ignore` comments for gates on untrusted code, and suppressed counts are always reported.
 
 ## Honest limits
 
+- Aliased or indirect calls are often missed (for example `const { generateKeyPairSync: g } = require('crypto'); g('rsa')` or a call through a variable algorithm).
 - Static analysis sees what the source names. Algorithms chosen at runtime, built from strings, configured outside the code, or
   hidden inside dependencies are invisible, so **an empty result is not evidence of absence**.
 - It is an inventory and a migration aid, **not** a CNSA 2.0 assessment or a FIPS 140-3 validation.
@@ -56,11 +70,11 @@ Every finding carries a migration hint that names the replacement (for example `
 
 ```yaml
 - run: npx quantum-safe-audit scan . --fail-on high --format sarif --output audit.sarif
-- uses: github/codeql-action/upload-sarif@v3
+- uses: github/codeql-action/upload-sarif@v4
   with: { sarif_file: audit.sarif }
 ```
 
-Exit codes: `0` ok, `1` findings at or above `--fail-on`, `2` usage or I/O error.
+Exit codes: `0` ok, `1` findings at or above `--fail-on`, `2` usage or I/O error **or an incomplete scan** (a file skipped for size, an unreadable directory, a file that could not be parsed, or nothing scanned). An incomplete scan is never reported as a pass; `--allow-incomplete` opts out. `--no-config` stops `./.qs-audit.json` from being auto-loaded (use it in CI, where the scanned code must not be able to change its own gate).
 
 ## Policy and suppression
 

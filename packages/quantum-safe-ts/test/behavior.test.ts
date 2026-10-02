@@ -241,9 +241,8 @@ describe('keys: lifecycle, serialization, hygiene', () => {
     expect(() => PublicKey.fromCbor('not bytes' as never)).toThrow(InvalidArgumentError);
     expect(UnsupportedFormatError.name).toBe('UnsupportedFormatError');
   });
-  it('keys parsed with the wrong length fail when used', () => {
-    using pub = PublicKey.fromBytes('X25519+ML-KEM-768', new Uint8Array(50).fill(1));
-    expect(() => new HybridKEM().encapsulate(pub)).toThrow(MalformedKeyError);
+  it('public keys of the wrong length are refused at parse; secret keys of the wrong length fail when used', () => {
+    expect(() => PublicKey.fromBytes('X25519+ML-KEM-768', new Uint8Array(50).fill(1))).toThrow(KeyParseError);
     using sec = SecretKey.fromBytes('X25519+ML-KEM-768', new Uint8Array(50).fill(1));
     expect(() => new HybridKEM().decapsulate(sec, new Uint8Array(1122))).toThrow(MalformedKeyError);
   });
@@ -285,9 +284,12 @@ describe('signatures for every fast suite', () => {
       const sm = signer.signWithFingerprint(utf8('document'), pair, { context: utf8('app-v1') });
       expect(sm.isHybrid).toBe(info.hybrid);
       expect(sm.signerFingerprint).toBe(pair.publicKey.fingerprint());
-      signer.verify(sm, pair.publicKey);
+      signer.verify(sm, pair.publicKey, { expectedContext: utf8('app-v1') });
       signer.verifyBytes(sm.message, sm.signature, pair.publicKey, { context: utf8('app-v1') });
-      expect(signer.isValid(sm, pair.publicKey)).toBe(true);
+      expect(signer.isValid(sm, pair.publicKey, { expectedContext: utf8('app-v1') })).toBe(true);
+      // The context comes from the caller, not from the message: no expectation (or the wrong one) fails.
+      expect(() => signer.verify(sm, pair.publicKey)).toThrow(VerificationError);
+      expect(signer.isValid(sm, pair.publicKey, { expectedContext: utf8('other') })).toBe(false);
       expect(() => signer.verifyBytes(sm.message, sm.signature, pair.publicKey, { context: utf8('other') })).toThrow(VerificationError);
       expect(SignedMessage.fromCbor(sm.toCbor()).toHex()).toBe(sm.toHex());
     });
@@ -406,12 +408,13 @@ describe('CNSA 2.0 profile', () => {
     expect(kem.finding).toBe('partial');
     expect(kem.ok).toBe(false);
     expect(kem.detail).toContain('P-384');
-    expect(r.checks.find((c) => c.requirement === 'Signatures')!.ok).toBe(true);
+    expect(r.checks.find((c) => c.requirement === 'Signatures')!.finding).toBe('partial'); // a hybrid signature's classical half is not CNSA 1.0 either
     expect(r.checks.find((c) => c.requirement === 'Hashing')!.ok).toBe(true);
     expect(r.compliant).toBe(false);
     expect(r.failures.map((f) => f.requirement).sort()).toEqual([
       'Key establishment',
       'Key-derivation hash (this library)',
+      'Signatures',
       'Software/firmware signing (SP 800-208)',
     ]);
   });
@@ -439,6 +442,19 @@ describe('CNSA 2.0 profile', () => {
     expect(() => cnsa2.enforce({ kem: 'X25519+ML-KEM-768' })).toThrow(PolicyViolationError);
     expect(() => cnsa2.enforce({ signature: 'ML-DSA-65' })).toThrow(PolicyViolationError);
     expect(() => cnsa2.enforce({ kem: 'X25519+ML-KEM-1024', signature: 'Ed25519+ML-DSA-87' })).not.toThrow();
+    // strict also rejects the 'partial' hybrids; pure suites pass
+    expect(() => cnsa2.enforce({ kem: 'X25519+ML-KEM-1024', signature: 'Ed25519+ML-DSA-87' }, { strict: true })).toThrow(PolicyViolationError);
+    expect(() => cnsa2.enforce({ kem: 'ML-KEM-1024', signature: 'ML-DSA-87' }, { strict: true })).not.toThrow();
+  });
+  it('unknown or forged algorithm names are never "compliant"', () => {
+    for (const name of ['RSA-1024+ML-DSA-87', 'junk+ML-DSA-87', 'P-256+ML-DSA-87', 'ML-DSA-87 ', 'ml-dsa-87']) {
+      expect(cnsa2.checkSignature(name).ok, name).toBe(false);
+      expect(() => cnsa2.enforce({ signature: name }), name).toThrow(PolicyViolationError);
+    }
+    for (const name of ['junk+ML-KEM-1024', 'RSA+ML-KEM-1024', 'ML-KEM-1024+X25519']) {
+      expect(cnsa2.checkKem(name).ok, name).toBe(false);
+      expect(() => cnsa2.enforce({ kem: name }), name).toThrow(PolicyViolationError);
+    }
   });
   it('hash check normalises names', () => {
     for (const ok of ['SHA-384', 'sha384', 'SHA512', 'sha-512']) expect(cnsa2.checkHash(ok).ok).toBe(true);
@@ -561,9 +577,9 @@ describe('properties (fast-check)', () => {
     fc.assert(
       fc.property(fc.uint8Array({ minLength: 1, maxLength: 512 }), fc.uint8Array({ maxLength: 255 }), (msg, ctx) => {
         const sm = signer.sign(msg, sigPair.secretKey, { context: ctx });
-        signer.verify(sm, sigPair.publicKey);
+        signer.verify(sm, sigPair.publicKey, { expectedContext: ctx });
         const bad = SignedMessage.fromParts({ ...sm, message: Uint8Array.from(sm.message, (b, i) => (i === 0 ? b ^ 1 : b)) });
-        return !signer.isValid(bad, sigPair.publicKey);
+        return !signer.isValid(bad, sigPair.publicKey, { expectedContext: ctx });
       }),
       { numRuns: 25 },
     );

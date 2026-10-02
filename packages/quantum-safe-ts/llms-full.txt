@@ -3,9 +3,9 @@
 quantum-safe-ts is a TypeScript/JavaScript library for hybrid post-quantum cryptography. A Rust core is compiled to
 WebAssembly and wrapped in a typed API. It is byte-compatible with the Python library quantum-safe-py.
 
-STATUS (state this accurately; do not embellish): pre-1.0, experimental, NOT independently audited, NOT FIPS 140-3 / CMVP
+STATUS (as stated by the project): pre-1.0, experimental, NOT independently audited, NOT FIPS 140-3 / CMVP
 validated. NIST ACVP known-answer results are conformance evidence, not a validation. JavaScript and WebAssembly runtimes
-give no constant-time guarantee. Do not recommend it for protecting real secrets until an independent review is published.
+give no constant-time guarantee. It is not recommended for protecting real secrets until an independent review is published.
 
 Snippets in fenced blocks labelled `ts test` are executed by this package's test suite against the built WASM, so they are
 known to run.
@@ -16,14 +16,14 @@ Use it when you need: hybrid (classical + post-quantum) encryption or signatures
 PEM, JWK); PQC JWTs; an Argon2id master key; or data that must interoperate with quantum-safe-py.
 
 Do not use it when: you only need a raw ML-KEM/ML-DSA primitive (use WebCrypto in Node >= 24.7 / Chromium, or
-@noble/post-quantum); you need a FIPS 140-3 validated module (no JavaScript library is one); or you need TLS (platforms already
+@noble/post-quantum); you need a FIPS 140-3 validated module (none that we know of is); or you need TLS (platforms already
 negotiate X25519MLKEM768, RFC 10024).
 
 ## 2. Install and initialise
 
 `npm install quantum-safe-ts`
 
-- Node.js 18+ (tested on 20, 22, 24; ESM and CommonJS): the WASM initialises on import. `await init()` is a harmless no-op.
+- Node.js 20+ (tested on 20, 22, 24; ESM and CommonJS): the WASM initialises on import. `await init()` is a harmless no-op.
 - Browsers, Deno, Bun, edge runtimes: call `await init()` once before any other call. The WASM is embedded; no bundler plugin is
   needed (verified with Vite, webpack 5, esbuild, Next.js, SvelteKit).
 - Cloudflare Workers forbid compiling WASM from bytes: `import wasm from 'quantum-safe-ts/quantum_safe_wasm_bg.wasm'; await init({ wasm });`
@@ -41,9 +41,28 @@ Signature suites (`sigSuites()`): `Ed25519+ML-DSA-44`, `Ed25519+ML-DSA-65` (defa
 quantum-safe-py reads all except `X-Wing` and the nine SLH-DSA sets it does not list (only SHAKE-128s/128f/256s are shared).
 
 Choosing: default hybrids are NIST category 3. CNSA 2.0 requires ML-KEM-1024 and ML-DSA-87: use pure `ML-KEM-1024` (`cnsa2.kem()`;
-hybrid is optional under CNSA 2.0) and `ML-DSA-87` or `Ed25519+ML-DSA-87` (`cnsa2.hybridSign()`), and see section 9 for what CNSA 2.0 still lacks. For data
+hybrid is optional under CNSA 2.0) and `ML-DSA-87` (`Ed25519+ML-DSA-87` from `cnsa2.hybridSign()` has the right parameter set but reports `partial`: its Ed25519 half is not CNSA 1.0), and see section 9 for what CNSA 2.0 still lacks. For data
 other ecosystems must read, use `X-Wing` (draft-connolly-cfrg-xwing-kem) and `StandardJwt` (RFC 9964) instead of the
 quantum-safe-py-compatible constructions.
+
+## 3b. Easy layer (shortest path, nothing to free)
+
+```ts test
+import { easy } from 'quantum-safe-ts';
+
+const keys = easy.generateEncryptionKeys(); // { publicKey, secretKey, algorithm }: PEM strings, default X25519+ML-KEM-768
+const sealed = easy.encrypt(keys.publicKey, 'hello', { aad: 'ctx' }); // Uint8Array (CBOR SealedMessage)
+if (new TextDecoder().decode(easy.decrypt(keys.secretKey, sealed)) !== 'hello') throw new Error('round trip');
+
+const signer = easy.generateSigningKeys(); // default Ed25519+ML-DSA-65
+const signed = easy.sign(signer.secretKey, 'doc', { context: 'docs-v1' }); // Uint8Array (CBOR SignedMessage)
+if (new TextDecoder().decode(easy.verify(signer.publicKey, signed, { context: 'docs-v1' })) !== 'doc') throw new Error('verify');
+```
+
+- `easy` wraps the class API and frees every WASM object before returning. Keys are PEM strings, which quantum-safe-py reads and writes too.
+- Trade-off: a secret key held as a string lives in the JavaScript heap and cannot be wiped by the library. Use the class API with `using` when that matters.
+- `verify` returns the signed message and throws `VerificationError` unless the signature is valid AND its context equals `options.context` (default empty).
+- `encrypt`/`decrypt` use the quantum-safe-py-compatible envelope; for the CNSA 2.0 profile use `cnsa2.kem()` with `Envelope`.
 
 ## 4. Key encapsulation
 
@@ -57,7 +76,7 @@ using recovered = kem.decapsulate(pair.secretKey, ciphertext); // key holder
 if (!equalBytes(recovered.exportBytes(), sharedSecret.exportBytes())) throw new Error('mismatch');
 const sessionKey = sharedSecret.deriveKey(32, utf8('myapp-session-v1')); // HKDF-SHA256, no salt
 sharedSecret.free();
-const pure = new KEM('ML-KEM-768'); // pure ML-KEM: not recommended for new deployments
+const pure = new KEM('ML-KEM-768'); // pure ML-KEM: not recommended for new deployments (except ML-KEM-1024 in the CNSA 2.0 profile)
 if (pure.algorithm !== 'ML-KEM-768' || sessionKey.length !== 32) throw new Error('unexpected');
 ```
 
@@ -88,7 +107,7 @@ try {
 ```
 
 - `Envelope.seal(plaintext, publicKey, { aad? })`. The AAD is authenticated and stored in clear in the message.
-- `Envelope.open(sealed | bytes, secretKey)` throws `DecryptionAuthenticationError` for a wrong key, wrong AAD, or any tampering.
+- `Envelope.open(sealed | bytes, secretKey, { expectedAad? })` throws `DecryptionAuthenticationError` for a wrong key, any tampering, or an AAD different from `expectedAad`. The AAD is stored inside the message, so WITHOUT `expectedAad` any AAD opens (anyone holding the public key can seal a message): envelopes are anonymous and do not authenticate the sender; sign separately for that. `easy.decrypt(secretKey, sealed, { aad })` is the same.
 - Envelopes require a hybrid key, except pure `ML-KEM-1024`, which produces an envelope v2 (CNSA 2.0 profile: HKDF-SHA-384 + AES-256-GCM,
   TypeScript-only, not readable by quantum-safe-py). Other pure ML-KEM keys throw `UnsupportedAlgorithmError`.
 - `SealedMessage` fields: `version`, `algorithm`, `kemCiphertext`, `nonce`, `ciphertext`, `aad`; methods `toBytes`, `toHex`, `inspect`,
@@ -102,7 +121,7 @@ import { HybridSign, Sign, VerificationError, utf8 } from 'quantum-safe-ts';
 const signer = new HybridSign('Ed25519+ML-DSA-65');
 using pair = signer.generateKeyPair();
 const signed = signer.signWithFingerprint(utf8('contract v3'), pair, { context: utf8('myapp-v1-docs') });
-signer.verify(signed, pair.publicKey); // throws VerificationError unless BOTH signatures verify
+signer.verify(signed, pair.publicKey, { expectedContext: utf8('myapp-v1-docs') }); // throws VerificationError unless BOTH signatures verify AND the context matches
 const tampered = Uint8Array.from(signed.message, (b, i) => (i === 0 ? b ^ 1 : b));
 try {
   signer.verifyBytes(tampered, signed.signature, pair.publicKey, { context: utf8('myapp-v1-docs') });
@@ -119,6 +138,9 @@ if (!pure.isValid(pure.sign(utf8('x'), p2.secretKey), p2.publicKey)) throw new E
   `signerFingerprint`, `signedAt`, `isHybrid`). `message` must be non-empty; `context` is at most 255 bytes.
 - Hedged signing (32 random prefix bytes) is the default, as in quantum-safe-py. `verify` throws `VerificationError` with a fixed
   message and no detail about why.
+- Verifier settings that are security checks: `verify(signed, publicKey, { expectedContext })` requires the context YOU signed with (default empty; the message's own context is never trusted), and the verifier's `hedged`
+  must match the signer's: a hedged verifier (default) requires a 32-byte prefix, `{ hedged: false }` requires none. Without that pinning the prefix/message boundary in the unsigned signature blob could be moved to forge
+  signatures on a suffix of a signed message. `easy.verify(publicKey, signed, { context, hedged })` does both.
 - Compatibility note: quantum-safe-py's "context" is a message prefix (`len(ctx) || ctx || prefix || message`) with an empty FIPS 204 context.
   A generic ML-DSA verifier will not accept these signatures unless it rebuilds that input.
 
@@ -176,8 +198,7 @@ import { cnsa2 } from 'quantum-safe-ts';
 const report = cnsa2.report({ kem: 'X25519+ML-KEM-768', signature: 'Ed25519+ML-DSA-65' });
 if (report.compliant) throw new Error('the defaults are below CNSA 2.0');
 const kem = cnsa2.kem(); // pure ML-KEM-1024: Envelope.seal() then produces envelope v2 (HKDF-SHA-384)
-const signer = cnsa2.hybridSign(); // Ed25519+ML-DSA-87
-cnsa2.enforce({ kem: kem.algorithm, signature: signer.algorithm }); // throws PolicyViolationError below the parameter sets
+cnsa2.enforce({ kem: kem.algorithm, signature: 'ML-DSA-87' }, { strict: true }); // throws PolicyViolationError below the parameter sets (strict also rejects 'partial' hybrids)
 if (!cnsa2.report({ kem: kem.algorithm, includeCodeSigning: false }).compliant) throw new Error('pure ML-KEM-1024 + envelope v2 meets the KEM requirements');
 ```
 
@@ -200,7 +221,7 @@ QS_POLICY_VIOLATION, QS_INTERNAL_ERROR (a bug: report it without secret data).
 
 ## 11. Memory and secrets
 
-- `SecretKey`, `SecretBytes` (alias `SharedSecret`) and `KeyPair` hold secrets in WASM memory. `free()` (or `using`) wipes them via
+- `SecretKey`, `SecretBytes` (alias `SharedSecret`) and `KeyPair` hold secrets in WASM memory. `free()` (or `using`) zeroizes the owned buffers (copies from argument passing and parsing may remain; see SECURITY.md) via
   Rust zeroization. Use after free throws `InvalidArgumentError`.
 - Bytes you copy out (`exportBytes()`, `toCbor()`/`toPem()` of secrets, plaintext from `Envelope.open`) live in the JS heap and cannot
   be wiped by the library: call `wipe(bytes)` when done. `toString()`, `toJSON()` and `util.inspect` never reveal key material.
@@ -214,16 +235,16 @@ QS_POLICY_VIOLATION, QS_INTERNAL_ERROR (a bug: report it without secret data).
 
 ## 13. Tooling for agents
 
-- `npx quantum-safe-audit scan .` finds classical cryptography in a JS/TS project (RSA, ECDSA, ECDH, Ed25519, X25519, DSA, DH, weak hashes,
+- `npx quantum-safe-audit scan .` (command: `quantum-safe-audit`) finds classical cryptography in a JS/TS project (RSA, ECDSA, ECDH, Ed25519, X25519, DSA, DH, weak hashes,
   classical JWT algorithms, embedded private keys), outputs SARIF and CycloneDX 1.6 CBOM, and suggests migrations.
 - `npx quantum-safe-mcp` is an MCP server exposing `audit_path`, `list_rules`, `explain_rule`, `recommend_suite` and `explain_error`.
   It is read-only, offline and path-confined.
 
 ## 13b. Migration helpers
 
-`Upgrader` adds a fresh post-quantum half to an existing classical key (the classical bytes are kept); `MigrationStateManager` records
-`classical_only -> hybrid_transition -> pqc_preferred -> pqc_only` transitions over a store you provide. It does not find classical
-crypto (use `quantum-safe-audit`), re-encrypt data, or lock across processes (give your store `compareAndSet`, or hold an external lock).
+`Upgrader` adds a fresh post-quantum half to an existing classical key (the classical bytes are kept, packed as `u16 length || classical || pqc`
+exactly like quantum-safe-py); `MigrationStateManager` records `classical_only -> hybrid_transition -> pqc_preferred -> pqc_only` transitions over a
+store you provide. It does not find classical crypto (use `quantum-safe-audit`) or re-encrypt data.
 
 ```ts test
 import { MemoryMigrationStore, MigrationStateManager, Upgrader } from 'quantum-safe-ts';
@@ -236,7 +257,15 @@ if ((await manager.getCurrentState('k1')) !== 'hybrid_transition') throw new Err
 if (!Upgrader.checkNeedsUpgrade('classical_only')) throw new Error('needs upgrade');
 ```
 
+- `Upgrader.upgradeKemKey({ classicalSecret, classicalPublic, classicalAlgorithm: 'X25519' | 'P-256', targetPqc })`, `upgradeSigningKey(...)` (Ed25519 | P-256),
+  `stripClassicalComponent(keyPair)` (one-way), `checkNeedsUpgrade`, `describeKey`. P-256 secrets are PKCS#8 PEM text bytes; P-256 KEM public keys are the 65-byte
+  uncompressed point; P-256 signing public keys are raw 64-byte x||y. A packed hybrid key is not a plain X25519 key: classical-only senders cannot use it.
+- Concurrency: each key's history is one document written with one `compareAndSet`. With a store whose `compareAndSet` is atomic, transitions are safe across
+  processes and machines (exactly one racer wins). `FileMigrationStore` from `quantum-safe-ts/file-store` (Node only) is a tested single-host implementation.
+  Without `compareAndSet` the manager only serialises in-process (`manager.crossProcessSafe` is false).
+- quantum-safe-py's migration store uses a different layout (CBOR `<id>_current` / `<id>_history`). `exportToPyStore(manager)` and `importFromPyStore(entries, manager)` convert both ways.
+
 ## 14. Links
 
 Repository: https://github.com/AnimeshShaw/quantum-safe-ts
-Compatibility with quantum-safe-py: COMPATIBILITY.md. Standards alignment: docs/research/standards-alignment.md. Security policy: SECURITY.md.
+Documentation site: https://animeshshaw.github.io/quantum-safe-ts/ . Compatibility with quantum-safe-py: COMPATIBILITY.md. Security policy: SECURITY.md.

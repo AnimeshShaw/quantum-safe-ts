@@ -1,0 +1,9 @@
+# Cryptographic code and the wire formats need the maintainer's review.
+/crates/            @AnimeshShaw
+/bindings/          @AnimeshShaw
+/tests/vectors/     @AnimeshShaw
+/COMPATIBILITY.md   @AnimeshShaw
+/SECURITY.md        @AnimeshShaw
+/.github/           @AnimeshShaw
+/action/            @AnimeshShaw
+*                   @AnimeshShaw

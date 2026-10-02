@@ -9,23 +9,80 @@
  * Match with `instanceof`, or on `code`; never parse `message`.
  */
 
+/** Every stable error code this library can throw. Safe to `switch` on. */
+export type QsErrorCode =
+  | 'QS_ERROR'
+  | 'QS_NOT_INITIALIZED'
+  | 'QS_DECAPSULATION_FAILED'
+  | 'QS_DECRYPTION_FAILED'
+  | 'QS_VERIFICATION_FAILED'
+  | 'QS_SIGNING_FAILED'
+  | 'QS_MALFORMED_KEY'
+  | 'QS_MALFORMED_CIPHERTEXT'
+  | 'QS_MALFORMED_SIGNATURE'
+  | 'QS_ALGORITHM_MISMATCH'
+  | 'QS_HKDF_OUTPUT_TOO_LONG'
+  | 'QS_KDF_FAILED'
+  | 'QS_KEY_PARSE_ERROR'
+  | 'QS_INCOMPATIBLE_KEY_VERSION'
+  | 'QS_PAYLOAD_TOO_LARGE'
+  | 'QS_UNSUPPORTED_FORMAT'
+  | 'QS_UNSUPPORTED_ALGORITHM'
+  | 'QS_INVALID_ARGUMENT'
+  | 'QS_POLICY_VIOLATION'
+  | 'QS_INTERNAL_ERROR';
+
+// Class names are fixed strings so that `error.name` survives a consumer's minifier (which mangles `new.target.name`).
+const NAME_BY_CODE: Readonly<Record<QsErrorCode, string>> = {
+  QS_ERROR: 'QuantumSafeError',
+  QS_NOT_INITIALIZED: 'NotInitializedError',
+  QS_DECAPSULATION_FAILED: 'DecapsulationError',
+  QS_DECRYPTION_FAILED: 'DecryptionAuthenticationError',
+  QS_VERIFICATION_FAILED: 'VerificationError',
+  QS_SIGNING_FAILED: 'SigningError',
+  QS_MALFORMED_KEY: 'MalformedKeyError',
+  QS_MALFORMED_CIPHERTEXT: 'MalformedCiphertextError',
+  QS_MALFORMED_SIGNATURE: 'MalformedSignatureError',
+  QS_ALGORITHM_MISMATCH: 'AlgorithmMismatchError',
+  QS_HKDF_OUTPUT_TOO_LONG: 'HkdfOutputTooLongError',
+  QS_KDF_FAILED: 'KdfError',
+  QS_KEY_PARSE_ERROR: 'KeyParseError',
+  QS_INCOMPATIBLE_KEY_VERSION: 'IncompatibleKeyVersionError',
+  QS_PAYLOAD_TOO_LARGE: 'PayloadTooLargeError',
+  QS_UNSUPPORTED_FORMAT: 'UnsupportedFormatError',
+  QS_UNSUPPORTED_ALGORITHM: 'UnsupportedAlgorithmError',
+  QS_INVALID_ARGUMENT: 'InvalidArgumentError',
+  QS_POLICY_VIOLATION: 'PolicyViolationError',
+  QS_INTERNAL_ERROR: 'CryptoError',
+};
+const BRAND = Symbol.for('quantum-safe-ts.error');
+
 /** Base class for every error this library throws. */
 export class QuantumSafeError extends Error {
   /** Stable machine-readable identifier, e.g. `QS_DECRYPTION_FAILED`. */
-  readonly code: string;
+  readonly code: QsErrorCode;
   /** One-line, static suggestion for fixing the problem. Contains no sensitive data. */
   readonly hint: string;
 
-  constructor(message: string, code = 'QS_ERROR', hint = '') {
+  constructor(message: string, code: QsErrorCode = 'QS_ERROR', hint = '') {
     super(message);
-    this.name = new.target.name;
+    this.name = NAME_BY_CODE[code] ?? 'QuantumSafeError';
+    Object.defineProperty(this, BRAND, { value: true, enumerable: false });
     this.code = code;
     this.hint = hint;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 
+  /**
+   * True for errors from any copy of this library. Prefer this to `instanceof` when an application might load both the ESM and the CommonJS
+   * build (each has its own class objects).
+   */
+  static is(e: unknown): e is QuantumSafeError {
+    return typeof e === 'object' && e !== null && (e as Record<symbol, unknown>)[BRAND] === true;
+  }
+
   /** JSON-safe description, useful for logs and for coding agents. */
-  toJSON(): { name: string; code: string; message: string; hint: string } {
+  toJSON(): { name: string; code: QsErrorCode; message: string; hint: string } {
     return { name: this.name, code: this.code, message: this.message, hint: this.hint };
   }
 }
@@ -197,7 +254,7 @@ export class PolicyViolationError extends QuantumSafeError {
     super(
       message,
       'QS_POLICY_VIOLATION',
-      'Use cnsa2.hybridKem() / cnsa2.hybridSign() for CNSA 2.0 compliant algorithms.',
+      'For the CNSA 2.0 parameter sets use cnsa2.kem() (pure ML-KEM-1024) and cnsa2.hybridSign() or ML-DSA-87; run cnsa2.report() for what is still missing.',
     );
   }
 }

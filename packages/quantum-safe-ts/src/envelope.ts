@@ -1,7 +1,7 @@
-import { InvalidArgumentError } from './errors.js';
+import { DecryptionAuthenticationError, InvalidArgumentError } from './errors.js';
 import { PublicKey, SecretKey } from './keys.js';
 import { call } from './runtime.js';
-import { bytes, fromHex, toHex } from './utils.js';
+import { bytes, equalBytes, fromHex, toHex } from './utils.js';
 
 /** Non-secret metadata of a sealed message. */
 export interface SealedInfo {
@@ -131,12 +131,19 @@ export const Envelope = {
   /**
    * Decrypts a sealed message. The returned plaintext is a copy in the JS heap: wipe it with
    * `wipe()` when it is sensitive and no longer needed.
-   * @throws {DecryptionAuthenticationError} on a wrong key, wrong AAD, or any tampering.
+   *
+   * The AAD travels inside the message and is checked for tampering, but anyone holding the recipient's public key can seal a message with
+   * any AAD. To bind a message to a context (a user id, a record id) pass `options.expectedAad`: opening then fails unless the message's
+   * AAD equals it. This is anonymous encryption: it does not tell you who sent the message (sign it separately for that).
+   * @throws {DecryptionAuthenticationError} on a wrong key, wrong AAD, an AAD that differs from `expectedAad`, or any tampering.
    * @throws {MalformedCiphertextError} if the message is structurally invalid.
    */
-  open(sealed: SealedMessage | Uint8Array, secretKey: SecretKey): Uint8Array {
+  open(sealed: SealedMessage | Uint8Array, secretKey: SecretKey, options: { expectedAad?: Uint8Array } = {}): Uint8Array {
     if (!(secretKey instanceof SecretKey)) throw new InvalidArgumentError('secretKey must be a SecretKey.');
-    const data = sealed instanceof SealedMessage ? sealed.toBytes() : bytes(sealed, 'sealed');
-    return call((w) => w.envelopeOpen(data, secretKey._wasm));
+    const msg = sealed instanceof SealedMessage ? sealed : SealedMessage.fromBytes(bytes(sealed, 'sealed'));
+    if (options.expectedAad !== undefined && !equalBytes(msg.aad, bytes(options.expectedAad, 'expectedAad'))) {
+      throw new DecryptionAuthenticationError('The message AAD does not equal the expected AAD.');
+    }
+    return call((w) => w.envelopeOpen(msg.toBytes(), secretKey._wasm));
   },
 } as const;

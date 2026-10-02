@@ -8,6 +8,7 @@ export default defineConfig({
   clean: true,
   target: 'node18',
   platform: 'node',
+  // typescript is a runtime dependency (the scanner uses its parser), pinned in package.json; it is not bundled.
   external: ['typescript'],
   banner: ({ format }) => ({ js: '' }),
 });

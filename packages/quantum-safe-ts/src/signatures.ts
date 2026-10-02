@@ -1,9 +1,9 @@
 import { DEFAULT_HYBRID_SIGNATURE, DEFAULT_SIGNATURE, sigSuites } from './algorithms.js';
 import type { SignatureAlgorithm, SuiteInfo } from './algorithms.js';
-import { AlgorithmMismatchError, InvalidArgumentError, UnsupportedAlgorithmError } from './errors.js';
+import { AlgorithmMismatchError, InvalidArgumentError, UnsupportedAlgorithmError, VerificationError } from './errors.js';
 import { KeyPair, PublicKey, SecretKey } from './keys.js';
 import { call } from './runtime.js';
-import { bytes, fromHex, toHex } from './utils.js';
+import { bytes, equalBytes, fromHex, toHex } from './utils.js';
 
 const MAX_CONTEXT = 255;
 
@@ -59,6 +59,10 @@ export class SignedMessage {
   static fromCbor(data: Uint8Array): SignedMessage {
     return new SignedMessage(bytes(data, 'data').slice());
   }
+  /** Alias of {@link SignedMessage.fromCbor}, matching `SealedMessage.fromBytes`. */
+  static fromBytes(data: Uint8Array): SignedMessage {
+    return SignedMessage.fromCbor(data);
+  }
   /** Parses a hex string produced by {@link SignedMessage.toHex}. */
   static fromHex(hex: string): SignedMessage {
     return SignedMessage.fromCbor(fromHex(hex));
@@ -88,6 +92,10 @@ export class SignedMessage {
   }
 
   /** CBOR serialization (copy). */
+  /** Alias of {@link SignedMessage.toCbor}, matching `SealedMessage.toBytes`. */
+  toBytes(): Uint8Array {
+    return this.toCbor();
+  }
   toCbor(): Uint8Array {
     return this.#cbor.slice();
   }
@@ -124,13 +132,27 @@ function lookup(algorithm: string, hybrid: boolean): SuiteInfo {
 abstract class BaseSigner {
   readonly algorithm: SignatureAlgorithm;
   readonly info: SuiteInfo;
-  /** True when each signature is prefixed with 32 random bytes (default; see quantum-safe-py). */
+  /**
+   * True when each signature is prefixed with 32 random bytes (default; see quantum-safe-py).
+   *
+   * On a **verifier** this is also a security setting: the signed bytes are `len(ctx) || ctx || prefix || message` and the prefix length is
+   * stored in the *unsigned* signature blob, so a verifier that accepted any prefix length would let anyone move bytes between the prefix and
+   * the message of a valid signature and obtain a "valid" signature on a different message (a prefix or suffix of the signed one).
+   * Verification therefore requires the prefix length to be exactly 32 when `hedged` is true and 0 when it is false. To verify signatures made
+   * without hedging (quantum-safe-py `hedged=False`), construct the verifier with `{ hedged: false }`.
+   */
   readonly hedged: boolean;
 
   protected constructor(algorithm: string, hybrid: boolean, hedged: boolean) {
     this.info = lookup(algorithm, hybrid);
     this.algorithm = this.info.name as SignatureAlgorithm;
     this.hedged = hedged;
+  }
+
+  /** The blob is `len(prefix) || prefix || payload`; the length must match this verifier's hedging mode (see {@link hedged}). */
+  #requirePrefix(blob: Uint8Array): void {
+    const want = this.hedged ? 32 : 0;
+    if (blob.length === 0 || blob[0] !== want) throw new VerificationError();
   }
 
   /** Generates a signing key pair. Free it (or use `using`) when done. */
@@ -171,38 +193,41 @@ abstract class BaseSigner {
 
   /**
    * Verifies a signed message. For hybrids **both** signatures must be valid.
-   * @throws {VerificationError} if the signature does not verify (no detail on why, by design).
+   *
+   * The signature covers the message's context, and this method requires it to equal `options.expectedContext` (default: empty, i.e. no
+   * context), so a signature made for one purpose cannot be accepted for another. Pass the context you signed with. (Reading the context from
+   * the message itself would let an attacker choose it.)
+   * @throws {VerificationError} if the signature does not verify, or the context differs from `expectedContext` (no detail on why, by design).
    * @throws {AlgorithmMismatchError} if key and message algorithms differ.
    */
-  verify(signed: SignedMessage, publicKey: PublicKey): void {
+  verify(signed: SignedMessage, publicKey: PublicKey, options: { expectedContext?: Uint8Array } = {}): void {
     if (!(signed instanceof SignedMessage)) throw new InvalidArgumentError('signed must be a SignedMessage.');
     if (!(publicKey instanceof PublicKey)) throw new InvalidArgumentError('publicKey must be a PublicKey.');
     this.#check(publicKey.algorithm);
     if (signed.algorithm !== this.algorithm) {
       throw new AlgorithmMismatchError(`Signed message algorithm '${signed.algorithm}' does not match '${this.algorithm}'.`);
     }
+    this.#requirePrefix(signed.signature);
     call((w) => w.sigVerify(signed.toCbor(), publicKey._wasm));
+    if (!equalBytes(signed.context, bytes(options.expectedContext ?? new Uint8Array(), 'expectedContext'))) throw new VerificationError();
   }
 
   /** Verifies a detached `message` + `signature` blob + `context` without a SignedMessage. */
   verifyBytes(message: Uint8Array, signature: Uint8Array, publicKey: PublicKey, options: { context?: Uint8Array } = {}): void {
     if (!(publicKey instanceof PublicKey)) throw new InvalidArgumentError('publicKey must be a PublicKey.');
     this.#check(publicKey.algorithm);
-    call((w) =>
-      w.sigVerifyParts(
-        this.algorithm,
-        bytes(message, 'message'),
-        bytes(signature, 'signature'),
-        bytes(options.context ?? new Uint8Array(), 'context'),
-        publicKey._wasm,
-      ),
-    );
+    // Copy once: the check and the verification must see the same bytes even if the caller's buffer is shared with another thread.
+    const sig = bytes(signature, 'signature').slice();
+    const msg = bytes(message, 'message').slice();
+    const ctx = bytes(options.context ?? new Uint8Array(), 'context').slice();
+    this.#requirePrefix(sig);
+    call((w) => w.sigVerifyParts(this.algorithm, msg, sig, ctx, publicKey._wasm));
   }
 
   /** Like {@link verify} but returns a boolean instead of throwing {@link VerificationError}. */
-  isValid(signed: SignedMessage, publicKey: PublicKey): boolean {
+  isValid(signed: SignedMessage, publicKey: PublicKey, options: { expectedContext?: Uint8Array } = {}): boolean {
     try {
-      this.verify(signed, publicKey);
+      this.verify(signed, publicKey, options);
       return true;
     } catch (e) {
       if ((e as { code?: string }).code === 'QS_VERIFICATION_FAILED') return false;

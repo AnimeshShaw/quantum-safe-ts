@@ -55,8 +55,21 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./file-store": {
+      "import": {
+        "types": "./dist/file-store.d.ts",
+        "default": "./dist/file-store.js"
+      },
+      "require": {
+        "types": "./dist/file-store.d.cts",
+        "default": "./dist/file-store.cjs"
+      }
+    },
     "./package.json": "./package.json",
-    "./quantum_safe_wasm_bg.wasm": "./dist/quantum_safe_wasm_bg.wasm",
+    "./quantum_safe_wasm_bg.wasm": {
+      "types": "./dist/wasm.d.ts",
+      "default": "./dist/quantum_safe_wasm_bg.wasm"
+    },
     "./wasm": "./dist/quantum_safe_wasm_bg.wasm"
   },
   "files": [
@@ -68,7 +81,7 @@
     "NOTICE"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "build:wasm": "node scripts/build-wasm.mjs",
