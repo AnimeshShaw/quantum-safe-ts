@@ -13,3 +13,4 @@ tests/fixtures/.tools/
 fuzz/target/
 fuzz/corpus/
 fuzz/artifacts/
+!/docs/maintainer/

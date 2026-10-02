@@ -161,10 +161,12 @@ function kdfCheck(kem: string): CheckResult {
 
 const CODE_SIGNING = result(
   'Software/firmware signing (SP 800-208)',
-  'not-covered',
-  'CNSA 2.0 requires LMS or XMSS (SP 800-208). Neither is implemented in quantum-safe-ts yet (LMS verification is planned). ' +
-    'SP 800-208 also requires key generation inside a validated module, which is a property of the deployment, not of a library.',
+  'partial',
+  'CNSA 2.0 requires LMS or XMSS (SP 800-208). quantum-safe-ts verifies LMS/HSS signatures (RFC 8554, SHA-256 M32/N32: Lms.verify) but does not sign ' +
+    '(LMS signing is stateful and unsafe without a durable state store) and does not implement XMSS. SP 800-208 also requires key generation inside ' +
+    'a validated cryptographic module, which is a property of the deployment, not of a library.',
   CNSA2_CODE_SIGNING.join(' or '),
+  'LMS verification only',
 );
 
 /** Options for {@link report}. */

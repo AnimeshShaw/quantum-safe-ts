@@ -102,6 +102,17 @@ export class MalformedCiphertextError extends CryptoError {
   }
 }
 
+/** A signature (for example an LMS/HSS signature) is truncated or structurally invalid. */
+export class MalformedSignatureError extends CryptoError {
+  constructor(message: string) {
+    super(
+      message,
+      'QS_MALFORMED_SIGNATURE',
+      'The signature is truncated, has trailing bytes, or its level count disagrees with the public key. Pass the exact bytes the signer produced.',
+    );
+  }
+}
+
 /** Key/message algorithm identifiers disagree. */
 export class AlgorithmMismatchError extends CryptoError {
   constructor(message: string) {
@@ -205,6 +216,8 @@ export function fromWasmError(e: unknown): Error {
       return new MalformedKeyError(message);
     case 'malformed_ciphertext':
       return new MalformedCiphertextError(message);
+    case 'malformed_signature':
+      return new MalformedSignatureError(message);
     case 'classical_failure':
       return new DecapsulationError(message);
     case 'decryption_failed':

@@ -11,7 +11,7 @@ mod errors;
 use errors::Kinded;
 use quantum_safe_core::keys::{self, EncodedKey, KeyType, MigrationState};
 use quantum_safe_core::suite::KemSuite;
-use quantum_safe_core::{aead, envelope, kdf, kem, sig};
+use quantum_safe_core::{aead, envelope, kdf, kem, lms, sig};
 use serde_json::json;
 use wasm_bindgen::prelude::*;
 use zeroize::Zeroizing;
@@ -658,6 +658,33 @@ pub fn mldsa_standard_verify(
     signature: &[u8],
 ) -> Result<bool, JsValue> {
     sig::standard::verify(level_of(level)?, public_key, message, context, signature).map_err(err)
+}
+
+// ------------------------------------------------------------------------------------------
+// LMS / HSS (RFC 8554) signature verification. Verification only: signing is stateful and unsafe to
+// offer without a durable state store; SP 800-208 also requires key generation in a validated module.
+// ------------------------------------------------------------------------------------------
+
+/// Verifies an HSS signature. Returns `false` for a well-formed but invalid signature and throws
+/// (kind `malformed_key` / `malformed_signature` / `unsupported_algorithm`) for structural problems.
+#[wasm_bindgen(js_name = lmsVerify)]
+pub fn lms_verify(public_key: &[u8], message: &[u8], signature: &[u8]) -> Result<bool, JsValue> {
+    lms::verify_hss(public_key, message, signature).map_err(err)
+}
+
+/// Public parameters of an HSS public key, as JSON.
+#[wasm_bindgen(js_name = lmsInspectPublicKey)]
+pub fn lms_inspect_public_key(public_key: &[u8]) -> Result<String, JsValue> {
+    let i = lms::inspect_hss_public_key(public_key).map_err(err)?;
+    Ok(json!({
+        "levels": i.levels,
+        "lmsType": i.lms_type,
+        "otsType": i.ots_type,
+        "treeHeight": i.tree_height,
+        "winternitz": i.winternitz,
+        "parameterSet": format!("LMS_SHA256_M32_H{}/LMOTS_SHA256_N32_W{}", i.tree_height, i.winternitz),
+    })
+    .to_string())
 }
 
 // ------------------------------------------------------------------------------------------
