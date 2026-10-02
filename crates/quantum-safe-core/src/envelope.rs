@@ -8,8 +8,10 @@ use crate::kdf;
 use crate::kdf::KdfError;
 use crate::kem;
 use crate::kem::KemError;
+use crate::suite::KemSuite;
 use ciborium::value::Value;
 use thiserror::Error;
+use zeroize::Zeroizing;
 
 pub const ENVELOPE_VERSION: u8 = 1;
 const ENC_KEY_INFO: &[u8] = b"qs-envelope-enc-v1";
@@ -34,6 +36,10 @@ pub enum EnvelopeError {
     BadNonceLength { expected: usize, actual: usize },
     #[error("envelope version {0} is out of range for a single byte (0-255)")]
     InvalidVersion(i64),
+    #[error("envelopes require a hybrid suite; '{0}' is not supported for sealing")]
+    UnsupportedSuite(String),
+    #[error("sealed message algorithm does not match the secret key algorithm")]
+    AlgorithmMismatch,
 }
 
 /// Build the AAD passed to AES-GCM, matching `Envelope._build_aad` exactly:
@@ -135,11 +141,9 @@ pub fn seal(
     recipient_public_key: &kem::PublicKey,
     aad: &[u8],
 ) -> Result<SealedMessage, EnvelopeError> {
+    require_hybrid(&recipient_public_key.algorithm)?;
     let (kem_ct, shared_secret) = kem::encapsulate(recipient_public_key)?;
-    let enc_key_vec = kdf::derive_key(&shared_secret, ENC_KEY_INFO, aead::KEY_LEN)?;
-    let enc_key: [u8; 32] = enc_key_vec
-        .try_into()
-        .expect("derive_key(length=32) always returns 32 bytes");
+    let enc_key = derive_enc_key(&shared_secret[..])?;
 
     let mut nonce_bytes = [0u8; aead::NONCE_LEN];
     getrandom::fill(&mut nonce_bytes).expect("OS RNG must be available to generate a nonce");
@@ -150,11 +154,26 @@ pub fn seal(
     Ok(SealedMessage {
         version: ENVELOPE_VERSION,
         algorithm: recipient_public_key.algorithm.clone(),
-        kem_ct: kem_ct.to_bytes(),
+        kem_ct,
         nonce: nonce_bytes.to_vec(),
         ciphertext,
         aad: aad.to_vec(),
     })
+}
+
+/// Envelopes are hybrid-only (as in quantum-safe-py): pure ML-KEM is rejected.
+fn require_hybrid(algorithm: &str) -> Result<(), EnvelopeError> {
+    match KemSuite::parse(algorithm) {
+        Some(s) if s.is_hybrid() => Ok(()),
+        _ => Err(EnvelopeError::UnsupportedSuite(algorithm.to_string())),
+    }
+}
+
+fn derive_enc_key(shared_secret: &[u8]) -> Result<Zeroizing<[u8; 32]>, EnvelopeError> {
+    let okm = Zeroizing::new(kdf::derive_key(shared_secret, ENC_KEY_INFO, aead::KEY_LEN)?);
+    let mut key = Zeroizing::new([0u8; 32]);
+    key.copy_from_slice(&okm);
+    Ok(key)
 }
 
 /// Matches `Envelope.open`: KEM-decapsulate, re-derive the same AES key,
@@ -166,17 +185,17 @@ pub fn open(sealed: &SealedMessage, recipient_secret_key: &kem::SecretKey) -> Re
             actual: sealed.nonce.len(),
         });
     }
-    let kem_ct = kem::HybridCiphertext::from_bytes(&sealed.kem_ct)?;
-    let shared_secret = kem::decapsulate(recipient_secret_key, &kem_ct)?;
-    let enc_key_vec = kdf::derive_key(&shared_secret, ENC_KEY_INFO, aead::KEY_LEN)?;
-    let enc_key: [u8; 32] = enc_key_vec
-        .try_into()
-        .expect("derive_key(length=32) always returns 32 bytes");
+    require_hybrid(&sealed.algorithm)?;
+    if sealed.algorithm != recipient_secret_key.algorithm {
+        return Err(EnvelopeError::AlgorithmMismatch);
+    }
+    let shared_secret = kem::decapsulate(recipient_secret_key, &sealed.kem_ct)?;
+    let enc_key = derive_enc_key(&shared_secret[..])?;
 
     let built_aad = build_aad(sealed.version, &sealed.algorithm, &sealed.aad)?;
     let nonce: [u8; aead::NONCE_LEN] = sealed
         .nonce
-        .clone()
+        .as_slice()
         .try_into()
         .expect("length already checked above");
     Ok(aead::decrypt(&enc_key, &nonce, &sealed.ciphertext, &built_aad)?)
@@ -371,10 +390,7 @@ mod tests {
         let file: VectorFile = serde_json::from_str(&raw).unwrap();
         let v = file.envelope_roundtrip;
 
-        let secret_key = kem::SecretKey {
-            raw: hex::decode(&v.secret_key).unwrap(),
-            algorithm: v.algorithm.clone(),
-        };
+        let secret_key = kem::SecretKey::new(hex::decode(&v.secret_key).unwrap(), v.algorithm.clone());
         let sealed_bytes = hex::decode(&v.sealed).unwrap();
         let sealed = SealedMessage::from_cbor(&sealed_bytes).unwrap();
 
