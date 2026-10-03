@@ -77,6 +77,7 @@ Status reflects **quantum-safe-ts 0.1.0** and **quantum-safe-py 0.3.0**, as of 2
 | 33 | Pluggable backends | **N/A → reframed** | One WASM backend, verified by tests; native WebCrypto is used only as a test oracle (a native provider was evaluated and not built: with the speed-optimised build the WebAssembly code is within about 2x of Node's native ML-KEM). |
 | 34 | CMVP / FIPS 140-3 validation | **N/A** | Neither library can claim it. |
 | 35 | Signature format `-v2` (`<suite>-v2`) | **TS-only, additive** | New identifiers; quantum-safe-py cannot read them and fails closed on the unknown name. No prefix, ML-DSA half = FIPS 204 with context `quantum-safe-sig-v2` over `M2`, keys tagged `-v2`. See `website/guide/signatures.md`; tests in `signature-v2.test.ts` and `sig/v2.rs`. |
+| 36 | Streaming envelope (format v3) | **TS-only, additive, experimental** | `sealStream`/`openStream`; STREAM construction over AES-256-GCM; layout and key derivation in `crates/quantum-safe-core/src/stream.rs`; independent sender/receiver tests in `stream.test.ts`. quantum-safe-py cannot read it. |
 
 ### Known quirks reproduced for parity (not endorsements)
 

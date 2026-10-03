@@ -52,7 +52,7 @@ Only the latest released minor version receives fixes while the project is pre-1
   signed message, from public data alone. (A review demonstrated this against the permissive verifier.) The TypeScript verifiers
   therefore **pin the prefix length to the verifier's hedging mode**: exactly 32 bytes when `hedged` is true (the default), exactly 0 when it is false. To verify signatures made with hedging disabled,
   construct the verifier with `{ hedged: false }`. The bytes on the wire are unchanged. The Rust core's own `verify` is still permissive; use it only through the TypeScript layer or enforce the same rule.
-  The `-v2` signature formats (TypeScript only, see the signatures guide) remove the ambiguity for good: no prefix, algorithm and context inside the signed bytes of both halves, one fixed-length encoding, keys tagged `-v2`. Prefer v2 unless quantum-safe-py must verify the signature.
+  The `-v2` signature formats (TypeScript only, see the signatures guide) remove the ambiguity for good: no prefix, algorithm and context inside the signed bytes of both halves, one fixed-length encoding, keys tagged `-v2` (advisory: never reuse one key's bytes in both formats). Prefer v2 unless quantum-safe-py must verify the signature.
 - *Do not use one signing key in both hedged and unhedged mode.* The prefix pin removes the forgery for a key used in one mode. A key whose owner signs both hedged and unhedged messages
   has two prefix lengths in circulation, and a verifier for either mode accepts the other's signatures on shifted message splits; the complete fix is the `-v2` format (below). With the quantum-safe-py-compatible format, pick one mode per key (hedged, the default) and never verify with both.
 - *Hybrid signature halves are unbound.* In `Ed25519+ML-DSA-*`, each half is an ordinary signature over the same input and neither commits to the other half. A verifier requires both, so forging one half does not help, but
@@ -78,7 +78,7 @@ Only the latest released minor version receives fixes while the project is pre-1
 
 ## Defences verified by tests in this repository
 
-- Malformed or hostile bytes never panic any parser (mutation fuzzing in `crates/quantum-safe-core/tests/robustness.rs`, seven cargo-fuzz targets (including LMS),
+- Malformed or hostile bytes never panic any parser (mutation fuzzing in `crates/quantum-safe-core/tests/robustness.rs`, eight cargo-fuzz targets (including LMS),
   property tests in the TypeScript suite). A guard validates packed ML-DSA secret keys before decoding because the upstream decoder can panic.
 - Use-after-free, double-free, and secret redaction behaviour (`behavior.test.ts`).
 - X25519 low-order points are rejected; ML-KEM implicit rejection is documented and tested.

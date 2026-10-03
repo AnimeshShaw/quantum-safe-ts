@@ -48,6 +48,8 @@ hybrid is optional under CNSA 2.0) and `ML-DSA-87` (`Ed25519+ML-DSA-87` from `cn
 other ecosystems must read, use `X-Wing` (draft-connolly-cfrg-xwing-kem) and `StandardJwt` (RFC 9964) instead of the
 quantum-safe-py-compatible constructions.
 
+Streaming (experimental, TypeScript-only): `sealStream(publicKey, source, { aad, chunkSize })` and `openStream(secretKey, source, { expectedAad })` take and yield `Uint8Array` pieces (async generators); a truncated, reordered or modified stream throws and stops. See the streaming guide.
+
 ## 3b. Easy layer (shortest path, nothing to free)
 
 ```ts test

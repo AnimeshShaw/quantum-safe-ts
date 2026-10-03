@@ -35,6 +35,7 @@ export default defineConfig({
           items: [
             { text: 'Encryption', link: '/guide/encryption' },
             { text: 'Signatures', link: '/guide/signatures' },
+            { text: 'Streaming encryption', link: '/guide/streaming' },
             { text: 'JWT', link: '/guide/jwt' },
             { text: 'Keys and passwords', link: '/guide/keys' },
             { text: 'Errors', link: '/guide/errors' },

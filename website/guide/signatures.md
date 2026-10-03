@@ -52,7 +52,8 @@ Every ML-DSA and hybrid suite also exists as `<name>-v2` (`ML-DSA-65-v2`, `Ed255
 - **Plain FIPS 204 for the ML-DSA half.** It signs `M2` with the native context `quantum-safe-sig-v2`, so any FIPS 204 library (noble, Node WebCrypto) verifies it given `M2`. Signing is always hedged inside ML-DSA.
 - **Algorithm and context are signed.** `M2 = len(algo) ‖ algo ‖ len(ctx) ‖ ctx ‖ message`, and both halves of a hybrid sign the same bytes (the classical half signs `label ‖ 0x00 ‖ M2`).
 - **One encoding.** Hybrid blob = classical signature (64 bytes) ‖ ML-DSA signature; P-256 signatures are raw `r ‖ s` and the high-S twin is refused.
-- **Keys are tagged `-v2`**, so a key can never sign or verify in both formats. Generate new keys; the key material has the same layout as v1.
+- **Keys are tagged `-v2`**, and the library refuses a v1 key in a v2 signer and the reverse. The tag is metadata, though: v1 and v2 keys have identical bytes, so **never use the same key material in both formats** (the ML-DSA halves are separated by FIPS 204's context; the classical halves are not). Generate new keys for v2.
+- The `SignedMessage` container is the same CBOR as in v1 and is not canonical; the signature blob and the verified message are not malleable, but do not use a hash of the container as an identity.
 
 ```ts test
 import { HybridSign, VerificationError, utf8 } from 'quantum-safe-ts';

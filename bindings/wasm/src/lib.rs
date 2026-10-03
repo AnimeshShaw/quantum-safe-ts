@@ -11,7 +11,7 @@ mod errors;
 use errors::Kinded;
 use quantum_safe_core::keys::{self, EncodedKey, KeyType, MigrationState};
 use quantum_safe_core::suite::KemSuite;
-use quantum_safe_core::{aead, envelope, kdf, kem, lms, sig};
+use quantum_safe_core::{aead, envelope, kdf, kem, lms, sig, stream};
 use serde_json::json;
 use wasm_bindgen::prelude::*;
 use zeroize::Zeroizing;
@@ -746,4 +746,73 @@ pub fn sig_suites() -> String {
         }))
         .collect();
     serde_json::Value::Array(list).to_string()
+}
+
+// ------------------------------------------------------------------------------------------
+// Streaming envelope (format v3)
+// ------------------------------------------------------------------------------------------
+
+/// Seals or opens the chunks of one stream, in order. Owns the key and the chunk counter (a nonce can never be reused by a caller).
+/// Free it (or let the TypeScript `using` scope do so) when done: the key is wiped.
+#[wasm_bindgen]
+pub struct StreamCipher {
+    inner: stream::StreamCipher,
+    header: Vec<u8>,
+}
+
+#[wasm_bindgen]
+impl StreamCipher {
+    /// Starts a stream to `public_key` (a hybrid KEM key or `ML-KEM-1024`). The header is available as `.header`.
+    #[wasm_bindgen(js_name = startSealing)]
+    pub fn start_sealing(
+        public_key: &PublicKey,
+        aad: &[u8],
+        chunk_size: usize,
+    ) -> Result<StreamCipher, JsValue> {
+        let (header, inner) =
+            stream::StreamCipher::start_sealing(&public_key.core(), aad, chunk_size).map_err(err)?;
+        Ok(StreamCipher { inner, header })
+    }
+
+    /// Starts opening the stream whose header bytes are `header`.
+    #[wasm_bindgen(js_name = startOpening)]
+    pub fn start_opening(secret_key: &SecretKey, header: &[u8], aad: &[u8]) -> Result<StreamCipher, JsValue> {
+        let inner = stream::StreamCipher::start_opening(&secret_key.core(), header, aad).map_err(err)?;
+        Ok(StreamCipher {
+            inner,
+            header: header.to_vec(),
+        })
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn header(&self) -> Vec<u8> {
+        self.header.clone()
+    }
+
+    #[wasm_bindgen(getter, js_name = chunkSize)]
+    pub fn chunk_size(&self) -> usize {
+        self.inner.chunk_size()
+    }
+
+    #[wasm_bindgen(js_name = sealChunk)]
+    pub fn seal_chunk(&mut self, plaintext: &[u8], last: bool) -> Result<Vec<u8>, JsValue> {
+        self.inner.seal_chunk(plaintext, last).map_err(err)
+    }
+
+    #[wasm_bindgen(js_name = openChunk)]
+    pub fn open_chunk(&mut self, ciphertext: &[u8], last: bool) -> Result<Vec<u8>, JsValue> {
+        self.inner.open_chunk(ciphertext, last).map_err(err)
+    }
+}
+
+/// Parses and validates a stream header; returns its non-secret fields as JSON.
+#[wasm_bindgen(js_name = streamHeaderInspect)]
+pub fn stream_header_inspect(header: &[u8]) -> Result<String, JsValue> {
+    let h = stream::StreamHeader::from_cbor(header).map_err(err)?;
+    Ok(json!({
+        "algorithm": h.algorithm,
+        "kemCiphertextLength": h.kem_ct.len(),
+        "chunkSize": h.chunk_size,
+    })
+    .to_string())
 }
