@@ -54,3 +54,9 @@ name = "fuzz_lms_verify"
 path = "fuzz_targets/fuzz_lms_verify.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_stream"
+path = "fuzz_targets/fuzz_stream.rs"
+test = false
+doc = false

@@ -5,8 +5,12 @@
 //! - the ML-DSA half is plain FIPS 204 `ML-DSA.Sign` with a non-empty native context ([`LABEL`]) over `M2`, so any FIPS 204 library can verify it
 //!   given `M2` and `LABEL`;
 //! - the algorithm identifier and the caller's context are inside the signed bytes (`M2`), and both halves of a hybrid sign the same `M2`;
-//! - signatures have one fixed-length encoding (no CBOR wrapper around the halves, raw low-S P-256), so nothing around them is malleable;
-//! - keys carry the `-v2` tag, so one key can never sign or verify in both formats.
+//! - the signature blob has one fixed-length encoding (no CBOR wrapper around the halves, raw low-S P-256). The `SignedMessage` container around it is
+//!   the same CBOR container as in v1 and is NOT canonical (extra keys, order, and the `fp`/`ts`/`hybrid` metadata are not authenticated), so do not
+//!   use the hash of a container as an identity; the blob and the verified message are not malleable;
+//! - keys carry the `-v2` tag. The tag is advisory metadata, not a technical barrier: v1 and v2 keys have identical bytes. **Never use the same key
+//!   material in both formats.** The ML-DSA halves are domain-separated by FIPS 204's context anyway (empty in v1, `LABEL` here), but the classical
+//!   halves are not (their inputs are different byte strings, and a v1 signing oracle that signs attacker-chosen contexts could be made to emit a v2 half).
 //!
 //! `M2 = u8(len(algo)) || algo || u8(len(ctx)) || ctx || message`, where `algo` is the full v2 identifier (for example `ML-DSA-65-v2`).
 //! ML-DSA signs `M2` with FIPS 204 context [`LABEL`]. The classical half signs `LABEL || 0x00 || M2` (Ed25519, or ECDSA P-256 with SHA-256,
@@ -37,7 +41,11 @@ pub fn all() -> Vec<String> {
 }
 
 /// `M2`: the bytes both halves sign (the classical half adds a label in front).
-pub fn signed_input(algorithm: &str, context: &[u8], message: &[u8]) -> Vec<u8> {
+pub(crate) fn signed_input(algorithm: &str, context: &[u8], message: &[u8]) -> Vec<u8> {
+    debug_assert!(
+        algorithm.len() <= 255 && context.len() <= 255,
+        "the one-byte length prefixes would truncate"
+    );
     let mut v = Vec::with_capacity(2 + algorithm.len() + context.len() + message.len());
     v.push(algorithm.len() as u8);
     v.extend_from_slice(algorithm.as_bytes());
@@ -249,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn v1_and_v2_keys_and_signatures_do_not_cross() {
+    fn v1_and_v2_tagged_keys_and_signatures_do_not_cross() {
         let v1 = super::super::generate_keypair("ML-DSA-44").unwrap();
         let v2 = super::super::generate_keypair("ML-DSA-44-v2").unwrap();
         // a v2 secret key cannot be used through the v1 dispatcher's key check, and vice versa

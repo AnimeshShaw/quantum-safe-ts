@@ -56,6 +56,7 @@ The Rust core lives in [`crates/`](crates), the WebAssembly bindings in [`bindin
 |---|---|---|
 | One-call encryption and signing | `easy` | defaults `X25519+ML-KEM-768`, `Ed25519+ML-DSA-65` |
 | Key encapsulation | `HybridKEM`, `KEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `X-Wing`, pure `ML-KEM-512/768/1024` |
+| Streaming encryption of large data (experimental, TypeScript-only) | `sealStream`, `openStream` | any hybrid KEM or `ML-KEM-1024`, chunked AES-256-GCM (STREAM) |
 | Public-key encryption (anonymous: no sender authentication) | `Envelope`, `SealedMessage` | any hybrid KEM + AES-256-GCM; CNSA 2.0 profile with pure `ML-KEM-1024` + HKDF-SHA-384 |
 | Signatures | `Sign`, `HybridSign`, `SignedMessage` | `ML-DSA-44/65/87`, `Ed25519+ML-DSA-*`, `P-256+ML-DSA-44/65`, SLH-DSA (all 12 FIPS 205 sets); plus the cleaner TypeScript-only `-v2` format of each ML-DSA suite (no prefix, FIPS 204 native context) |
 | Stateful hash-based signatures | `Lms` | LMS/HSS verification (RFC 8554). Signing is intentionally not provided. |
@@ -101,7 +102,7 @@ Every row is exercised by a fixture that installs the **packed npm tarball** int
 | Deno 2, Bun | From `node_modules`. |
 | Chrome extensions (Manifest V3) | Needs `'wasm-unsafe-eval'` in the extension CSP. |
 
-Not supported yet: React Native. The WebAssembly is about 405 KiB gzipped (built for speed; a size-optimised build was 2-3x slower and about 285 KiB); the default entry embeds it as base64, so a bundle grows by about 600 KiB gzipped, and tree-shaking cannot drop algorithms.
+Not supported yet: React Native. The WebAssembly is about 410 KiB gzipped (built for speed; a size-optimised build was 2-3x slower and about 285 KiB); the default entry embeds it as base64, so a bundle grows by about 600 KiB gzipped, and tree-shaking cannot drop algorithms.
 
 ## Evidence and how to reproduce it
 

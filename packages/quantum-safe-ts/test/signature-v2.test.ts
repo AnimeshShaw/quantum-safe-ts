@@ -98,7 +98,7 @@ describe('format v2: the v1 attacks do not apply', () => {
     }
   });
 
-  it('v1 and v2 never cross: keys are tagged, signatures differ in meaning', () => {
+  it('v1 and v2 tagged keys and signatures are refused by each other (the tag is advisory: do not share key bytes)', () => {
     const v1 = new Sign('ML-DSA-44');
     const v2 = new Sign('ML-DSA-44-v2');
     using k1 = v1.generateKeyPair();

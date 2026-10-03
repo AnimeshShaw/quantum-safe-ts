@@ -80,7 +80,7 @@ Every row is exercised by a test that installs the packed npm tarball into a fre
 | Deno 2, Bun | From `node_modules`. |
 | Chrome extensions (Manifest V3) | Needs `'wasm-unsafe-eval'` in the extension CSP. |
 
-Not supported: React Native. About 405 KiB of gzipped WebAssembly (compiled for speed), embedded as base64 in the default entry (about 600 KiB gzipped of JavaScript; import `quantum-safe-ts/slim` and pass the `.wasm` to `init` to avoid that; tree-shaking cannot drop algorithms).
+Not supported: React Native. About 410 KiB of gzipped WebAssembly (compiled for speed), embedded as base64 in the default entry (about 600 KiB gzipped of JavaScript; import `quantum-safe-ts/slim` and pass the `.wasm` to `init` to avoid that; tree-shaking cannot drop algorithms).
 
 ## Compatible with quantum-safe-py, and what that means
 

@@ -9,6 +9,7 @@ use quantum_safe_core::kem::KemError;
 use quantum_safe_core::keys::KeyError;
 use quantum_safe_core::lms::LmsError;
 use quantum_safe_core::sig::SigError;
+use quantum_safe_core::stream::StreamError;
 use std::fmt::Display;
 
 /// A stable, machine-readable error classification.
@@ -86,6 +87,24 @@ impl Kinded for LmsError {
     }
 }
 
+impl Kinded for StreamError {
+    fn kind(&self) -> &'static str {
+        match self {
+            StreamError::Header(_) => "malformed_ciphertext",
+            StreamError::UnsupportedSuite(_) => "unsupported_algorithm",
+            StreamError::AlgorithmMismatch => "algorithm_mismatch",
+            StreamError::BadChunkSize => "invalid_argument",
+            StreamError::BadPlaintextLength => "invalid_argument",
+            StreamError::BadChunkLength => "malformed_ciphertext",
+            StreamError::Finished => "invalid_argument",
+            StreamError::TooManyChunks => "invalid_argument",
+            StreamError::Kem(e) => e.kind(),
+            StreamError::Kdf(e) => e.kind(),
+            StreamError::Authentication => "decryption_failed",
+        }
+    }
+}
+
 impl Kinded for SigError {
     fn kind(&self) -> &'static str {
         match self {
@@ -132,6 +151,9 @@ mod tests {
             EnvelopeError::UnsupportedSuite("ML-KEM-768".into()).kind(),
             "unsupported_algorithm"
         );
+        assert_eq!(StreamError::Authentication.kind(), "decryption_failed");
+        assert_eq!(StreamError::BadChunkLength.kind(), "malformed_ciphertext");
+        assert_eq!(StreamError::BadPlaintextLength.kind(), "invalid_argument");
         assert_eq!(KeyError::TooLarge(1).kind(), "payload_too_large");
         assert_eq!(KeyError::VersionRollback(0).kind(), "key_parse_error");
         assert_eq!(

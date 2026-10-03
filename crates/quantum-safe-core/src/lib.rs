@@ -11,5 +11,6 @@ pub mod kem;
 pub mod keys;
 pub mod lms;
 pub mod sig;
+pub mod stream;
 pub mod suite;
 pub mod wire;
