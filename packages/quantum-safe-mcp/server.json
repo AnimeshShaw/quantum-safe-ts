@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.AnimeshShaw/quantum-safe-mcp",
+  "description": "Read-only, offline MCP server: audit a JavaScript/TypeScript project for quantum-vulnerable cryptography, pick a post-quantum suite, look up quantum-safe-ts errors.",
+  "repository": {
+    "url": "https://github.com/AnimeshShaw/quantum-safe-ts",
+    "source": "github",
+    "subfolder": "packages/quantum-safe-mcp"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "quantum-safe-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

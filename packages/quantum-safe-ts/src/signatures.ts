@@ -140,6 +140,7 @@ abstract class BaseSigner {
    * the message of a valid signature and obtain a "valid" signature on a different message (a prefix or suffix of the signed one).
    * Verification therefore requires the prefix length to be exactly 32 when `hedged` is true and 0 when it is false. To verify signatures made
    * without hedging (quantum-safe-py `hedged=False`), construct the verifier with `{ hedged: false }`.
+   * Does not apply to the `-v2` formats, which have no prefix (and always hedge inside ML-DSA).
    */
   readonly hedged: boolean;
 
@@ -151,6 +152,7 @@ abstract class BaseSigner {
 
   /** The blob is `len(prefix) || prefix || payload`; the length must match this verifier's hedging mode (see {@link hedged}). */
   #requirePrefix(blob: Uint8Array): void {
+    if (this.info.format === 'v2') return; // format v2 has no prefix: the blob is the signature itself
     const want = this.hedged ? 32 : 0;
     if (blob.length === 0 || blob[0] !== want) throw new VerificationError();
   }

@@ -79,12 +79,15 @@ function result(
   return expected === undefined ? r : { ...r, expected, ...(actual !== undefined ? { actual } : {}) };
 }
 
-const pqcHalf = (algorithm: string): string => (algorithm.includes('+') ? algorithm.split('+').pop()! : algorithm);
+const pqcHalf = (algorithm: string): string => {
+  const name = algorithm.endsWith('-v2') ? algorithm.slice(0, -3) : algorithm; // the v2 signature format uses the same ML-DSA parameter sets
+  return name.includes('+') ? name.split('+').pop()! : name;
+};
 
 // Names this library actually implements. A selection is only evaluated if its WHOLE name is one of these: 'RSA-1024+ML-DSA-87' is not 'compliant'.
 const KNOWN_KEM = /^(?:ML-KEM-(?:512|768|1024)|X-Wing|X25519\+ML-KEM-(?:512|768|1024)|P-256\+ML-KEM-(?:512|768))$/;
 const KNOWN_SIGNATURE =
-  /^(?:ML-DSA-(?:44|65|87)|Ed25519\+ML-DSA-(?:44|65|87)|P-256\+ML-DSA-(?:44|65)|SLH-DSA-(?:SHAKE|SHA2)-(?:128|192|256)[sf])$/;
+  /^(?:ML-DSA-(?:44|65|87)(?:-v2)?|Ed25519\+ML-DSA-(?:44|65|87)(?:-v2)?|P-256\+ML-DSA-(?:44|65)(?:-v2)?|SLH-DSA-(?:SHAKE|SHA2)-(?:128|192|256)[sf])$/;
 const unknown = (requirement: string, algorithm: string): CheckResult =>
   result(requirement, 'non-compliant', `'${algorithm}' is not an algorithm name this library implements, so it cannot be evaluated.`);
 

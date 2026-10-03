@@ -152,6 +152,8 @@ pub fn expected_public_len(algorithm: &str) -> Option<usize> {
             suite::KemSuite::XWing => 1216,
         });
     }
+    // A v2 identifier (`<suite>-v2`) uses the same key material as its base suite.
+    let algorithm = sig::v2::base_of(algorithm).unwrap_or(algorithm);
     sig::SigSuite::parse(algorithm).map(|s| match s {
         sig::SigSuite::MlDsa(l) => l.sizes().0,
         sig::SigSuite::Slh(p) => p.sizes().0,

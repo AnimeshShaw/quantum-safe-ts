@@ -328,6 +328,14 @@ macro_rules! mldsa_level {
 
             /// ML-DSA.Sign (hedged) with an empty FIPS 204 context over `msg`.
             pub fn sign(sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SigError> {
+                sign_ctx(sk, msg, &[])
+            }
+
+            /// ML-DSA.Sign (hedged) with FIPS 204 context `ctx` (at most 255 bytes) over `msg`, from an expanded secret key.
+            pub fn sign_ctx(sk: &[u8], msg: &[u8], ctx: &[u8]) -> Result<Vec<u8>, SigError> {
+                if ctx.len() > MAX_CONTEXT_LEN {
+                    return Err(SigError::ContextTooLong(ctx.len()));
+                }
                 if !validate_expanded_mldsa_sk($level, sk) {
                     return Err(SigError::MalformedKey);
                 }
@@ -337,19 +345,27 @@ macro_rules! mldsa_level {
                 let esk = ExpandedSigningKey::<$ty>::from_expanded(&enc);
                 let mut rnd = Zeroizing::new([0u8; 32]);
                 getrandom::fill(&mut rnd[..]).map_err(|_| SigError::SigningFailed)?;
-                // M' = 0x00 || len(ctx)=0 || M  (FIPS 204 Algorithm 2, empty context)
-                let sig = esk.sign_internal(&[&[0u8, 0u8], msg], &ml_dsa::B32::from(*rnd));
+                // M' = 0x00 || len(ctx) || ctx || M  (FIPS 204 Algorithm 2; the quantum-safe-py construction uses an empty ctx)
+                let prefix: Vec<u8> = [&[0u8, ctx.len() as u8][..], ctx].concat();
+                let sig = esk.sign_internal(&[&prefix, msg], &ml_dsa::B32::from(*rnd));
                 Ok(sig.encode().as_slice().to_vec())
             }
 
             pub fn verify(pk: &[u8], msg: &[u8], sig: &[u8]) -> Result<bool, SigError> {
+                verify_ctx(pk, msg, &[], sig)
+            }
+
+            pub fn verify_ctx(pk: &[u8], msg: &[u8], ctx: &[u8], sig: &[u8]) -> Result<bool, SigError> {
                 let enc =
                     ml_dsa::EncodedVerifyingKey::<$ty>::try_from(pk).map_err(|_| SigError::MalformedKey)?;
                 let vk = VerifyingKey::<$ty>::decode(&enc);
                 let Ok(sig) = Signature::<$ty>::try_from(sig) else {
                     return Ok(false);
                 };
-                Ok(vk.verify_with_context(msg, &[], &sig))
+                if ctx.len() > MAX_CONTEXT_LEN {
+                    return Ok(false);
+                }
+                Ok(vk.verify_with_context(msg, ctx, &sig))
             }
 
             // --- standards mode (FIPS 204 / RFC 9964): seed keys, native context, no prefix ---
@@ -414,6 +430,28 @@ fn mldsa_sign(l: MlDsaLevel, sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SigError>
         MlDsaLevel::L44 => mldsa44::sign(sk, msg),
         MlDsaLevel::L65 => mldsa65::sign(sk, msg),
         MlDsaLevel::L87 => mldsa87::sign(sk, msg),
+    }
+}
+
+fn mldsa_sign_ctx(l: MlDsaLevel, sk: &[u8], msg: &[u8], ctx: &[u8]) -> Result<Vec<u8>, SigError> {
+    match l {
+        MlDsaLevel::L44 => mldsa44::sign_ctx(sk, msg, ctx),
+        MlDsaLevel::L65 => mldsa65::sign_ctx(sk, msg, ctx),
+        MlDsaLevel::L87 => mldsa87::sign_ctx(sk, msg, ctx),
+    }
+}
+
+fn mldsa_verify_ctx(l: MlDsaLevel, pk: &[u8], msg: &[u8], ctx: &[u8], sig: &[u8]) -> Result<bool, SigError> {
+    if pk.len() != l.sizes().0 {
+        return Err(SigError::MalformedKey);
+    }
+    if sig.len() != l.sizes().2 {
+        return Ok(false);
+    }
+    match l {
+        MlDsaLevel::L44 => mldsa44::verify_ctx(pk, msg, ctx, sig),
+        MlDsaLevel::L65 => mldsa65::verify_ctx(pk, msg, ctx, sig),
+        MlDsaLevel::L87 => mldsa87::verify_ctx(pk, msg, ctx, sig),
     }
 }
 
@@ -767,6 +805,9 @@ fn suite_of(algorithm: &str) -> Result<SigSuite, SigError> {
 }
 
 pub fn generate_keypair(algorithm: &str) -> Result<SigKeyPair, SigError> {
+    if v2::base_of(algorithm).is_some() {
+        return v2::generate_keypair(algorithm);
+    }
     let suite = suite_of(algorithm)?;
     let (sec, public) = match suite {
         SigSuite::MlDsa(l) => mldsa_keygen(l),
@@ -870,6 +911,9 @@ pub fn sign(
     context: &[u8],
     opts: &SignOptions,
 ) -> Result<SignedMessage, SigError> {
+    if v2::base_of(&secret.algorithm).is_some() {
+        return v2::sign(secret, message, context, opts);
+    }
     let suite = suite_of(&secret.algorithm)?;
     if context.len() > MAX_CONTEXT_LEN {
         return Err(SigError::ContextTooLong(context.len()));
@@ -914,6 +958,9 @@ pub fn verify_parts(
     context: &[u8],
     public: &PublicKey,
 ) -> Result<(), SigError> {
+    if v2::base_of(algorithm).is_some() {
+        return v2::verify_parts(algorithm, message, signature_blob, context, public);
+    }
     let suite = suite_of(algorithm)?;
     if public.algorithm != algorithm {
         return Err(SigError::AlgorithmMismatch);
@@ -958,6 +1005,8 @@ pub fn verify(signed: &SignedMessage, public: &PublicKey) -> Result<(), SigError
         public,
     )
 }
+
+pub mod v2;
 
 /// Standards-mode ML-DSA (FIPS 204 pure signing with the native context parameter, keys as
 /// 32-byte seeds). This is the construction RFC 9964 (ML-DSA for JOSE/COSE) uses, and is what any

@@ -30,13 +30,15 @@ migration tooling. Choose it for that layer, not for the primitives.
 | JWT | Yes, including RFC 9964 | No | No |
 | Typed errors with stable codes | Yes | Plain errors | `DOMException` |
 | Migration and audit tooling | Yes | No | No |
-| Speed (one laptop, see below) | About 1.5 to 1.8 times faster than noble for ML-KEM-768 keygen, encapsulate and decapsulate; about 2.2 to 2.4 times for ML-DSA-65 sign and verify, but only about 1.1 times for ML-DSA-65 keygen (run-to-run spread up to 11%) | Baseline | About 5 times faster than ours for ML-KEM-768, async only |
+| Speed (one laptop, see below) | About 3.7 to 4.7 times faster than noble for ML-KEM-768 keygen, encapsulate and decapsulate; about 4 times for ML-DSA-65 sign and verify and 1.9 times for keygen | Baseline | About 2 times faster than ours for ML-KEM-768 encapsulate/decapsulate, async only, ML-KEM only |
 | Independent audit | No | Not independently audited (self-audit) | Depends on the engine |
 | Works in browsers, Deno, Bun, Workers | Yes | Yes | Only where implemented |
 | Constant-time | No guarantee (JS/WASM) | Not claimed | Depends on the engine |
 
 Speeds come from `bench/run-matrix.mjs` on one machine (each benchmark in its own process, pinned to one core, repeated); treat them as indicative, and compare ratios, not absolute numbers (they drifted by almost 4x between sessions on that laptop). See the repository's
-`results/bench_matrix.json` for the figures and spread. An earlier draft of this page quoted much larger ratios from a flawed benchmark that shared one process; that was wrong.
+`results/bench_matrix.json` for the figures and spread.
+
+**Against native C and Python.** `bench/py_baseline.py` measures liboqs (C, AVX2) through its Python binding and quantum-safe-py on the same machine, pinned the same way (`results/py_baseline.json`). ML-KEM-768 keygen and encapsulate in WebAssembly are about the same speed as liboqs (15.1k and 15.5k against 13.8k and 14.7k operations per second); liboqs is about 2.7 times faster at ML-KEM-768 decapsulation and 3.4 to 4.5 times faster at ML-DSA-65. For the hybrid operations quantum-safe-py performs, this library is about 1.7 times faster at key generation and 1.3 times at encapsulation, about equal at decapsulation, and about 3 times slower at Ed25519+ML-DSA-65 sign and verify. Numbers are for one machine and one runtime and will differ on yours.
 
 **WebCrypto status, as of October 2026.** Node.js 24.7+ ships ML-KEM and ML-DSA (Stability 1.1, experimental); Node 26.10 adds hybrid KEMs; Cloudflare Workers has them behind a compatibility flag. Chrome has cleared an Intent to Ship; check the current state for your target browsers before relying on it.
 

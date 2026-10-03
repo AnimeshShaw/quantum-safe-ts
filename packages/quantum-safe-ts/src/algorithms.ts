@@ -12,8 +12,26 @@ export type KemAlgorithm =
   | 'ML-KEM-768'
   | 'ML-KEM-1024';
 
+/** Base names of the signature suites that also exist in format v2. */
+type V2Base =
+  | 'Ed25519+ML-DSA-44'
+  | 'Ed25519+ML-DSA-65'
+  | 'Ed25519+ML-DSA-87'
+  | 'P-256+ML-DSA-44'
+  | 'P-256+ML-DSA-65'
+  | 'ML-DSA-44'
+  | 'ML-DSA-65'
+  | 'ML-DSA-87';
+
+/**
+ * Signature format v2 identifiers (`<suite>-v2`): a TypeScript-only format without the quantum-safe-py prefix construction. Its ML-DSA half is
+ * plain FIPS 204 with the context `quantum-safe-sig-v2`; see the signatures guide. quantum-safe-py cannot read these.
+ */
+export type SignatureAlgorithmV2 = `${V2Base}-v2`;
+
 /** Signature algorithm identifiers. */
 export type SignatureAlgorithm =
+  | SignatureAlgorithmV2
   | 'Ed25519+ML-DSA-44'
   | 'Ed25519+ML-DSA-65'
   | 'Ed25519+ML-DSA-87'
@@ -50,6 +68,8 @@ export interface SuiteInfo {
   readonly meetsCnsa2: boolean;
   /** True if quantum-safe-py can read/produce data for this suite. */
   readonly pyCompatible: boolean;
+  /** `'v2'` for the TypeScript-only signature format v2 (absent for every other suite). */
+  readonly format?: 'v2';
 }
 
 /** Default hybrid KEM (quantum-safe-py default). NIST category 3; below CNSA 2.0's ML-KEM-1024. */

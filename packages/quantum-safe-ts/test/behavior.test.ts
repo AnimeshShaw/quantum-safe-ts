@@ -54,7 +54,8 @@ describe('registry', () => {
         'X-Wing', 'X25519+ML-KEM-1024', 'X25519+ML-KEM-512', 'X25519+ML-KEM-768',
       ].sort(),
     );
-    expect(sigSuites()).toHaveLength(20);
+    expect(sigSuites().filter((s) => s.format !== 'v2')).toHaveLength(20); // the quantum-safe-py-compatible suites
+    expect(sigSuites().filter((s) => s.format === 'v2')).toHaveLength(8); // the TypeScript-only -v2 format
     expect(isInitialized()).toBe(true);
     expect(coreVersion()).toMatch(/^\d+\.\d+\.\d+/);
   });

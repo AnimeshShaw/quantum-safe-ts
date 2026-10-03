@@ -460,7 +460,7 @@ pub fn derive_master_key(password: &[u8], salt: &[u8]) -> Result<SecretBytes, Js
 #[wasm_bindgen(js_name = sigGenerateKeyPair)]
 pub fn sig_generate_key_pair(algorithm: &str) -> Result<KeyPair, JsValue> {
     let kp = sig::generate_keypair(algorithm).map_err(err)?;
-    let ms = sig::SigSuite::parse(algorithm)
+    let ms = sig::SigSuite::parse(sig::v2::base_of(algorithm).unwrap_or(algorithm))
         .map(|s| s.migration_state())
         .unwrap_or(MigrationState::PqcOnly);
     Ok(keypair_from_core(kp.public, kp.secret, ms))
@@ -728,6 +728,22 @@ pub fn sig_suites() -> String {
                 "pyCompatible": py,
             })
         })
+        .chain(sig::v2::all().into_iter().map(|name| {
+            let base = sig::SigSuite::parse(sig::v2::base_of(&name).unwrap_or(&name))
+                .expect("v2 names have a base suite");
+            let nist = match base {
+                sig::SigSuite::MlDsa(l) | sig::SigSuite::Hybrid(_, l) => l.nist_level(),
+                sig::SigSuite::Slh(p) => p.nist_level(),
+            };
+            json!({
+                "name": name,
+                "hybrid": base.is_hybrid(),
+                "nistLevel": nist,
+                "meetsCnsa2": base.meets_cnsa2(),
+                "pyCompatible": false,
+                "format": "v2",
+            })
+        }))
         .collect();
     serde_json::Value::Array(list).to_string()
 }

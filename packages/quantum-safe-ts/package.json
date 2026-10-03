@@ -55,6 +55,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./slim": {
+      "import": {
+        "types": "./dist/slim.d.ts",
+        "default": "./dist/slim.js"
+      },
+      "require": {
+        "types": "./dist/slim.d.cts",
+        "default": "./dist/slim.cjs"
+      }
+    },
     "./file-store": {
       "import": {
         "types": "./dist/file-store.d.ts",

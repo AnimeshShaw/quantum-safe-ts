@@ -8,7 +8,7 @@ updates:
   - package-ecosystem: cargo
     directory: /
     schedule: { interval: weekly }
-    # Crypto crates are pinned on purpose (see AGENTS.md): updates arrive as pull requests for review, never silently.
+    # Crypto crates are pinned on purpose (see SECURITY.md): updates arrive as pull requests for review, never silently.
     open-pull-requests-limit: 5
     ignore:
       # slh-dsa 0.1.0 does not compile against newer signature pre-releases (Cargo.lock pin is REQUIRED).

@@ -23,7 +23,12 @@ export async function smoke(q) {
   const mk = await q.deriveMasterKey('pw', q.utf8('0123456789abcdef'));
   checks.argon2id = mk.length === 32;
   checks.cnsa2 = q.cnsa2.report({ kem: 'X25519+ML-KEM-768' }).compliant === false;
-  checks.suites = q.kemSuites().length === 9 && q.sigSuites().length === 20;
+  checks.suites = q.kemSuites().length === 9 && q.sigSuites().length === 28;
+  const v2 = new q.HybridSign('Ed25519+ML-DSA-44-v2');
+  const vp = v2.generateKeyPair();
+  v2.verify(v2.sign(q.utf8('m'), vp.secretKey, { context: q.utf8('c') }), vp.publicKey, { expectedContext: q.utf8('c') });
+  checks.signatureV2 = true;
+  vp.free();
   pair.free(); xp.free(); sp.free();
   const ok = Object.values(checks).every(Boolean);
   return { ok, checks, version: q.coreVersion() };
