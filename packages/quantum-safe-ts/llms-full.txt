@@ -29,6 +29,7 @@ negotiate X25519MLKEM768, RFC 10024).
 - Cloudflare Workers forbid compiling WASM from bytes: `import wasm from 'quantum-safe-ts/quantum_safe_wasm_bg.wasm'; await init({ wasm });`
 - Chrome MV3 extensions: the extension CSP must include `'wasm-unsafe-eval'`.
 - Calling any API before initialisation throws `NotInitializedError`.
+- Bundle size: the default entry embeds the WebAssembly (about 600 KiB gzipped). `quantum-safe-ts/slim` has the same API and no embedded WebAssembly: `await init({ wasm: fetch(url) })` with `quantum-safe-ts/wasm` as the file.
 
 ## 3. Algorithms (names are wire-visible identifiers; never change them)
 
@@ -39,6 +40,8 @@ Signature suites (`sigSuites()`): `Ed25519+ML-DSA-44`, `Ed25519+ML-DSA-65` (defa
 `SLH-DSA-SHAKE-128f`, `SLH-DSA-SHAKE-192s`, `SLH-DSA-SHAKE-192f`, `SLH-DSA-SHAKE-256s`, `SLH-DSA-SHAKE-256f`,
 `SLH-DSA-SHA2-128s`, `SLH-DSA-SHA2-128f`, `SLH-DSA-SHA2-192s`, `SLH-DSA-SHA2-192f`, `SLH-DSA-SHA2-256s`, `SLH-DSA-SHA2-256f`.
 quantum-safe-py reads all except `X-Wing` and the nine SLH-DSA sets it does not list (only SHAKE-128s/128f/256s are shared).
+Signature format v2 (TypeScript only, no prefix, plain FIPS 204 ML-DSA half with context `quantum-safe-sig-v2`, keys tagged `-v2`): `ML-DSA-44-v2`, `ML-DSA-65-v2`, `ML-DSA-87-v2`,
+`Ed25519+ML-DSA-44-v2`, `Ed25519+ML-DSA-65-v2`, `Ed25519+ML-DSA-87-v2`, `P-256+ML-DSA-44-v2`, `P-256+ML-DSA-65-v2`. Prefer v2 unless Python must verify the signature.
 
 Choosing: default hybrids are NIST category 3. CNSA 2.0 requires ML-KEM-1024 and ML-DSA-87: use pure `ML-KEM-1024` (`cnsa2.kem()`;
 hybrid is optional under CNSA 2.0) and `ML-DSA-87` (`Ed25519+ML-DSA-87` from `cnsa2.hybridSign()` has the right parameter set but reports `partial`: its Ed25519 half is not CNSA 1.0), and see section 9 for what CNSA 2.0 still lacks. For data

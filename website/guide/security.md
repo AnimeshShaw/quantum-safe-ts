@@ -47,7 +47,7 @@ The authoritative policy, including how to report a vulnerability privately, is
 interleaves measurements, builds both classes from equally many distinct objects, reports null controls so the false-positive rate of the
 machine is visible, includes a random-versus-random control, and includes a deliberately leaky comparison that the screen must flag.
 
-Latest run (Node 24.18, Intel i9-14900HX, the process pinned to one performance core by the operating system (the script does not pin), `node bench/leakage.mjs --iterations 6000 --rounds 4`; ML-DSA signing used a quarter of that, 1,500 measurements per class; raw data in
+Latest run, on the speed-optimised build (`opt-level = 3`; the same pattern appeared on the earlier size-optimised build) (Node 24.18, Intel i9-14900HX, the process pinned to one performance core by the operating system (the script does not pin), `node bench/leakage.mjs --iterations 6000 --rounds 4`; ML-DSA signing used a quarter of that, 1,500 measurements per class; raw data in
 `results/timing_leakage.json` and `results/timing_leakage_calibration.json`):
 
 | Experiment | Result |
@@ -57,8 +57,8 @@ Latest run (Node 24.18, Intel i9-14900HX, the process pinned to one performance 
 | ML-DSA-65 signing, fixed versus random key | No difference detected (signing time varies by design) |
 | Random-versus-random control | No difference, as required |
 | Deliberately leaky comparison (harness check) | Detected, as required |
-| ML-KEM-768 decapsulation, fixed versus random key | A small difference: the fixed key was about 2% faster in three rounds and about 9% in the fourth (4 to 17 microseconds of roughly 200, over four rounds), consistent across rounds only after trimming the slowest 10% of samples |
-| X25519+ML-KEM-768 (the default hybrid) decapsulation, fixed versus random key | Inconclusive: flagged in some rounds and trim levels only, with the fixed key faster by about 5 to 8 microseconds in every round; same suspected cause, not demonstrated |
+| ML-KEM-768 decapsulation, fixed versus random key | A small difference: the fixed key was faster by 1.5 to 4.7 microseconds of roughly 80 (about 2 to 6%) in each of four rounds; flagged in every round only after trimming the slowest samples |
+| X25519+ML-KEM-768 (the default hybrid) decapsulation, fixed versus random key | The fixed key was faster by 2 to 9 microseconds in every round (flagged after trimming); same suspected cause, not demonstrated |
 
 The last row needs care. A calibration run using **encapsulation, which touches only public data**, shows a difference of the same sign and
 similar size. We therefore attribute it to behaviour that depends on the *public* key (ML-KEM expands a public matrix from a public seed by

@@ -44,6 +44,30 @@ if (!pure.isValid(pure.sign(utf8('x'), p2.secretKey), p2.publicKey)) throw new E
 | `SLH-DSA-*` (12 parameter sets) | FIPS 205, hash-based. Large signatures, conservative assumptions. |
 | LMS / HSS | **Verification only** (`Lms`), per RFC 8554. Signing needs durable state and is intentionally not provided. |
 
+## Format v2 (`-v2`): the cleaner format, TypeScript only
+
+Every ML-DSA and hybrid suite also exists as `<name>-v2` (`ML-DSA-65-v2`, `Ed25519+ML-DSA-65-v2`, ...). It removes the structure that makes the quantum-safe-py construction delicate:
+
+- **No prefix, no unsigned length byte.** There is no boundary between "prefix" and "message" to move, and no `hedged` setting to get wrong. The blob is the signature itself, in one fixed-length encoding.
+- **Plain FIPS 204 for the ML-DSA half.** It signs `M2` with the native context `quantum-safe-sig-v2`, so any FIPS 204 library (noble, Node WebCrypto) verifies it given `M2`. Signing is always hedged inside ML-DSA.
+- **Algorithm and context are signed.** `M2 = len(algo) ‖ algo ‖ len(ctx) ‖ ctx ‖ message`, and both halves of a hybrid sign the same bytes (the classical half signs `label ‖ 0x00 ‖ M2`).
+- **One encoding.** Hybrid blob = classical signature (64 bytes) ‖ ML-DSA signature; P-256 signatures are raw `r ‖ s` and the high-S twin is refused.
+- **Keys are tagged `-v2`**, so a key can never sign or verify in both formats. Generate new keys; the key material has the same layout as v1.
+
+```ts test
+import { HybridSign, VerificationError, utf8 } from 'quantum-safe-ts';
+
+const signer = new HybridSign('Ed25519+ML-DSA-65-v2');
+using pair = signer.generateKeyPair();
+const signed = signer.sign(utf8('release 1.2.3'), pair.secretKey, { context: utf8('myapp-v1-release') });
+signer.verify(signed, pair.publicKey, { expectedContext: utf8('myapp-v1-release') });
+let rejected = false;
+try { signer.verify(signed, pair.publicKey); } catch (e) { rejected = e instanceof VerificationError; } // wrong (empty) context
+if (!rejected) throw new Error('context must be enforced');
+```
+
+quantum-safe-py cannot read v2. It has no SLH-DSA v2. Use v1 when Python must verify; use v2 otherwise. `JWTSigner`/`JWTVerifier` accept v2 keys too.
+
 ## Compatibility note
 
 quantum-safe-py's "context" is a message prefix (`len(ctx) ‖ ctx ‖ random ‖ message`) signed with an *empty* FIPS 204 context. A generic

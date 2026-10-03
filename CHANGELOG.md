@@ -29,11 +29,13 @@ as a new, explicitly identified algorithm suite.
 - **Assurance**: timing-leakage screen (`bench/leakage.mjs`) with null controls, a random-vs-random control, a public-key calibration and a harness check;
   pinned repeated benchmarks (`bench/run-matrix.mjs`); reproducible-build check (`scripts/repro-check.mjs`); CycloneDX SBOM and CBOM of the library
   (`scripts/generate-sboms.mjs`); pinned Rust toolchain.
-- **`quantum-safe-mcp`**: read-only, offline, path-confined MCP server for coding agents.
+- **`quantum-safe-mcp`**: read-only, offline, path-confined MCP server for coding agents (`mcpName` and `server.json` for the MCP Registry).
+- **Signature format v2** (`ML-DSA-*-v2`, `Ed25519+ML-DSA-*-v2`, `P-256+ML-DSA-44/65-v2`): TypeScript-only, additive. No prefix and no unsigned length byte; the ML-DSA half is plain FIPS 204 with the native context `quantum-safe-sig-v2`; algorithm and context are inside the signed bytes of both halves; one fixed-length encoding (raw low-S P-256); keys carry the `-v2` tag. Verified independently with noble, Node WebCrypto and `node:crypto`.
+- **Speed**: the WebAssembly is compiled with `opt-level = 3`: 2.4 to 2.6 times faster ML-KEM-768 and 1.6 to 1.8 times faster ML-DSA-65 than the size-optimised build, at about 1.28 MB (415 KB gzipped) instead of 0.86 MB (292 KB). `bench/py_baseline.py` measures liboqs (C) and quantum-safe-py on the same machine for comparison.
 - **Evidence**: bidirectional parity with the real quantum-safe-py (58 checks + 70 WASM tests); 1,317 NIST ACVP cases; RFC 8554 vectors and
   13 independent LMS signatures; differential tests against `@noble/post-quantum` and Node WebCrypto; cargo-fuzz targets and mutation fuzzing;
   runtime/framework fixture matrix against the packed tarball.
-- `llms.txt`, `llms-full.txt` (executed snippets), `AGENTS.md`, `SECURITY.md`, `COMPATIBILITY.md`, `ROADMAP.md`, and a standards-alignment page on the documentation site.
+- `llms.txt`, `llms-full.txt` (executed snippets), `SECURITY.md`, `COMPATIBILITY.md`, and a standards-alignment page on the documentation site.
 
 ### Fixed after internal blind reviews (AI-assisted reviewers with no project context; not a human audit)
 - **Signature forgery on message suffixes (high).** The py-compatible signing input `len(ctx) || ctx || prefix || message` stores the prefix length in the unsigned signature blob, so a permissive

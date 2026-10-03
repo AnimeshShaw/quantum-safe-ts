@@ -19,8 +19,16 @@ Every row is exercised by a test that installs the **packed npm tarball** into a
 
 ## Size
 
-About 283 KiB gzipped of WebAssembly. The default entry embeds it as base64 so no bundler plugin is needed, which costs about 430 KiB gzipped
-of JavaScript in a bundle, whichever single function you import (tree-shaking cannot drop algorithms). If bytes matter, import the `.wasm` separately and pass it to `init`.
+About 405 KiB gzipped of WebAssembly (compiled for speed: the size-optimised build was about 285 KiB and 2-3x slower). The default entry embeds it as base64 so no bundler plugin is needed, which costs about 600 KiB gzipped
+of JavaScript in a bundle, whichever single function you import (tree-shaking cannot drop algorithms). If bytes matter, use the **slim entry**: `import { init } from 'quantum-safe-ts/slim'` has the same API with no embedded WebAssembly (about 150 KB of JavaScript, about 35 KiB gzipped); you serve the 405 KiB gzipped `.wasm` file yourself and pass it once:
+
+```ts
+import { init } from 'quantum-safe-ts/slim';
+import wasmUrl from 'quantum-safe-ts/wasm?url'; // Vite; webpack: new URL('quantum-safe-ts/wasm', import.meta.url)
+await init({ wasm: fetch(wasmUrl) });
+```
+
+The `.wasm` then caches independently of your JavaScript and loads in parallel. Any call before `init` throws `NotInitializedError`.
 
 ## Passwords in browsers
 

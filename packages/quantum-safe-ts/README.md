@@ -56,7 +56,7 @@ if (plain.length !== 14) throw new Error('unexpected length');
 | One-call encryption and signing | `easy` | defaults: `X25519+ML-KEM-768`, `Ed25519+ML-DSA-65` |
 | Key encapsulation | `HybridKEM`, `KEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `X-Wing`, pure `ML-KEM-512/768/1024` |
 | Public-key encryption (anonymous: no sender authentication) | `Envelope`, `SealedMessage` | any hybrid KEM + AES-256-GCM |
-| Signatures | `Sign`, `HybridSign`, `SignedMessage` | `ML-DSA-44/65/87`, `Ed25519+ML-DSA-*`, `P-256+ML-DSA-44/65`, SLH-DSA (12 parameter sets) |
+| Signatures | `Sign`, `HybridSign`, `SignedMessage` | `ML-DSA-44/65/87`, `Ed25519+ML-DSA-*`, `P-256+ML-DSA-44/65`, SLH-DSA (12 parameter sets); plus the TypeScript-only `-v2` format of each ML-DSA suite |
 | Stateful hash-based verification | `Lms` | LMS / HSS (RFC 8554, SHA-256), verification only |
 | JWT | `JWTSigner`/`JWTVerifier`, `StandardJwt` | quantum-safe-py-compatible, and RFC 9964 (ML-DSA for JOSE) |
 | Password KDF | `deriveMasterKey` | Argon2id |
@@ -80,7 +80,7 @@ Every row is exercised by a test that installs the packed npm tarball into a fre
 | Deno 2, Bun | From `node_modules`. |
 | Chrome extensions (Manifest V3) | Needs `'wasm-unsafe-eval'` in the extension CSP. |
 
-Not supported: React Native. About 283 KiB of gzipped WebAssembly, embedded as base64 in the default entry (about 430 KiB gzipped of JavaScript; tree-shaking cannot drop algorithms).
+Not supported: React Native. About 405 KiB of gzipped WebAssembly (compiled for speed), embedded as base64 in the default entry (about 600 KiB gzipped of JavaScript; import `quantum-safe-ts/slim` and pass the `.wasm` to `init` to avoid that; tree-shaking cannot drop algorithms).
 
 ## Compatible with quantum-safe-py, and what that means
 

@@ -10,7 +10,7 @@ export {
   sigSuites,
   coreVersion,
 } from './algorithms.js';
-export type { KemAlgorithm, SignatureAlgorithm, MigrationState, SuiteInfo } from './algorithms.js';
+export type { KemAlgorithm, SignatureAlgorithm, SignatureAlgorithmV2, MigrationState, SuiteInfo } from './algorithms.js';
 export { PublicKey, SecretKey, KeyPair, SecretBytes, SharedSecret } from './keys.js';
 export { HybridKEM, KEM } from './kem.js';
 export type { Encapsulation } from './kem.js';

@@ -23,6 +23,10 @@ for (const pkg of ['quantum-safe-ts', 'quantum-safe-audit', 'quantum-safe-mcp'])
   const v = JSON.parse(read(`packages/${pkg}/package.json`)).version;
   if (v !== '0.1.0') problems.push(`${pkg} is ${v}; update this script, CHANGELOG and action.yml together when versions move`);
 }
+const mcpPkg = JSON.parse(read('packages/quantum-safe-mcp/package.json'));
+const serverJson = JSON.parse(read('packages/quantum-safe-mcp/server.json'));
+if (serverJson.name !== mcpPkg.mcpName) problems.push(`server.json name ${serverJson.name} != package.json mcpName ${mcpPkg.mcpName}`);
+if (serverJson.version !== mcpPkg.version || serverJson.packages?.[0]?.version !== mcpPkg.version) problems.push('server.json version differs from the MCP package version');
 if (problems.length) {
   console.error(problems.join('\n'));
   process.exit(1);
