@@ -23,3 +23,6 @@ packages/quantum-safe-ts/test/.generated-docs/
 # Local-only project briefing and plan (hidden from the public repository)
 /AGENTS.md
 /ROADMAP.md
+# Research tooling and results (kept locally; published, if ever, at the first proper release)
+/bench/
+/results/

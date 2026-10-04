@@ -47,11 +47,11 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - run: python3 scripts/fetch_acvp.py
       - name: Run ACVP (all SLH-DSA cases; results saved)
-        run: QS_REQUIRE_ACVP=1 QS_ACVP_SAVE="$PWD/results/acvp_ts_native.json" cargo test --release -p quantum-safe-core --test acvp -- --test-threads=4
+        run: QS_REQUIRE_ACVP=1 QS_ACVP_SAVE="$RUNNER_TEMP/acvp_ts_native.json" cargo test --release -p quantum-safe-core --test acvp -- --test-threads=4
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: acvp-results
-          path: results/acvp_ts_native.json
+          path: ${{ runner.temp }}/acvp_ts_native.json
 
   python-parity:
     name: Parity with quantum-safe-py (both directions)

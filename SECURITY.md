@@ -66,7 +66,7 @@ Only the latest released minor version receives fixes while the project is pre-1
 
 **Explicitly not defended against**
 
-- Side channels: no constant-time guarantee in JS/WASM; ML-DSA signing time varies with the number of rejection-sampling iterations (by design not secret-dependent, but it makes timing screens noisy); browsers and JITs add noise and leakage. A timing-leakage *screen* (`bench/leakage.mjs`, results in `results/`) reports what it did and did not detect on one machine and runtime; it is not a proof.
+- Side channels: no constant-time guarantee in JS/WASM; ML-DSA signing time varies with the number of rejection-sampling iterations (by design not secret-dependent, but it makes timing screens noisy); browsers and JITs add noise and leakage. A timing-leakage *screen* is run privately by the maintainer before releases; it is not a proof and nothing here depends on it.
 - Memory disclosure of the JS heap, swap, core dumps, browser extensions with page access, or a compromised runtime.
 - Fault attacks (hedged signing mitigates some lattice fault attacks; it is not a general defence).
 - Weak passwords: Argon2id slows guessing; it cannot rescue a guessable password. No Unicode normalisation is applied (documented).
@@ -83,6 +83,5 @@ Only the latest released minor version receives fixes while the project is pre-1
 - Use-after-free, double-free, and secret redaction behaviour (`behavior.test.ts`).
 - X25519 low-order points are rejected; ML-KEM implicit rejection is documented and tested.
 - Version relabelling between envelope profiles fails; every authenticated field is tamper-tested.
-- A timing-leakage screen with null controls, a random-versus-random control, a public-key calibration and a deliberately leaky harness check (`bench/leakage.mjs`).
 - A reproducible-build check for the WebAssembly artifact (`scripts/repro-check.mjs`), a pinned Rust toolchain, and a CycloneDX SBOM and CBOM of the library (`scripts/generate-sboms.mjs`).
 - The migration state manager's cross-process behaviour is tested with real concurrent child processes (exactly one writer wins a race). `FileMigrationStore` locks carry an owner token, are kept fresh by a heartbeat, and are re-checked before each write; a process frozen for longer than `staleLockMs` can still lose its lock, in which case it fails instead of writing.
