@@ -72,7 +72,7 @@ Status reflects **quantum-safe-ts 0.1.0** and **quantum-safe-py 0.3.0**, as of 2
 | 25d | `qs-audit cnsa2` (CLI report) | **Library only** | `cnsa2.report()` / `cnsa2.enforce()`; no CLI (the audit package does not depend on the library). |
 | 25e | `qs-migrate scan` / `upgrade-key` / `status` CLI | **Partly** | `scan` is `quantum-safe-audit scan`. `upgrade-key` and `status` are library calls (`Upgrader`, `MigrationStateManager`); no key-file CLI is provided (it would put secret keys on a command line or in files by default). |
 | 30 | ACVP known-answer harness | **DONE (more)** | **1,317** NIST ACVP cases (py: 225): ML-KEM, ML-DSA, SLH-DSA keyGen/sigGen/sigVer/encap/decap. |
-| 31 | Timing-leakage harness | **DONE (screen, not a proof)** | `bench/leakage.mjs`: dudect-style fixed-vs-random with interleaving, equal-footprint pools, null controls, a random-vs-random control and a deliberately leaky harness check. JS/WASM still gives no constant-time guarantee. |
+| 31 | Timing-leakage harness | **Maintainer-side screen (not published)** | A dudect-style screen is run privately before releases; it is not a proof. JS/WASM gives no constant-time guarantee. |
 | 32 | `ctypes.memset` zeroization | **N/A → replaced** | Rust `zeroize` + explicit `.free()` / `using`. JS-heap copies cannot be wiped; documented. |
 | 33 | Pluggable backends | **N/A → reframed** | One WASM backend, verified by tests; native WebCrypto is used only as a test oracle (a native provider was evaluated and not built: with the speed-optimised build the WebAssembly code is within about 2x of Node's native ML-KEM). |
 | 34 | CMVP / FIPS 140-3 validation | **N/A** | Neither library can claim it. |

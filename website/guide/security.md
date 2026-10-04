@@ -38,32 +38,8 @@ The authoritative policy, including how to report a vulnerability privately, is
 | Differential tests against `@noble/post-quantum` and Node WebCrypto | `packages/quantum-safe-ts/test/differential.test.ts` |
 | cargo-fuzz targets for the main binary parsers (envelope, keys, signed message, ciphertexts, secret keys, LMS); property and mutation tests for the rest | `fuzz/`, `test/`; CI job "cargo-fuzz" |
 | Packed-tarball fixtures in 12 real toolchains | `tests/fixtures/` |
-| Timing-leakage screen with null controls and a harness check | `bench/leakage.mjs` |
 | Reproducible-build check | `scripts/repro-check.mjs` |
 
-## The timing screen, honestly
+## Timing
 
-`bench/leakage.mjs` runs the two-class fixed-versus-random test of dudect (Reparaz et al., 2017) on the WebAssembly artifact in Node. It
-interleaves measurements, builds both classes from equally many distinct objects, reports null controls so the false-positive rate of the
-machine is visible, includes a random-versus-random control, and includes a deliberately leaky comparison that the screen must flag.
-
-Latest run, on the speed-optimised build (`opt-level = 3`; the same pattern appeared on the earlier size-optimised build) (Node 24.18, Intel i9-14900HX, the process pinned to one performance core by the operating system (the script does not pin), `node bench/leakage.mjs --iterations 6000 --rounds 4`; ML-DSA signing used a quarter of that, 1,500 measurements per class; raw data in
-`results/timing_leakage.json` and `results/timing_leakage_calibration.json`):
-
-| Experiment | Result |
-|---|---|
-| ML-KEM-768 decapsulation, valid versus invalid ciphertext (the implicit-rejection path) | No difference detected |
-| Envelope open, failure path: tampered first byte versus tampered last tag byte | No difference detected |
-| ML-DSA-65 signing, fixed versus random key | No difference detected (signing time varies by design) |
-| Random-versus-random control | No difference, as required |
-| Deliberately leaky comparison (harness check) | Detected, as required |
-| ML-KEM-768 decapsulation, fixed versus random key | A small difference: the fixed key was faster by 1.5 to 4.7 microseconds of roughly 80 (about 2 to 6%) in each of four rounds; flagged in every round only after trimming the slowest samples |
-| X25519+ML-KEM-768 (the default hybrid) decapsulation, fixed versus random key | The fixed key was faster by 2 to 9 microseconds in every round (flagged after trimming); same suspected cause, not demonstrated |
-
-The last row needs care. A calibration run using **encapsulation, which touches only public data**, shows a difference of the same sign and
-similar size. We therefore attribute it to behaviour that depends on the *public* key (ML-KEM expands a public matrix from a public seed by
-rejection sampling, which takes value-dependent time and which a processor's branch predictor learns when the same key repeats), not to the
-secret. We cannot prove that nothing secret-dependent hides inside that 2%, and we do not claim to.
-
-A "no difference detected" result bounds leakage at the resolution of that setup, on that machine, in that Node version. It says nothing
-about browsers, whose timers are coarsened, and it is **not a constant-time proof**.
+JavaScript and WebAssembly runtimes give **no constant-time guarantee**, and this library does not claim one. The maintainer runs a timing-leakage screen (a dudect-style fixed-versus-random test with null controls) before releases; a screen can fail to detect a leak and is **not a proof**. Browsers coarsen timers and add their own noise. If your threat model includes a local timing attacker, use a native implementation in a hardened environment.

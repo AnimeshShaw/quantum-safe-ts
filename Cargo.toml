@@ -8,7 +8,7 @@ exclude = ["fuzz"]
 opt-level = 3
 
 [profile.release]
-# Speed over size: opt-level 3 measured 2-3x faster than "s" for ML-KEM/ML-DSA at +48% WASM size (bench/, docs). SIMD128 added only 3-8% and would drop support for old runtimes, so it is off.
+# Speed over size: opt-level 3 measured 2-3x faster than "s" for ML-KEM/ML-DSA at +48% WASM size. SIMD128 added only 3-8% and would drop support for old runtimes, so it is off.
 opt-level = 3
 lto = true
 codegen-units = 1

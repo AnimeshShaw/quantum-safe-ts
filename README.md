@@ -112,8 +112,6 @@ Not supported yet: React Native. The WebAssembly is about 410 KiB gzipped (built
 | Byte parity with the real quantum-safe-py, both directions | `python scripts/generate_suite_vectors.py` … `python scripts/verify_ts_vectors.py` (see [CONTRIBUTING.md](CONTRIBUTING.md)) |
 | Works in 12 real toolchains from the packed tarball | `node tests/fixtures/run.mjs` |
 | Differential tests against `@noble/post-quantum` and Node WebCrypto | `npx vitest run test/differential.test.ts` in `packages/quantum-safe-ts` |
-| Timing-leakage screen (not a constant-time proof) | `node bench/leakage.mjs --iterations 6000 --rounds 4` (pin the process to one performance core with your OS first); results in [`results/timing_leakage.json`](results/timing_leakage.json) |
-| Benchmarks (one machine, pinned, repeated) | `node bench/run-matrix.mjs`; results in [`results/bench_matrix.json`](results/bench_matrix.json) |
 | Reproducible WASM build | `node scripts/repro-check.mjs` |
 
 ## Using it with AI coding agents

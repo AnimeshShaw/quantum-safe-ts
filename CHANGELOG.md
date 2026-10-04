@@ -26,13 +26,12 @@ as a new, explicitly identified algorithm suite.
 - **GitHub Action** (`action.yml`) for `quantum-safe-audit`: SARIF upload, severity gate, CBOM, CNSA 2.0 option; inputs treated as data and tested against hostile values.
 - **Documentation site** (`website/`, VitePress and TypeDoc), "Which library should I use?" page, per-package READMEs, CONTRIBUTING, SUPPORT, CODE_OF_CONDUCT,
   CITATION.cff, Dependabot, CODEOWNERS.
-- **Assurance**: timing-leakage screen (`bench/leakage.mjs`) with null controls, a random-vs-random control, a public-key calibration and a harness check;
-  pinned repeated benchmarks (`bench/run-matrix.mjs`); reproducible-build check (`scripts/repro-check.mjs`); CycloneDX SBOM and CBOM of the library
+- **Assurance**: reproducible-build check (`scripts/repro-check.mjs`); CycloneDX SBOM and CBOM of the library
   (`scripts/generate-sboms.mjs`); pinned Rust toolchain.
 - **`quantum-safe-mcp`**: read-only, offline, path-confined MCP server for coding agents (`mcpName` and `server.json` for the MCP Registry).
 - **Signature format v2** (`ML-DSA-*-v2`, `Ed25519+ML-DSA-*-v2`, `P-256+ML-DSA-44/65-v2`): TypeScript-only, additive. No prefix and no unsigned length byte; the ML-DSA half is plain FIPS 204 with the native context `quantum-safe-sig-v2`; algorithm and context are inside the signed bytes of both halves; one fixed-length encoding (raw low-S P-256); keys carry the `-v2` tag. Verified independently with noble, Node WebCrypto and `node:crypto`.
 - **Streaming encryption** (`sealStream`/`openStream`, `StreamSealer`/`StreamOpener`; format v3, TypeScript-only, experimental): chunked AES-256-GCM with the STREAM nonce layout, one KEM encapsulation per stream, header and AAD bound into every chunk; truncation, reordering, duplication and extension are detected. Tested against an independent sender and receiver built from noble and `node:crypto`; fuzz target `fuzz_stream`.
-- **Speed**: the WebAssembly is compiled with `opt-level = 3`: 2.4 to 2.6 times faster ML-KEM-768 and 1.6 to 1.8 times faster ML-DSA-65 than the size-optimised build, at about 1.30 MB (421 KB gzipped) instead of 0.86 MB (292 KB). `bench/py_baseline.py` measures liboqs (C) and quantum-safe-py on the same machine for comparison.
+- **Speed**: the WebAssembly is compiled with `opt-level = 3` (about 2.5 times faster ML-KEM and 1.7 times faster ML-DSA than the size-optimised build) at about 1.30 MB (421 KB gzipped) instead of 0.86 MB (292 KB).
 - **Evidence**: bidirectional parity with the real quantum-safe-py (58 checks + 70 WASM tests); 1,317 NIST ACVP cases; RFC 8554 vectors and
   13 independent LMS signatures; differential tests against `@noble/post-quantum` and Node WebCrypto; cargo-fuzz targets and mutation fuzzing;
   runtime/framework fixture matrix against the packed tarball.
