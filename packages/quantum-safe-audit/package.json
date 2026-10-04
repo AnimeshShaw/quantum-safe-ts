@@ -59,7 +59,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "typescript": "~5.9"
+    "typescript": "~7.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
