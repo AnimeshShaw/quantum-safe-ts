@@ -9,7 +9,7 @@ repository = "https://github.com/AnimeshShaw/quantum-safe-ts"
 [dependencies]
 aes-gcm = "0.11.1"
 argon2 = "0.6.0"
-base64 = "0.22"
+base64 = "0.23"
 ciborium = "0.2.2"
 ed25519-dalek = "3.0.0"
 getrandom = "0.4.3"
