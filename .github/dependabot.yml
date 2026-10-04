@@ -16,14 +16,28 @@ updates:
   - package-ecosystem: npm
     directory: /packages/quantum-safe-ts
     schedule: { interval: weekly }
+    ignore:
+      # Major versions change the compiler / schema APIs; migrate deliberately, not by bot.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
     open-pull-requests-limit: 5
   - package-ecosystem: npm
     directory: /packages/quantum-safe-audit
     schedule: { interval: weekly }
+    ignore:
+      # Major versions change the compiler / schema APIs; migrate deliberately, not by bot.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
     open-pull-requests-limit: 5
   - package-ecosystem: npm
     directory: /packages/quantum-safe-mcp
     schedule: { interval: weekly }
+    ignore:
+      # Major versions change the compiler / schema APIs; migrate deliberately, not by bot.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      - dependency-name: zod
+        update-types: ['version-update:semver-major']
     open-pull-requests-limit: 5
   - package-ecosystem: cargo
     directory: /fuzz
@@ -34,4 +48,8 @@ updates:
   - package-ecosystem: npm
     directory: /website
     schedule: { interval: weekly }
+    ignore:
+      # Major versions change the compiler / schema APIs; migrate deliberately, not by bot.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
     open-pull-requests-limit: 3

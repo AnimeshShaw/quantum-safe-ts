@@ -19,7 +19,7 @@ const channel = /channel = "([^"]+)"/.exec(read('rust-toolchain.toml'))?.[1];
 for (const f of ['.github/workflows/ci.yml', '.github/workflows/release.yml', '.github/workflows/docs.yml']) {
   for (const m of read(f).matchAll(/rust-toolchain@([0-9][^\s]*)/g)) if (m[1] !== channel) problems.push(`${f} names toolchain ${m[1]} but rust-toolchain.toml pins ${channel}`);
 }
-for (const pkg of ['quantum-safe-ts', 'quantum-safe-audit', 'quantum-safe-mcp']) {
+for (const pkg of ['quantum-safe-ts', 'quantum-safe-audit', 'quantum-safe-mcp', 'pqc-audit']) {
   const v = JSON.parse(read(`packages/${pkg}/package.json`)).version;
   if (v !== '0.1.0') problems.push(`${pkg} is ${v}; update this script, CHANGELOG and action.yml together when versions move`);
 }

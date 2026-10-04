@@ -17,6 +17,7 @@ const write = (p, v) => writeFileSync(resolve(root, p), JSON.stringify(v, null, 
 const core = read('packages/quantum-safe-ts/package.json');
 const audit = read('packages/quantum-safe-audit/package.json');
 const mcp = read('packages/quantum-safe-mcp/package.json');
+const alias = read('packages/pqc-audit/package.json');
 const restore = process.argv.includes('--restore');
 
 if (restore) {
@@ -27,7 +28,7 @@ if (restore) {
 }
 
 const problems = [];
-for (const [name, pkg] of [['quantum-safe-ts', core], ['quantum-safe-audit', audit], ['quantum-safe-mcp', mcp]]) {
+for (const [name, pkg] of [['quantum-safe-ts', core], ['quantum-safe-audit', audit], ['quantum-safe-mcp', mcp], ['pqc-audit', alias]]) {
   if (!/^\d+\.\d+\.\d+$/.test(pkg.version)) problems.push(`${name}: version '${pkg.version}' is not a plain x.y.z (no prerelease tags in a release)`);
   if (pkg.license !== 'Apache-2.0') problems.push(`${name}: license must be Apache-2.0`);
 }
@@ -39,6 +40,7 @@ if (problems.length) {
 mcp.dependencies['quantum-safe-audit'] = `^${audit.version}`;
 write('packages/quantum-safe-mcp/package.json', mcp);
 console.log(`quantum-safe-mcp now depends on quantum-safe-audit@^${audit.version}`);
-console.log('\nPublish order: audit -> quantum-safe-ts -> mcp');
-console.log(`  quantum-safe-audit  ${audit.version}\n  quantum-safe-ts     ${core.version}\n  quantum-safe-mcp    ${mcp.version}`);
+console.log('\nPublish order: audit -> pqc-audit -> quantum-safe-ts -> mcp');
+console.log(`  quantum-safe-audit  ${audit.version}\n  quantum-safe-ts     ${core.version}\n  pqc-audit           ${alias.version}
+  quantum-safe-mcp    ${mcp.version}`);
 console.log('\nAfter publishing, run:  node scripts/prepare-release.mjs --restore');

@@ -1,8 +1,4 @@
 /target
-
-# Cargo.lock is committed for reproducible WASM builds.
-
-
 node_modules/
 dist/
 pkg/
@@ -15,4 +11,3 @@ fuzz/target/
 fuzz/corpus/
 fuzz/artifacts/
 packages/quantum-safe-ts/test/.generated-docs/
-
