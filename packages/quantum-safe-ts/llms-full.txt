@@ -283,7 +283,7 @@ Decision table (full version: /guide/choosing on the documentation site):
 | Sign for quantum-safe libraries | `HybridSign` + a `context`, verify with `expectedContext`; prefer `...-v2` when every verifier is quantum-safe-py 0.3.2+ or quantum-safe-ts (the default flips to `-v2` in the next minor release) |
 | Tokens only your services verify / any JOSE library verifies | `JWTSigner`/`JWTVerifier` / `StandardJwt` |
 | Move keys to post-quantum | `Upgrader` + `MigrationStateManager` |
-| Find classical crypto | `quantum-safe-audit` (alias `pqc-audit`), the GitHub Action, or the MCP server |
+| Find classical crypto | `quantum-safe-audit` (alias `pqc-audit`), the GitHub Action, or the MCP server (`quantum-safe-mcp`, alias `pqc-mcp`) |
 
 Rules that prevent most mistakes: the verifier states what it expects (`expectedContext`, `expectedAad`), never read them from the message;
 always pass a context when signing; sign-then-encrypt (not encrypt-then-sign) for service-to-service messages; never use one key in both signature
@@ -330,4 +330,4 @@ policy), the GitHub Action, and the MCP server (tools `audit_path`, `list_rules`
 ## 15. Links
 
 Repository: https://github.com/AnimeshShaw/quantum-safe-ts
-Documentation site: https://animeshshaw.github.io/quantum-safe-ts/ . Compatibility with quantum-safe-py: COMPATIBILITY.md. Security policy: SECURITY.md.
+Documentation site: https://animeshshaw.github.io/quantum-safe-ts/ . Compatibility with quantum-safe-py: COMPATIBILITY.md. Security policy: SECURITY.md. Roadmap: ROADMAP.md.

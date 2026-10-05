@@ -21,6 +21,7 @@ export default defineConfig({
       { text: 'API', link: '/api/' },
       { text: 'Tools', link: '/tools/audit' },
       { text: 'Choose a library', link: '/compare' },
+      { text: 'Roadmap', link: 'https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/ROADMAP.md' },
     ],
     sidebar: {
       '/guide/': [
@@ -62,6 +63,7 @@ export default defineConfig({
             { text: 'Upgrading and compatibility', link: '/guide/upgrading' },
             { text: 'Troubleshooting and FAQ', link: '/guide/faq' },
             { text: 'Glossary', link: '/guide/glossary' },
+            { text: 'Roadmap', link: 'https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/ROADMAP.md' },
           ],
         },
       ],
