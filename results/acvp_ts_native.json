@@ -1,0 +1,79 @@
+{
+  "ML-DSA-keyGen": {
+    "expected_accept": 0,
+    "expected_reject": 0,
+    "failures": [],
+    "passed": 75,
+    "run": 75,
+    "skipped": {}
+  },
+  "ML-DSA-sigGen": {
+    "expected_accept": 0,
+    "expected_reject": 0,
+    "failures": [],
+    "passed": 180,
+    "run": 180,
+    "skipped": {
+      "ML-DSA HashML-DSA (preHash)": 90,
+      "ML-DSA externalMu": 90
+    }
+  },
+  "ML-DSA-sigVer": {
+    "expected_accept": 18,
+    "expected_reject": 72,
+    "failures": [],
+    "passed": 90,
+    "run": 90,
+    "skipped": {
+      "ML-DSA HashML-DSA (preHash)": 45,
+      "ML-DSA externalMu": 45
+    }
+  },
+  "ML-KEM-encapDecap": {
+    "expected_accept": 0,
+    "expected_reject": 0,
+    "failures": [],
+    "passed": 105,
+    "run": 105,
+    "skipped": {
+      "ML-KEM decapsulationKeyCheck": 30,
+      "ML-KEM encapsulationKeyCheck": 30
+    }
+  },
+  "ML-KEM-keyGen": {
+    "expected_accept": 0,
+    "expected_reject": 0,
+    "failures": [],
+    "passed": 75,
+    "run": 75,
+    "skipped": {}
+  },
+  "SLH-DSA-keyGen": {
+    "expected_accept": 0,
+    "expected_reject": 0,
+    "failures": [],
+    "passed": 120,
+    "run": 120,
+    "skipped": {}
+  },
+  "SLH-DSA-sigGen": {
+    "expected_accept": 0,
+    "expected_reject": 0,
+    "failures": [],
+    "passed": 336,
+    "run": 336,
+    "skipped": {
+      "SLH-DSA HashSLH-DSA (preHash)": 288
+    }
+  },
+  "SLH-DSA-sigVer": {
+    "expected_accept": 48,
+    "expected_reject": 288,
+    "failures": [],
+    "passed": 336,
+    "run": 336,
+    "skipped": {
+      "SLH-DSA HashSLH-DSA (preHash)": 168
+    }
+  }
+}

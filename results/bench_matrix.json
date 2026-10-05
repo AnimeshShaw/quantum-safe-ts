@@ -1,0 +1,221 @@
+{
+  "generatedAt": "2026-10-05T09:33:32.169Z",
+  "node": "v24.18.0",
+  "platform": "win32 10.0.26300",
+  "cpu": "Intel(R) Core(TM) i9-14900HX",
+  "logicalCpus": 32,
+  "rounds": 5,
+  "isolatedProcesses": true,
+  "pinned": true,
+  "caveat": "Single machine; indicative only. Each benchmark ran in its own process; per-round values are medians of >= 5 batches; this table is the median across rounds.",
+  "results": [
+    {
+      "name": "quantum-safe-ts HybridKEM X25519+ML-KEM-768 keygen",
+      "medianOpsPerSec": 8936.55049151096,
+      "minOpsPerSec": 8643.042350907228,
+      "maxOpsPerSec": 11086.474501107412,
+      "cvPercent": 9.976186354518788,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts HybridKEM encapsulate",
+      "medianOpsPerSec": 5302.226935312604,
+      "minOpsPerSec": 5015.045135406291,
+      "maxOpsPerSec": 6381.620931716627,
+      "cvPercent": 8.964173716171702,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts HybridKEM decapsulate",
+      "medianOpsPerSec": 6591.957811469777,
+      "minOpsPerSec": 5464.480874317157,
+      "maxOpsPerSec": 6793.478260869658,
+      "cvPercent": 8.034046527770512,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts ML-KEM-768 keygen",
+      "medianOpsPerSec": 11976.047904189465,
+      "minOpsPerSec": 11363.636363633486,
+      "maxOpsPerSec": 14858.841010397384,
+      "cvPercent": 10.093076477654376,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts ML-KEM-768 encapsulate",
+      "medianOpsPerSec": 12771.392081734803,
+      "minOpsPerSec": 11467.889908257443,
+      "maxOpsPerSec": 13850.415512463576,
+      "cvPercent": 6.829716672376193,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts ML-KEM-768 decapsulate",
+      "medianOpsPerSec": 10090.817356209474,
+      "minOpsPerSec": 9746.588693957556,
+      "maxOpsPerSec": 11961.722488039723,
+      "cvPercent": 8.049898598808463,
+      "rounds": 5
+    },
+    {
+      "name": "noble ML-KEM-768 keygen",
+      "medianOpsPerSec": 3793.6267071320653,
+      "minOpsPerSec": 3254.149040026657,
+      "maxOpsPerSec": 4191.114836547178,
+      "cvPercent": 8.514077526524911,
+      "rounds": 5
+    },
+    {
+      "name": "noble ML-KEM-768 encapsulate",
+      "medianOpsPerSec": 2983.293556086042,
+      "minOpsPerSec": 2655.3372278279603,
+      "maxOpsPerSec": 3459.010722933354,
+      "cvPercent": 9.241850665307698,
+      "rounds": 5
+    },
+    {
+      "name": "noble ML-KEM-768 decapsulate",
+      "medianOpsPerSec": 2285.714285714286,
+      "minOpsPerSec": 2102.165230186764,
+      "maxOpsPerSec": 2708.5590465871687,
+      "cvPercent": 9.016779050855089,
+      "rounds": 5
+    },
+    {
+      "name": "node WebCrypto ML-KEM-768 encapsulateBits (async)",
+      "medianOpsPerSec": 27322.40437165368,
+      "minOpsPerSec": 25445.292620848533,
+      "maxOpsPerSec": 33112.582781292615,
+      "cvPercent": 9.60092670363187,
+      "rounds": 5
+    },
+    {
+      "name": "node WebCrypto ML-KEM-768 decapsulateBits (async)",
+      "medianOpsPerSec": 24213.07506061203,
+      "minOpsPerSec": 20790.020790030852,
+      "maxOpsPerSec": 26315.789473676654,
+      "cvPercent": 9.134665092038633,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts Envelope.seal 1 KiB",
+      "medianOpsPerSec": 4730.368968780254,
+      "minOpsPerSec": 4516.71183378466,
+      "maxOpsPerSec": 5685.04832291033,
+      "cvPercent": 9.266467937054154,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts Envelope.open 1 KiB",
+      "medianOpsPerSec": 5205.6220718365275,
+      "minOpsPerSec": 4642.525533890689,
+      "maxOpsPerSec": 6056.935190793629,
+      "cvPercent": 8.708337799998537,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts Envelope.seal 1 MiB",
+      "medianOpsPerSec": 100.04301849795412,
+      "minOpsPerSec": 89.27694601423077,
+      "maxOpsPerSec": 114.49900958356712,
+      "cvPercent": 8.05876215312428,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts ML-DSA-65 keygen",
+      "medianOpsPerSec": 1298.3640612825156,
+      "minOpsPerSec": 1209.0436464756772,
+      "maxOpsPerSec": 1537.2790161414441,
+      "cvPercent": 9.1111816166288,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts ML-DSA-65 sign (256 B, hedged)",
+      "medianOpsPerSec": 690.6554320049707,
+      "minOpsPerSec": 578.8712011577546,
+      "maxOpsPerSec": 830.9788931360835,
+      "cvPercent": 13.097049503135786,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts ML-DSA-65 verify",
+      "medianOpsPerSec": 2913.752913752948,
+      "minOpsPerSec": 2603.488674824336,
+      "maxOpsPerSec": 3443.526170799172,
+      "cvPercent": 11.362822846083182,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts Ed25519+ML-DSA-65 sign",
+      "medianOpsPerSec": 714.4898542440881,
+      "minOpsPerSec": 683.8074398249441,
+      "maxOpsPerSec": 790.8264136022154,
+      "cvPercent": 6.106603896893838,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts Ed25519+ML-DSA-65 verify",
+      "medianOpsPerSec": 2345.7658925640912,
+      "minOpsPerSec": 2170.609941393652,
+      "maxOpsPerSec": 2492.522432701788,
+      "cvPercent": 4.9955744252867635,
+      "rounds": 5
+    },
+    {
+      "name": "noble ML-DSA-65 keygen",
+      "medianOpsPerSec": 743.4944237918065,
+      "minOpsPerSec": 725.4261878853664,
+      "maxOpsPerSec": 858.5901948999456,
+      "cvPercent": 6.356329353758887,
+      "rounds": 5
+    },
+    {
+      "name": "noble ML-DSA-65 sign (256 B)",
+      "medianOpsPerSec": 168.8647224708272,
+      "minOpsPerSec": 158.89914671158678,
+      "maxOpsPerSec": 198.9574628944325,
+      "cvPercent": 7.950303516191356,
+      "rounds": 5
+    },
+    {
+      "name": "noble ML-DSA-65 verify",
+      "medianOpsPerSec": 678.6102062974875,
+      "minOpsPerSec": 654.4074340684532,
+      "maxOpsPerSec": 731.5824127588043,
+      "cvPercent": 4.516815242497647,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts X-Wing encapsulate",
+      "medianOpsPerSec": 6273.525721455258,
+      "minOpsPerSec": 5443.658138269286,
+      "maxOpsPerSec": 6734.006734006157,
+      "cvPercent": 9.295265198771,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts JWT ML-DSA-65 sign",
+      "medianOpsPerSec": 726.744186046464,
+      "minOpsPerSec": 672.7211570804001,
+      "maxOpsPerSec": 753.068755177348,
+      "cvPercent": 4.862538239151086,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts JWT ML-DSA-65 verify",
+      "medianOpsPerSec": 2365.7440264959014,
+      "minOpsPerSec": 2234.13762287774,
+      "maxOpsPerSec": 2912.904165452963,
+      "cvPercent": 10.425360701722152,
+      "rounds": 5
+    },
+    {
+      "name": "quantum-safe-ts Argon2id (default params)",
+      "medianOpsPerSec": 52.765436528456895,
+      "minOpsPerSec": 47.93358322708075,
+      "maxOpsPerSec": 57.38386939431315,
+      "cvPercent": 6.780342003984375,
+      "rounds": 5
+    }
+  ]
+}

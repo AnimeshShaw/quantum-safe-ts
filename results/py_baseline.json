@@ -1,0 +1,22 @@
+{
+  "quantum_safe_py": "0.3.2",
+  "python": "3.13.13",
+  "machine": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+  "ops_per_second": {
+    "liboqs ML-KEM-768 keygen": 10601.1,
+    "liboqs ML-KEM-768 encapsulate": 10251.5,
+    "liboqs ML-KEM-768 decapsulate": 26377.4,
+    "liboqs ML-KEM-768 encapsulate (reused context)": 9997.5,
+    "liboqs ML-KEM-768 decapsulate (fresh context per call)": 23959.3,
+    "liboqs ML-DSA-65 keygen": 5699.5,
+    "liboqs ML-DSA-65 sign (256 B)": 2288.8,
+    "liboqs ML-DSA-65 verify": 8846.1,
+    "liboqs ML-DSA-65 verify (reused context)": 9491.7,
+    "liboqs ML-DSA-65 sign (fresh context per call)": 2153.0,
+    "quantum-safe-py HybridKEM keygen": 4428.4,
+    "quantum-safe-py HybridKEM encapsulate": 3652.3,
+    "quantum-safe-py HybridKEM decapsulate": 5395.4,
+    "quantum-safe-py Ed25519+ML-DSA-65 sign": 1833.2,
+    "quantum-safe-py Ed25519+ML-DSA-65 verify": 6554.0
+  }
+}

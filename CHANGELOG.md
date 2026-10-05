@@ -6,6 +6,8 @@ as a new, explicitly identified algorithm suite.
 
 ## [Unreleased]
 
+- The benchmark and timing-leakage scripts (`bench/`) and the raw results of the last run (`results/`) are now in the repository, with a README that states what they do and do not show. The README previously said they were published and reproducible from the repository, but the files were not committed.
+
 ## [0.1.1] - 2026-10-05
 
 Documentation and metadata only; no code or wire-format change.

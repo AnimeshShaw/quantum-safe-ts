@@ -77,7 +77,7 @@ good pure-JavaScript libraries such as `@noble/post-quantum` exist. quantum-safe
 - **Byte-compatible with quantum-safe-py**, verified in CI against the real Python library in both directions, so a Python service and a
   TypeScript service can share keys, ciphertexts, signatures, tokens and migration state.
 - **Evidence.** 1,317 NIST ACVP cases (key-check, pre-hash and externalMu groups are not run; see the standards page), differential tests against independent implementations, cargo-fuzz targets for the main binary parsers plus property tests for the rest, packed-tarball
-  tests in 12 real toolchains, a published timing-leakage screen, and a reproducible-build check. Each is reproducible from this repository.
+  tests in 12 real toolchains, a [timing-leakage screen with its controls and raw results](bench/README.md), and a reproducible-build check. Each is reproducible from this repository.
 - **Migration tooling.** Find classical crypto, upgrade keys, track progress safely across processes, gate it in CI.
 - **Agent-friendly.** `llms.txt`, executed documentation snippets, typed errors with actionable hints, and an MCP server.
 

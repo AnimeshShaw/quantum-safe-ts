@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-10-03T11:48:56.325Z",
+  "node": "v24.18.0",
+  "platform": "win32 10.0.26300",
+  "cpu": "Intel(R) Core(TM) i9-14900HX",
+  "iterationsPerClass": 6000,
+  "rounds": 4,
+  "threshold": 4.5,
+  "note": "Screen at the resolution of this setup. Not a constant-time proof. See the header of bench/leakage.mjs.",
+  "experiments": [
+    {
+      "name": "CALIBRATION: ML-KEM-768 encapsulate, fixed vs random PUBLIC key (no secret involved)",
+      "measurementsPerClass": 6000,
+      "mustLeak": false,
+      "control": false,
+      "calibration": true,
+      "verdict": "DIFFERENCE DETECTED (consistent across rounds at: croppedT, strongCroppedT)",
+      "rounds": [
+        {
+          "real": {
+            "rawT": -11.784990451434018,
+            "croppedT": -22.059094925911598,
+            "strongCroppedT": -96.59155327653474,
+            "meanDiffNs": -6076.3333333333285,
+            "effectSd": -0.21516350367444675
+          },
+          "nullMaxAbsT": 2.3711491659763877
+        },
+        {
+          "real": {
+            "rawT": -1.1517736347515792,
+            "croppedT": -15.731171000129416,
+            "strongCroppedT": -80.4756408586032,
+            "meanDiffNs": -3370.550000000003,
+            "effectSd": -0.0210284133631052
+          },
+          "nullMaxAbsT": 2.4117359713076794
+        },
+        {
+          "real": {
+            "rawT": -3.665468989647149,
+            "croppedT": -13.36304572143678,
+            "strongCroppedT": -9.418949790646467,
+            "meanDiffNs": -4160.116666666669,
+            "effectSd": -0.06692200164884712
+          },
+          "nullMaxAbsT": 2.0864813251274312
+        },
+        {
+          "real": {
+            "rawT": -13.046669198942991,
+            "croppedT": -20.170131345789724,
+            "strongCroppedT": -75.68190179774938,
+            "meanDiffNs": -3753.166666666657,
+            "effectSd": -0.23819850068563106
+          },
+          "nullMaxAbsT": 1.4963853025966622
+        }
+      ]
+    }
+  ]
+}
