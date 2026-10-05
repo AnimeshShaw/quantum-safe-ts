@@ -8,7 +8,8 @@ run-name: Release ${{ inputs.package }} (dry run ${{ inputs.dry_run }})
 #   2. `publish` holds the token and runs only the final `npm publish <that tarball>`, after a human approves the `npm-publish` environment.
 # One-time setup by the maintainer: Settings > Environments > New environment `npm-publish`, add yourself as required reviewer and
 # restrict deployment branches to master; add the secret NPM_TOKEN to THAT environment (not to the repository).
-# Order: quantum-safe-audit -> quantum-safe-ts -> quantum-safe-mcp -> pqc-audit (the MCP server and the alias both need quantum-safe-audit on npm first).
+# Order: quantum-safe-audit -> quantum-safe-ts -> quantum-safe-mcp -> pqc-audit -> pqc-mcp (the MCP server and pqc-audit need quantum-safe-audit on npm first;
+# pqc-mcp needs quantum-safe-mcp on npm first).
 # IMPORTANT: create the `npm-publish` environment (with its reviewer and branch rule) BEFORE adding NPM_TOKEN anywhere and before pushing
 # this file: GitHub auto-creates an unprotected environment of that name on first use, and a repository-level secret would be used by it.
 
@@ -19,7 +20,7 @@ on:
         description: Which package to publish
         type: choice
         required: true
-        options: [quantum-safe-audit, quantum-safe-ts, quantum-safe-mcp, pqc-audit]
+        options: [quantum-safe-audit, quantum-safe-ts, quantum-safe-mcp, pqc-audit, pqc-mcp]
       dry_run:
         description: Dry run (npm publish --dry-run)
         type: boolean
@@ -62,8 +63,8 @@ jobs:
         working-directory: packages/${{ env.PACKAGE }}
         run: |
           # The MCP package's lockfile pins the local file: dependency, which prepare-release.mjs replaced with a version range.
-          # The alias package has no lockfile and depends on the already-published audit tool.
-          if [ "$PACKAGE" = "quantum-safe-mcp" ] || [ "$PACKAGE" = "pqc-audit" ]; then npm install --ignore-scripts; else npm ci --ignore-scripts; fi
+          # The alias packages have no lockfile and depend on already-published packages.
+          if [ "$PACKAGE" = "quantum-safe-mcp" ] || [ "$PACKAGE" = "pqc-audit" ] || [ "$PACKAGE" = "pqc-mcp" ]; then npm install --ignore-scripts; else npm ci --ignore-scripts; fi
           npm run build
           npm test
       - name: Pack once; this exact file is what gets published

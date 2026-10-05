@@ -1,0 +1,34 @@
+{
+  "name": "pqc-mcp",
+  "version": "0.1.0",
+  "description": "Alias of quantum-safe-mcp: a Model Context Protocol server that lets coding agents audit a JavaScript/TypeScript project for quantum-vulnerable cryptography and choose a post-quantum algorithm suite.",
+  "license": "Apache-2.0",
+  "author": "Animesh Shaw",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AnimeshShaw/quantum-safe-ts.git",
+    "directory": "packages/pqc-mcp"
+  },
+  "homepage": "https://animeshshaw.github.io/quantum-safe-ts/tools/mcp",
+  "keywords": ["mcp", "model-context-protocol", "post-quantum", "pqc", "cryptography", "cbom", "ai-agents"],
+  "type": "module",
+  "bin": {
+    "pqc-mcp": "./bin.js"
+  },
+  "files": [
+    "bin.js",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node -e \"console.log('nothing to build: alias package')\"",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "quantum-safe-mcp": "^0.1.0"
+  }
+}

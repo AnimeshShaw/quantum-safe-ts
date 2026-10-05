@@ -3,6 +3,7 @@
 `quantum-safe-mcp` is a [Model Context Protocol](https://modelcontextprotocol.io) server. It lets a coding agent (Claude Code, Claude Desktop,
 Cursor, VS Code and other MCP clients) **audit a project for classical cryptography, choose an algorithm suite with working code, and look up
 error codes**, using the same engine as [`quantum-safe-audit`](/tools/audit). It depends on that package; it does not depend on the library.
+It is also published under the short alias **`pqc-mcp`** (same server, same options: `npx pqc-mcp`).
 
 **Use it when** an agent is helping you migrate to post-quantum cryptography or write code with quantum-safe-ts and you want it to answer from
 facts rather than memory. **It will not** write or change files, run your code, touch the network, or give a compliance verdict.
