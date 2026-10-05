@@ -40,7 +40,7 @@ if (problems.length) {
 mcp.dependencies['quantum-safe-audit'] = `^${audit.version}`;
 write('packages/quantum-safe-mcp/package.json', mcp);
 console.log(`quantum-safe-mcp now depends on quantum-safe-audit@^${audit.version}`);
-console.log('\nPublish order: audit -> pqc-audit -> quantum-safe-ts -> mcp');
+console.log('\nPublish order: audit -> quantum-safe-ts -> mcp -> pqc-audit');
 console.log(`  quantum-safe-audit  ${audit.version}\n  quantum-safe-ts     ${core.version}\n  pqc-audit           ${alias.version}
   quantum-safe-mcp    ${mcp.version}`);
 console.log('\nAfter publishing, run:  node scripts/prepare-release.mjs --restore');

@@ -8,7 +8,7 @@ run-name: Release ${{ inputs.package }} (dry run ${{ inputs.dry_run }})
 #   2. `publish` holds the token and runs only the final `npm publish <that tarball>`, after a human approves the `npm-publish` environment.
 # One-time setup by the maintainer: Settings > Environments > New environment `npm-publish`, add yourself as required reviewer and
 # restrict deployment branches to master; add the secret NPM_TOKEN to THAT environment (not to the repository).
-# Order: quantum-safe-audit -> pqc-audit (alias of the audit tool; needs it on npm first) -> quantum-safe-ts -> quantum-safe-mcp.
+# Order: quantum-safe-audit -> quantum-safe-ts -> quantum-safe-mcp -> pqc-audit (the MCP server and the alias both need quantum-safe-audit on npm first).
 # IMPORTANT: create the `npm-publish` environment (with its reviewer and branch rule) BEFORE adding NPM_TOKEN anywhere and before pushing
 # this file: GitHub auto-creates an unprotected environment of that name on first use, and a repository-level secret would be used by it.
 
@@ -19,7 +19,7 @@ on:
         description: Which package to publish
         type: choice
         required: true
-        options: [quantum-safe-audit, pqc-audit, quantum-safe-ts, quantum-safe-mcp]
+        options: [quantum-safe-audit, quantum-safe-ts, quantum-safe-mcp, pqc-audit]
       dry_run:
         description: Dry run (npm publish --dry-run)
         type: boolean
