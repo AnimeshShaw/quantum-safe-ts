@@ -84,11 +84,13 @@ for s in v["signatures"]:
     try:
         sm = SignedMessage.from_cbor(bytes.fromhex(s["signed_message"]))
         pub = PublicKey(raw=bytes.fromhex(s["public_key"]), algorithm=algo)
+        # quantum-safe-py >= 0.3.1 pins the prefix length to the verifier's
+        # hedging mode, so build the verifier in the mode the vector was made in.
         if "+" in algo:
             classical, pqc = algo.split("+", 1)
-            HybridSign(classical=classical, pqc=pqc).verify(sm, pub)
+            HybridSign(classical=classical, pqc=pqc, hedged=s["hedged"]).verify(sm, pub)
         else:
-            Sign(algo).verify(sm, pub)
+            Sign(algo, hedged=s["hedged"]).verify(sm, pub)
         check(label, sm.message == b"ts signed message" and sm.context == b"ts-ctx")
     except Exception as exc:  # noqa: BLE001
         check(f"{label} ({type(exc).__name__}: {exc})", False)
@@ -160,6 +162,41 @@ if js_path.exists():
             check(f"ts migration store ({type(exc).__name__}: {exc})", False)
 else:
     check("ts_js_vectors.json present (run scripts/gen_ts_js_vectors.mjs)", False)
+
+# ---- Formats added in quantum-safe-py 0.3.1: envelope v2, the -v2 signatures, StandardJwt ----
+# Skipped (loudly) on an older quantum-safe-py, which has none of them.
+v2_path = root / "ts_v2_vectors.json"
+try:
+    from quantum_safe.protocols.standard_jwt import StandardJwt
+except ImportError:
+    StandardJwt = None
+    print("skip v2 vectors: this quantum-safe-py predates 0.3.1 (no StandardJwt)")
+if StandardJwt is not None and v2_path.exists():
+    v2 = json.loads(v2_path.read_text(encoding="utf-8"))
+    for i, e in enumerate(v2["envelope_v2"]):
+        try:
+            sk = SecretKey(raw=bytes.fromhex(e["secret_key"]), algorithm="ML-KEM-1024")
+            pt = Envelope.open(SealedMessage.from_bytes(bytes.fromhex(e["sealed"])), sk, expected_aad=bytes.fromhex(e["aad"]))
+            check(f"envelope v2 [{i}]", pt.hex() == e["plaintext"])
+        except Exception as exc:  # noqa: BLE001
+            check(f"envelope v2 [{i}] ({type(exc).__name__}: {exc})", False)
+    for i, s in enumerate(v2["signatures_v2"]):
+        label = f"signature {s['algorithm']} [{i}]"
+        try:
+            algo = s["algorithm"]
+            sm = SignedMessage.from_cbor(bytes.fromhex(s["signed_message"]))
+            pub = PublicKey(raw=bytes.fromhex(s["public_key"]), algorithm=algo)
+            verifier = HybridSign(*algo.split("+", 1)) if "+" in algo else Sign(algo)
+            verifier.verify(sm, pub, context=bytes.fromhex(s["context"]))
+            check(label, True)
+        except Exception as exc:  # noqa: BLE001
+            check(f"{label} ({type(exc).__name__}: {exc})", False)
+    for t in v2["standard_jwt"]:
+        try:
+            claims = StandardJwt.verify(t["token"], t["public_jwk"], issuer=t["issuer"])
+            check(f"standard jwt {t['algorithm']}", claims.get("sub") == "ts-user" and claims.get("n") == 7)
+        except Exception as exc:  # noqa: BLE001
+            check(f"standard jwt {t['algorithm']} ({type(exc).__name__}: {exc})", False)
 
 # ---- Guards against vacuous passes ----
 for label, items, minimum in [
