@@ -20,6 +20,7 @@ ML-KEM · ML-DSA · SLH-DSA · hybrid envelopes and signatures · PQC JWTs · mi
 [![Security audit: none yet](https://img.shields.io/badge/security_audit-none_yet-red.svg)](SECURITY.md)
 [![Status: pre-1.0 experimental](https://img.shields.io/badge/status-pre--1.0_experimental-orange.svg)](ROADMAP.md)
 [![Roadmap: 0.1.0](https://img.shields.io/badge/roadmap-0.1.0-blue.svg)](ROADMAP.md)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23160434.svg)](https://doi.org/10.5281/zenodo.23160434)
 
 [Documentation](https://animeshshaw.github.io/quantum-safe-ts/) · [Which library should I use?](https://animeshshaw.github.io/quantum-safe-ts/compare) · [Roadmap](ROADMAP.md) · [Compatibility](COMPATIBILITY.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
@@ -158,7 +159,7 @@ Secret keys live in WASM memory; the owned secret buffers are zeroized on `.free
 
 [CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [ROADMAP.md](ROADMAP.md). Report vulnerabilities
 privately through GitHub Security Advisories or by email, as described in [SECURITY.md](SECURITY.md) (which also has the supported versions and the
-statement that the library has had no independent third-party review). Cite it with [CITATION.cff](CITATION.cff).
+statement that the library has had no independent third-party review). Cite it with [CITATION.cff](CITATION.cff) or the Zenodo record, [10.5281/zenodo.23160434](https://doi.org/10.5281/zenodo.23160434) (this DOI always resolves to the latest release; each release also has its own version DOI).
 
 ## License
 
