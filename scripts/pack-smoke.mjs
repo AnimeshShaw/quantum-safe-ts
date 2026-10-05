@@ -17,9 +17,9 @@ const work = mkdtempSync(join(tmpdir(), 'qs-pack-smoke-'));
 const shell = process.platform === 'win32';
 const run = (cmd, args, cwd, extra = {}) => execFileSync(cmd, args, { cwd, encoding: 'utf8', shell, stdio: ['ignore', 'pipe', 'pipe'], ...extra });
 
-function pack(name) {
+function pack(name, { needsDist = true } = {}) {
   const dir = join(repo, 'packages', name);
-  if (!existsSync(join(dir, 'dist'))) throw new Error(`${name} is not built (run npm run build in packages/${name})`);
+  if (needsDist && !existsSync(join(dir, 'dist'))) throw new Error(`${name} is not built (run npm run build in packages/${name})`);
   const out = run('npm', ['pack', '--ignore-scripts', '--pack-destination', work, '--json'], dir);
   const file = JSON.parse(out)[0].filename;
   console.log(`packed ${name}: ${file}`);
@@ -47,7 +47,7 @@ const tarballs = { ts: pack('quantum-safe-ts'), audit: pack('quantum-safe-audit'
   out = run('node', ['cjs.cjs'], dir);
   check('quantum-safe-ts: CommonJS require, round trip and file-store subpath', out.startsWith('cjs ok function'), out);
   const files = readdirSync(join(dir, 'node_modules', 'quantum-safe-ts'));
-  for (const f of ['README.md', 'LICENSE', 'NOTICE', 'llms.txt', 'llms-full.txt', 'dist']) check(`quantum-safe-ts tarball contains ${f}`, files.includes(f));
+  for (const f of ['README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.md', 'llms.txt', 'llms-full.txt', 'dist']) check(`quantum-safe-ts tarball contains ${f}`, files.includes(f));
 }
 
 // 2. The scanner: must run from an empty project (typescript has to be a real dependency), and must find a real RSA call.
@@ -60,6 +60,8 @@ const tarballs = { ts: pack('quantum-safe-ts'), audit: pack('quantum-safe-audit'
   const cli = join(dir, 'node_modules', 'quantum-safe-audit', 'dist', 'cli.js');
   const help = run('node', [cli, '--help'], dir);
   check('quantum-safe-audit: --help runs from an empty project', help.includes('quantum-safe-audit'), help.slice(0, 80));
+  const auditFiles = readdirSync(join(dir, 'node_modules', 'quantum-safe-audit'));
+  for (const f of ['README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.md']) check(`quantum-safe-audit tarball contains ${f}`, auditFiles.includes(f));
   let code = 0;
   let out = '';
   try {
@@ -103,6 +105,52 @@ const tarballs = { ts: pack('quantum-safe-ts'), audit: pack('quantum-safe-audit'
   });
   server.kill();
   check('quantum-safe-mcp: starts from its tarball and answers initialize', String(reply).includes('"serverInfo"'), String(reply).slice(0, 200));
+  const mcpFiles = readdirSync(join(dir, 'node_modules', 'quantum-safe-mcp'));
+  for (const f of ['README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.md']) check(`quantum-safe-mcp tarball contains ${f}`, mcpFiles.includes(f));
+  tarballs.mcpRepacked = repacked;
+}
+
+// 4. The aliases: pqc-audit forwards to quantum-safe-audit and pqc-mcp to quantum-safe-mcp. Their dependencies are not on the registry
+// before the first release, so they are pointed at the local tarballs, then each alias is run.
+{
+  const dir = join(work, 'alias');
+  mkdirSync(dir);
+  const aliasTarballs = { audit: pack('pqc-audit', { needsDist: false }), mcp: pack('pqc-mcp', { needsDist: false }) };
+  const patched = {};
+  for (const [key, dep, target] of [['audit', 'quantum-safe-audit', tarballs.audit], ['mcp', 'quantum-safe-mcp', tarballs.mcpRepacked]]) {
+    const out = join(work, `alias-${key}-extracted`);
+    mkdirSync(out);
+    run('tar', ['-xzf', basename(aliasTarballs[key]), '-C', basename(out)], work);
+    const manifest = join(out, 'package', 'package.json');
+    const m = JSON.parse(readFileSync(manifest, 'utf8'));
+    m.dependencies[dep] = `file:${target}`;
+    writeFileSync(manifest, JSON.stringify(m));
+    patched[key] = join(work, JSON.parse(run('npm', ['pack', '--ignore-scripts', '--pack-destination', work, '--json'], join(out, 'package')))[0].filename);
+  }
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'smoke-alias', version: '1.0.0', private: true, overrides: { 'quantum-safe-audit': `file:${tarballs.audit}` } }));
+  run('npm', ['install', '--no-audit', '--no-fund', patched.audit, patched.mcp], dir);
+  const help = run('node', [join(dir, 'node_modules', 'pqc-audit', 'bin.js'), '--help'], dir);
+  check('pqc-audit: --help runs and is the quantum-safe-audit command', help.includes('quantum-safe-audit'), help.slice(0, 80));
+  const server = spawn(process.execPath, [join(dir, 'node_modules', 'pqc-mcp', 'bin.js')], { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'] });
+  const reply = await new Promise((res) => {
+    let buf = '';
+    const t = setTimeout(() => res(buf), 15000);
+    server.stdout.on('data', (d) => {
+      buf += d;
+      if (buf.includes(String.fromCharCode(10))) {
+        clearTimeout(t);
+        res(buf);
+      }
+    });
+    server.on('exit', () => res(buf));
+    server.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'smoke', version: '0' } } }) + String.fromCharCode(10));
+  });
+  server.kill();
+  check('pqc-mcp: starts from its tarball and answers initialize', String(reply).includes('"serverInfo"'), String(reply).slice(0, 200));
+  for (const [name, f] of [['pqc-audit', ['README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.md']], ['pqc-mcp', ['README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.md']]]) {
+    const files = readdirSync(join(dir, 'node_modules', name));
+    for (const x of f) check(`${name} tarball contains ${x}`, files.includes(x));
+  }
 }
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll packed-tarball smoke checks passed.');
