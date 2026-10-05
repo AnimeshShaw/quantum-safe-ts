@@ -9,7 +9,7 @@
     "url": "git+https://github.com/AnimeshShaw/quantum-safe-ts.git",
     "directory": "packages/quantum-safe-audit"
   },
-  "homepage": "https://github.com/AnimeshShaw/quantum-safe-ts/tree/master/packages/quantum-safe-audit#readme",
+  "homepage": "https://animeshshaw.github.io/quantum-safe-ts/tools/audit",
   "keywords": [
     "post-quantum",
     "pqc",

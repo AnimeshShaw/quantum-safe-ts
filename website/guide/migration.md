@@ -12,6 +12,25 @@ needs to change, upgrading keys without discarding the classical identity, and t
 
 It does **not** re-encrypt your stored data, and it does not decide when your clients are ready.
 
+## A plan, end to end
+
+1. **Inventory.** Run `npx quantum-safe-audit scan .` and `cbom .`; read the [audit page](/tools/audit). Decide which findings are exposed to
+   harvest-now-decrypt-later (anything whose confidentiality must outlive about a decade: encrypted data at rest, recorded traffic, long-lived
+   secrets) and fix those first. Signatures matter once a quantum computer exists, so they can follow.
+2. **Pick suites** ([Choosing what to use](/guide/choosing)): hybrid `X25519+ML-KEM-768` and `Ed25519+ML-DSA-65` (or `-v2`) in most cases.
+3. **Upgrade keys** with `Upgrader`, one population at a time, recording each key as `hybrid_transition` in a `MigrationStateManager`.
+4. **Dual-run.** Servers accept both the old and the new; clients move when ready. Watch `migrationProgress()` and `needsMigration()`.
+5. **Prefer post-quantum** (`pqc_preferred`) once nearly every client can use the new key, then **retire the classical half** (`pqc_only`) with
+   `Upgrader.stripClassicalComponent`. Going back is possible but explicit and recorded.
+6. **Gate CI** with the [GitHub Action](/tools/github-action) so new classical cryptography cannot slip back in.
+
+| State | Meaning | Typical action |
+|---|---|---|
+| `classical_only` | Only the classical key exists | Upgrade it |
+| `hybrid_transition` | A hybrid key exists; clients are moving | Run both; track progress |
+| `pqc_preferred` | Nearly everyone uses the new key; classical is a fallback | Prepare to retire the classical half |
+| `pqc_only` | Classical half removed (terminal) | Done |
+
 ## Upgrade a key
 
 `Upgrader` adds a fresh post-quantum key to an existing classical key and keeps the classical bytes unchanged, so the same X25519 or
@@ -88,9 +107,10 @@ Each key's history is stored as one document and written with a single **compare
 | Several machines | Provide a store with an atomic `compareAndSet` (Redis, Postgres, DynamoDB, SQLite recipes in the interface docs). The manager is safe if your store is. We have not tested those backends here. |
 | A store without `compareAndSet` | Only in-process safety. `manager.crossProcessSafe` is `false`. Use an external lock. |
 
-```ts
+```ts no-run
+// Node.js only; a complete, running example with two racing workers is in the Cookbook (recipe 6).
 import { MigrationStateManager } from 'quantum-safe-ts';
-import { FileMigrationStore } from 'quantum-safe-ts/file-store'; // Node.js only
+import { FileMigrationStore } from 'quantum-safe-ts/file-store';
 
 const manager = new MigrationStateManager(new FileMigrationStore('./migration-state'));
 ```
@@ -103,11 +123,18 @@ some container volume drivers do not give atomic `mkdir` or `rename`, so do not 
 Records are JSON in this library and CBOR in quantum-safe-py's store, so they are not interchangeable as stored. Converters read and
 write py's exact layout (`<id>_current`, `<id>_history`, CBOR):
 
-```ts
-import { exportToPyStore, importFromPyStore } from 'quantum-safe-ts';
+```ts test
+import { MemoryMigrationStore, MigrationStateManager, exportToPyStore, importFromPyStore } from 'quantum-safe-ts';
 
-const entries = await exportToPyStore(manager);            // Map<string, Uint8Array>; load into a py store dict
-await importFromPyStore(entriesFromPy, otherManager);      // validates the history chain; refuses to overwrite
+const manager = new MigrationStateManager(new MemoryMigrationStore());
+await manager.transition({ keyId: 'user-1', fromState: 'classical_only', toState: 'hybrid_transition', algorithm: 'X25519+ML-KEM-768', actor: 'job' });
+
+const entries = await exportToPyStore(manager);            // Map<string, Uint8Array>: '<id>_current' and '<id>_history' as CBOR, load into a py store dict
+console.log([...entries.keys()]);
+
+const other = new MigrationStateManager(new MemoryMigrationStore());
+const imported = await importFromPyStore(entries, other);  // validates the history chain; refuses to overwrite existing keys
+if (imported.length !== 1 || (await other.getCurrentState('user-1')) !== 'hybrid_transition') throw new Error('round trip failed');
 ```
 
 Both directions are verified against the real Python library, and the exported bytes are identical to what py writes.

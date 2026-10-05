@@ -38,6 +38,86 @@ parameter sets is necessary and **not sufficient**. Known gaps, reported by `cns
 3. LMS is verification-only and XMSS is absent.
 4. Compliance for National Security Systems runs through FIPS 140-3 validated modules. This library is not one.
 
+## Reading a report
+
+`cnsa2.report()` returns one check per requirement, each with a `finding` of `compliant`, `partial`, `non-compliant` or `not-covered`, the value
+it expected and the value it saw. `report.compliant` is true only when every checked requirement is `compliant`. `report.failures` lists the
+rest, and `report.render()` prints a table for humans.
+
+```ts test
+import { cnsa2 } from 'quantum-safe-ts';
+
+const good = cnsa2.report({ kem: 'ML-KEM-1024', signature: 'ML-DSA-87', hashAlgorithm: 'sha384', includeCodeSigning: false });
+if (!good.compliant || good.failures.length !== 0) throw new Error('the pure CNSA 2.0 parameter sets must pass');
+console.log(good.render());
+
+// A hybrid is `partial` (the parameter set is right, but a hybrid is outside what CNSA 2.0 prescribes); SHA-256 is below the hash requirement.
+const mixed = cnsa2.report({ kem: 'X25519+ML-KEM-1024', signature: 'ML-DSA-87', hashAlgorithm: 'sha256' });
+const byName = Object.fromEntries(mixed.checks.map((c) => [c.requirement, c.finding]));
+if (byName['Key establishment'] !== 'partial' || byName['Hashing'] !== 'non-compliant' || mixed.compliant) throw new Error('unexpected findings');
+```
+
+`includeCodeSigning: false` leaves out the software and firmware signing row (CNSA 2.0 asks for LMS or XMSS there, and this library only
+verifies LMS). Without it that row is reported `partial`, so the report is never `compliant` for a system that signs firmware.
+
+## Why a hybrid is `partial`
+
+NSA's CNSA 2.0 FAQ (December 2024, Ver. 2.1) says NSA does not require hybrid products for security purposes, and that a hybrid should not be used
+on National Security System mission systems except for exceptions NSA specifically recommends (the one it names is IKEv2). So `X25519+ML-KEM-1024` has
+the right ML-KEM parameter set but is not what CNSA 2.0 prescribes, and the library says so instead of calling it compliant. Pure `ML-KEM-1024`
+and `ML-DSA-87` are the compliant selections. quantum-safe-py (0.3.1+) reports hybrids the same way.
+
+## Configuring a service for the CNSA 2.0 parameter sets
+
+```ts test
+import { cnsa2, Envelope, Sign, utf8 } from 'quantum-safe-ts';
+
+const kem = cnsa2.kem();                              // pure ML-KEM-1024
+const signer = new Sign('ML-DSA-87');                 // pure ML-DSA-87
+cnsa2.enforce({ kem: kem.algorithm, signature: signer.algorithm }, { strict: true });
+
+using enc = kem.generateKeyPair();
+const sealed = Envelope.seal(utf8('classified-style payload'), enc.publicKey);
+if (sealed.version !== 2) throw new Error('pure ML-KEM-1024 produces envelope v2 (HKDF-SHA-384)');
+
+using sig = signer.generateKeyPair();
+const signed = signer.sign(utf8('payload'), sig.secretKey, { context: utf8('svc-v1') });
+signer.verify(signed, sig.publicKey, { expectedContext: utf8('svc-v1') });
+```
+
+## Guarding a service at start-up or in CI
+
+`cnsa2.enforce` throws `PolicyViolationError` when a configuration is below the parameter sets, so a mis-set environment variable cannot
+quietly weaken a deployment. By default it checks the post-quantum half; `strict: true` also rejects `partial` hybrids.
+
+```ts test
+import { cnsa2, PolicyViolationError } from 'quantum-safe-ts';
+
+function assertPolicy(config: { kem: string; signature: string }): void {
+  cnsa2.enforce(config, { strict: true });
+}
+
+assertPolicy({ kem: 'ML-KEM-1024', signature: 'ML-DSA-87' });                   // passes
+let refused = 0;
+for (const bad of [
+  { kem: 'ML-KEM-768', signature: 'ML-DSA-87' },                                // below ML-KEM-1024
+  { kem: 'ML-KEM-1024', signature: 'Ed25519+ML-DSA-65' },                      // below ML-DSA-87
+  { kem: 'X25519+ML-KEM-1024', signature: 'ML-DSA-87' },                        // a hybrid is partial under strict
+  { kem: 'RSA-1024+ML-KEM-1024', signature: 'ML-DSA-87' },                      // not a name this library implements
+]) {
+  try { assertPolicy(bad); } catch (e) { if (e instanceof PolicyViolationError) refused++; else throw e; }
+}
+if (refused !== 4) throw new Error(`expected 4 refusals, got ${refused}`);
+```
+
+Pair it with the [audit tool](/tools/audit) (`--cnsa2` reports SHA-256 where CNSA 2.0 applies) and the [GitHub Action](/tools/github-action).
+
+## What the profile does not cover
+
+Selecting parameters is necessary and **not sufficient**: no software library makes a system CNSA 2.0 compliant. Missing here: LMS or XMSS
+signing for software and firmware, a FIPS 140-3 validated module, SHA-384/512 key derivation for the hybrid and v1 envelope formats (they use
+HKDF-SHA-256 for byte-compatibility), and everything outside this library (protocols, key management, platform).
+
 ## NIST
 
 | Standard | Status | Evidence |

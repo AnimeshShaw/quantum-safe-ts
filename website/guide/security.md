@@ -7,27 +7,76 @@ review is published.
 :::
 
 The authoritative policy, including how to report a vulnerability privately, is
-[SECURITY.md](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/SECURITY.md). A summary:
+[SECURITY.md](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/SECURITY.md). This page explains the model behind it: what is protected,
+from whom, what is not, and what to do about the gaps.
 
-## What it defends against
+## Assets and adversaries
 
-| Adversary | Defence |
-|---|---|
-| Harvest-now-decrypt-later (records ciphertext today, breaks classical crypto later) | Hybrid and pure ML-KEM envelopes; the audit tool finds classical crypto to migrate. |
-| A network attacker or malicious input supplier | Every parser fails closed with a typed error. Mutation tests, property tests and cargo-fuzz targets cover them. Keys, signed messages and sealed messages are capped at 10 MB and are shape-checked (flat, definite-length, no duplicate keys, no trailing bytes) before decoding. Type-confusion and version-rollback rejection. The AEAD authenticates version, algorithm and AAD. JWT algorithm is pinned to the key; no `alg: none`. |
-| Curious code in the same page or process | Secrets are held in WebAssembly memory behind opaque objects (the owned buffers are zeroized on `.free()`; copies made by argument passing and by parsing may remain in WebAssembly memory). `toString`, `toJSON` and `util.inspect` never reveal them. Errors and hints never contain key material. |
-| A hostile repository scanned by the audit tool | Reports contain only short identifier-like details. The MCP server is read-only, offline and path-confined. |
-| A supply-chain attacker | Pinned `Cargo.lock`, `cargo-deny`, `npm audit` in CI, no install scripts in the shipped packages, a provenance-capable release workflow, and a reproducible WebAssembly build check. |
+**What is being protected:** secret keys and shared secrets; plaintext; signing keys; the integrity of verification verdicts; the integrity of
+the published packages.
+
+| Adversary | Capability | What the library does about it |
+|---|---|---|
+| Harvest-now-decrypt-later | Records ciphertext today, breaks classical public-key crypto later with a quantum computer | Hybrid and pure ML-KEM envelopes; the [audit tool](/tools/audit) finds classical crypto to migrate |
+| A network attacker or malicious input supplier | Controls ciphertexts, sealed messages, keys, signatures, tokens, CBOR, PEM and JWK input | Every parser fails closed with a typed error. Mutation tests, property tests and cargo-fuzz targets cover them. Keys, signed messages and sealed messages are capped at 10 MB and shape-checked (flat, definite-length, no duplicate keys, no trailing bytes, shortest-form integers) before decoding. Type-confusion and version-rollback rejection. The AEAD authenticates version, algorithm and AAD. JWT algorithm is pinned to the key; no `alg: none`. |
+| Curious code in the same page or process | Reads the JavaScript heap, logs objects | Secrets are held in WebAssembly memory behind opaque objects. `toString`, `toJSON` and `util.inspect` never reveal them. Errors and hints never contain key material. |
+| A hostile repository scanned by the audit tool | Embeds prompt-injection text or malformed files | Reports contain only short identifier-like details. The MCP server is read-only, offline and path-confined. |
+| A supply-chain attacker | Compromises a dependency or the build | Pinned `Cargo.lock`, `cargo-deny`, `npm audit` in CI, no install scripts in the shipped packages, a provenance-capable release workflow, and a reproducible WebAssembly build check. |
 
 ## What it does not defend against
 
-- **Side channels.** JavaScript and WebAssembly give no constant-time guarantee. ML-DSA signing time varies with the number of rejection-sampling iterations (by design not secret-dependent, which still makes timing screens noisy). We publish a
-  timing-leakage *screen* (see below); a pass is not a proof.
-- **Memory disclosure** of the JS heap, swap, core dumps, browser extensions with page access, or a compromised runtime.
+- **Side channels.** JavaScript and WebAssembly give no constant-time guarantee ([below](#timing-and-side-channels)).
+- **Memory disclosure** of the JavaScript heap, swap, core dumps, browser extensions with page access, or a compromised runtime.
 - **Fault attacks.** Hedged signing mitigates some lattice fault attacks; it is not a general defence.
 - **Weak passwords.** Argon2id slows guessing; it cannot rescue a guessable password.
-- **Key management.** Storage, rotation, backup and access control are your responsibility.
-- **Compliance.** Nothing here makes a system CNSA 2.0 or FIPS 140-3 compliant.
+- **Key management.** Storage, rotation, backup and access control are your responsibility ([Keys](/guide/keys)).
+- **Sender authentication by encryption.** Envelopes and streams are anonymous: anyone with your public key can encrypt to you. Sign what must be attributable.
+- **Replay.** A valid signed message or token is valid every time you see it. Put a nonce, id or expiry inside what is signed.
+- **Compliance.** Nothing here makes a system CNSA 2.0 or FIPS 140-3 compliant ([CNSA 2.0](/guide/standards)).
+
+## Constructions to understand
+
+Three properties follow from the formats and are worth knowing, because they explain the API.
+
+1. **Verifiers state what they expect.** A signature context and an encryption AAD are only protection if the *verifier* supplies them. The
+   library requires `expectedContext` (default: empty) and offers `expectedAad`; it never reads them from the message. See
+   [Concepts](/guide/concepts#context-and-aad-the-verifier-says-what-it-expects).
+2. **The default signature format (v1) has an unsigned prefix length.** quantum-safe-py's construction signs `len(ctx) ‖ ctx ‖ prefix ‖ message`
+   and stores the prefix length *outside* the signed bytes. A verifier that accepted any length would let anyone move bytes between prefix and
+   message and forge a signature on a suffix of a signed message. The TypeScript verifiers pin the length to their hedging mode (32 hedged, 0
+   unhedged), which closes it without changing a byte on the wire. **Never use one key in both hedged and unhedged mode.** The `-v2` format
+   has no prefix and no such caveat: [Signatures](/guide/signatures#format-v2-v2). (The same issue existed in quantum-safe-py 0.3.0 and was
+   fixed there in 0.3.1.)
+3. **Hybrid halves.** In a default-format hybrid signature the classical and the post-quantum halves are independent signatures over the same bytes and
+   neither commits to the other. Both must verify, so forging one half does not help; but halves from two signatures on the same message by the
+   same key can be recombined (it changes the signature bytes, not the signed message). Do not use signature bytes as a unique identifier or a
+   replay key. In `-v2` both halves sign the same bytes, which include the algorithm and the context.
+
+## Timing and side channels
+
+JavaScript and WebAssembly runtimes give **no constant-time guarantee**, and this library does not claim one. Concretely:
+
+- The WebAssembly is compiled from Rust crates written to avoid secret-dependent branches, but the compiler, the WebAssembly engine's
+  just-in-time compilation, caches and the operating system can all introduce secret-dependent timing, and none of that is under this
+  library's control.
+- ML-DSA signing time varies with the number of rejection-sampling iterations. That variation is by design and not secret-dependent, but it
+  makes timing measurements noisy.
+- Browsers coarsen timers and add their own noise; that makes attacks harder but is not a defence.
+- The maintainer runs a timing-leakage *screen* (a dudect-style fixed-versus-random test with null controls) before releases. A screen can fail
+  to detect a leak; a pass is **not a proof**.
+
+**What to do:** if a local timing attacker (code on the same machine or in the same process) is in your threat model, do not use a
+JavaScript or WebAssembly implementation for secret operations; use a native implementation in a hardened environment. For the usual web
+and server threat models (a remote network attacker who sees ciphertexts and response times), this is the normal position of every
+JavaScript cryptography library, but it is still an unreviewed one here.
+
+## Memory
+
+WebAssembly memory holds secret keys and shared secrets, and `.free()` (or leaving a `using` scope) wipes the owned buffers. That is not a
+promise that no copy remains: the buffers used to pass arguments into WebAssembly and intermediate values created while parsing or serialising
+a key are not all wiped, and a review found residual copies in WebAssembly linear memory after `.free()`. Anything you copy out into the
+JavaScript heap (`exportBytes()`, `toPem()` of a secret, plaintext) is outside this library's control; call `wipe()` on those copies. Treat memory as not
+reliably scrubbed.
 
 ## Evidence in the repository
 
@@ -36,10 +85,23 @@ The authoritative policy, including how to report a vulnerability privately, is
 | 1,317 NIST ACVP cases (ML-KEM, ML-DSA, SLH-DSA) | `crates/quantum-safe-core/tests/acvp.rs`; CI job "NIST ACVP" |
 | Byte parity with the real quantum-safe-py, both directions | `scripts/generate_suite_vectors.py`, `scripts/verify_ts_vectors.py`; CI job "Parity" |
 | Differential tests against `@noble/post-quantum` and Node WebCrypto | `packages/quantum-safe-ts/test/differential.test.ts` |
-| cargo-fuzz targets for the main binary parsers (envelope, keys, signed message, ciphertexts, secret keys, LMS); property and mutation tests for the rest | `fuzz/`, `test/`; CI job "cargo-fuzz" |
+| cargo-fuzz targets for the main binary parsers (envelope, keys, signed message, ciphertexts, secret keys, LMS, streams); property and mutation tests for the rest | `fuzz/`, `test/`; CI job "cargo-fuzz" |
 | Packed-tarball fixtures in 12 real toolchains | `tests/fixtures/` |
 | Reproducible-build check | `scripts/repro-check.mjs` |
 
-## Timing
+Conformance evidence is not validation. The reviews done so far were internal and AI-assisted; none of them is an independent audit and none
+should be described as one.
 
-JavaScript and WebAssembly runtimes give **no constant-time guarantee**, and this library does not claim one. The maintainer runs a timing-leakage screen (a dudect-style fixed-versus-random test with null controls) before releases; a screen can fail to detect a leak and is **not a proof**. Browsers coarsen timers and add their own noise. If your threat model includes a local timing attacker, use a native implementation in a hardened environment.
+## Reporting a vulnerability
+
+Report privately, not in a public issue. On the [repository](https://github.com/AnimeshShaw/quantum-safe-ts): **Security → Advisories → Report a
+vulnerability** (a GitHub Security Advisory). Include the affected version, a minimal reproduction with no real secrets, and the impact.
+You can expect an acknowledgement within 7 days; the aim is a fix or mitigation within 90 days of a confirmed report, with credit for
+reporters who want it. In scope: the Rust core, the WebAssembly bindings, the TypeScript package, the audit tool and MCP server, and the
+build and release workflows. Out of scope: vulnerabilities in third-party dependencies that are not reachable through this library (report
+those upstream).
+
+## Supported versions
+
+While the project is pre-1.0, only the latest released minor version receives fixes. Pin an exact version in production and read the
+[changelog](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/CHANGELOG.md) before upgrading ([Upgrading](/guide/upgrading)).

@@ -47,6 +47,48 @@ jobs:
 
 Outputs: `exit-code`, `findings`, `report-file`, `cbom-file`.
 
+## Recipes
+
+**Fail the build on new HIGH findings and upload SARIF** (the example above), plus a scheduled run that also writes a CBOM and keeps it as an artifact:
+
+```yaml
+name: Crypto inventory (weekly)
+on:
+  schedule: [{ cron: '0 6 * * 1' }]
+permissions:
+  contents: read
+jobs:
+  cbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: audit
+        uses: AnimeshShaw/quantum-safe-ts@v0.1.0
+        with:
+          fail-on: none          # inventory only: do not fail the schedule
+          cbom: true
+          cnsa2: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cbom
+          path: ${{ steps.audit.outputs.cbom-file }}
+```
+
+**A policy from a trusted ref** for pull requests (the scanned tree is the pull request's, so its own policy file cannot be trusted):
+
+```yaml
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+      - uses: AnimeshShaw/quantum-safe-ts@v0.1.0
+        with:
+          policy: trusted/.qs-audit.json
+```
+
+**Only the exit code and the findings count** (for your own gating logic): use the outputs `exit-code` and `findings`.
+
 ## Behaviour you can rely on
 
 - The report is written and uploaded **even when the gate fails**; the job then fails with the scan's exit code.
@@ -59,7 +101,7 @@ Outputs: `exit-code`, `findings`, `report-file`, `cbom-file`.
 - The job summary states what the tool is not: an inventory, not a compliance verdict, and an empty result is not proof of absence.
 
 ::: warning Take the policy from a trusted ref
-On a `pull_request` event the checked-out tree is the pull request's, so a `policy` file from it is attacker-controlled (it can `exclude` its own files or `ignoreRules`). Check out the base branch into a second path (`actions/checkout` with `ref: ${{ github.event.pull_request.base.sha }}` and `path: trusted`) and pass `policy: trusted/.qs-audit.json`. The scanner itself is installed outside the workspace, so a `node_modules/quantum-safe-audit` committed by a pull request is never used.
+On a `pull_request` event the checked-out tree is the pull request's, so a `policy` file from it is attacker-controlled (it can `exclude` its own files or `ignoreRules`). Check out the base branch into a second path (`actions/checkout` with `ref` set to the pull request's base SHA (`github.event.pull_request.base.sha`) and `path: trusted`) and pass `policy: trusted/.qs-audit.json`. The scanner itself is installed outside the workspace, so a `node_modules/quantum-safe-audit` committed by a pull request is never used.
 :::
 
 ::: tip Fork pull requests

@@ -17,6 +17,7 @@ export default defineConfig({
     search: { provider: 'local' },
     nav: [
       { text: 'Guide', link: '/guide/getting-started' },
+      { text: 'Cookbook', link: '/guide/cookbook' },
       { text: 'API', link: '/api/' },
       { text: 'Tools', link: '/tools/audit' },
       { text: 'Choose a library', link: '/compare' },
@@ -27,27 +28,40 @@ export default defineConfig({
           text: 'Start',
           items: [
             { text: 'Getting started', link: '/guide/getting-started' },
+            { text: 'Quick start recipes', link: '/guide/quick-start' },
+            { text: 'Choosing what to use', link: '/guide/choosing' },
+            { text: 'Concepts', link: '/guide/concepts' },
             { text: 'Runtimes and bundlers', link: '/guide/runtimes' },
           ],
         },
         {
-          text: 'Use',
+          text: 'Features',
           items: [
-            { text: 'Encryption', link: '/guide/encryption' },
+            { text: 'Key encapsulation and hybrids', link: '/guide/kem' },
+            { text: 'Encryption (envelopes)', link: '/guide/encryption' },
             { text: 'Signatures', link: '/guide/signatures' },
             { text: 'Streaming encryption', link: '/guide/streaming' },
             { text: 'JWT', link: '/guide/jwt' },
             { text: 'Keys and passwords', link: '/guide/keys' },
-            { text: 'Errors', link: '/guide/errors' },
           ],
         },
         {
-          text: 'Operate',
+          text: 'Guides',
           items: [
+            { text: 'Cookbook', link: '/guide/cookbook' },
             { text: 'Migrating to post-quantum', link: '/guide/migration' },
             { text: 'Interop with quantum-safe-py', link: '/guide/python-interop' },
             { text: 'CNSA 2.0 and standards', link: '/guide/standards' },
+          ],
+        },
+        {
+          text: 'Reference and help',
+          items: [
+            { text: 'Errors', link: '/guide/errors' },
             { text: 'Security model', link: '/guide/security' },
+            { text: 'Upgrading and compatibility', link: '/guide/upgrading' },
+            { text: 'Troubleshooting and FAQ', link: '/guide/faq' },
+            { text: 'Glossary', link: '/guide/glossary' },
           ],
         },
       ],
