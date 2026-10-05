@@ -1,4 +1,4 @@
-//! Signature format v2 (`<suite>-v2`). TypeScript-only: quantum-safe-py cannot read it, and it never touches the py wire formats.
+//! Signature format v2 (`<suite>-v2`). quantum-safe-py (0.3.1 and later) reads and writes it too; versions before that fail closed on the identifier. It never touches the py v1 wire formats.
 //!
 //! It fixes the structural problems of the quantum-safe-py construction (kept unchanged under its own identifiers):
 //! - no random prefix and no prefix length in the blob, so there is no message/prefix boundary for anyone to move;

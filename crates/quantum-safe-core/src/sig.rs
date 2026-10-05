@@ -1086,7 +1086,7 @@ mod tests {
 
     #[test]
     fn registry_sizes_and_names() {
-        assert_eq!(MlDsaLevel::L87.sizes().1, 4896); // liboqs / FIPS 204 (quantum-safe-py's registry says 4864)
+        assert_eq!(MlDsaLevel::L87.sizes().1, 4896); // liboqs / FIPS 204 (quantum-safe-py's registry said 4864 before its 0.3.1 fix)
         assert_eq!(SigSuite::all().len(), 3 + 5 + 12);
         for s in SigSuite::all() {
             assert_eq!(SigSuite::parse(&s.name()), Some(s));

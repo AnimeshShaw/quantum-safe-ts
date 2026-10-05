@@ -25,8 +25,8 @@ const COMMON_CAVEATS = [
 ];
 
 export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Interop): Recommendation {
-  // CNSA 2.0: pure ML-KEM-1024 satisfies key establishment (hybrid is optional, and the classical half of a CNSA 2.0
-  // hybrid must be P-384, which this library does not implement). Pure ML-KEM-1024 seals as envelope v2 (HKDF-SHA-384).
+  // CNSA 2.0: pure ML-KEM-1024 satisfies key establishment (NSA does not require hybrid and says not to use one on NSS
+  // mission systems except NSA-specified exceptions). Pure ML-KEM-1024 seals as envelope v2 (HKDF-SHA-384).
   const kemName = requireCnsa2 ? 'ML-KEM-1024' : interop === 'other-ecosystems' ? 'X-Wing' : 'X25519+ML-KEM-768';
   const kemCtor = requireCnsa2 ? 'new KEM' : 'new HybridKEM';
   const kemImport = requireCnsa2 ? 'KEM' : 'HybridKEM';
@@ -35,13 +35,13 @@ export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Inte
     ? [
         'CNSA 2.0 parameter sets are selected (pure ML-KEM-1024, ML-DSA-87), but compliance for National Security Systems runs through FIPS 140-3 validated modules, which this library is not.',
         'CNSA 2.0 software/firmware signing requires LMS or XMSS (SP 800-208); neither is implemented yet.',
-        'Pure ML-KEM-1024 envelopes (v2: HKDF-SHA-384 + AES-256-GCM) are TypeScript-only: quantum-safe-py cannot read them. X25519+ML-KEM-1024 hybrids are NOT CNSA 2.0 compliant (the classical half must be P-384).',
+        'Pure ML-KEM-1024 envelopes (v2: HKDF-SHA-384 + AES-256-GCM) are read and written by quantum-safe-py too. X25519+ML-KEM-1024 hybrids are NOT CNSA 2.0 compliant: NSA\'s CNSA 2.0 FAQ says hybrids are not required and not to be used on NSS mission systems except NSA-specified exceptions.',
         'Run cnsa2.report() to see exactly which requirements are and are not met.',
       ]
     : [];
   const interopNote =
     interop === 'other-ecosystems'
-      ? 'Interoperable with other X-Wing / RFC 9964 implementations (for example @noble/post-quantum, @hpke/hybridkem-x-wing). NOT readable by quantum-safe-py.'
+      ? 'Interoperable with other X-Wing / RFC 9964 implementations (for example @noble/post-quantum, @hpke/hybridkem-x-wing). X-Wing is NOT readable by quantum-safe-py; RFC 9964 (StandardJwt) tokens and public JWKs are readable by quantum-safe-py 0.3.1 and later.'
       : interop === 'quantum-safe-py'
         ? 'Byte-compatible with quantum-safe-py in both directions (envelopes, keys, signed messages). Not readable by third-party libraries.'
         : 'Default suites are byte-compatible with quantum-safe-py; use the X-Wing / RFC 9964 options when other ecosystems must read the data.';

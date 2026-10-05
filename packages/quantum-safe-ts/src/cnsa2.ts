@@ -12,16 +12,19 @@
  * nothing here makes it one. This profile only stops a deployment from silently sitting below the
  * mandated parameter sets, and says so in its output.
  *
- * Mirrors `quantum_safe.compliance.cnsa2` in quantum-safe-py, with three deliberate differences, each
- * grounded in the NSA CNSA 2.0 FAQ and algorithm specification:
+ * Mirrors `quantum_safe.compliance.cnsa2` in quantum-safe-py: both libraries give the same verdicts. Three
+ * points are worth stating, each grounded in the NSA CNSA 2.0 FAQ and algorithm specification:
  *
- *  1. **Hybrid is optional; pure ML-KEM-1024 satisfies key establishment.** The FAQ states that the
- *     classical half of a hybrid in a National Security System must come from CNSA 1.0 (ECDH on P-384),
- *     so `X25519+ML-KEM-1024` is reported as `partial`, not compliant. (quantum-safe-py reports it
- *     compliant.) The recommended CNSA 2.0 key establishment here is pure `ML-KEM-1024` ({@link kem}).
- *  2. **Key-derivation hash.** The quantum-safe-py-compatible combiner and envelope v1 use HKDF-SHA-256,
- *     below CNSA 2.0's SHA-384/512. Envelope v2 (pure ML-KEM-1024 + HKDF-SHA-384 + AES-256-GCM,
- *     TypeScript-only) removes that gap, and the report says which one applies.
+ *  1. **Hybrid is outside what CNSA 2.0 prescribes; pure ML-KEM-1024 satisfies key establishment.**
+ *     NSA's CNSA 2.0 FAQ (December 2024, Ver. 2.1) says NSA will not require hybrid products for security
+ *     purposes and that a hybrid should not be used on NSS mission systems except for exceptions NSA
+ *     specifically recommends (the one it names is IKEv2, which keeps CNSA 1.0 key establishment
+ *     fortified by ML-KEM-1024). So every hybrid, including `X25519+ML-KEM-1024`, is reported `partial`,
+ *     not compliant. The recommended CNSA 2.0 key establishment is pure `ML-KEM-1024` ({@link kem}).
+ *  2. **Key-derivation hash.** The hybrid combiner and envelope v1 use HKDF-SHA-256 (for byte-compatibility
+ *     with quantum-safe-py), below CNSA 2.0's SHA-384/512. Envelope v2 (pure ML-KEM-1024 + HKDF-SHA-384 +
+ *     AES-256-GCM, which quantum-safe-py reads and writes as well) removes that gap, and the report says
+ *     which one applies.
  *  3. **`X-Wing` is ML-KEM-768 based** and is never CNSA 2.0 compliant.
  */
 import { HybridKEM, KEM } from './kem.js';
@@ -38,7 +41,10 @@ export const CNSA2_SYMMETRIC = 'AES-256';
 export const CNSA2_HASHES = ['SHA-384', 'SHA-512'] as const;
 /** SP 800-208 stateful hash-based schemes required for software/firmware signing. */
 export const CNSA2_CODE_SIGNING = ['LMS', 'XMSS'] as const;
-/** Classical partners quantum-safe-py allows in CNSA 2.0 hybrids. Only `X25519` is implemented here. */
+/**
+ * Classical partners once listed for CNSA 2.0 hybrids. Only `X25519` is implemented (here and in quantum-safe-py).
+ * `P-384` is listed but not implemented, and a hybrid would still be reported `partial` (see the module comment).
+ */
 export const CNSA2_HYBRID_CLASSICAL = ['X25519', 'P-384'] as const;
 
 /** Outcome of one checked requirement. */
@@ -93,8 +99,8 @@ const unknown = (requirement: string, algorithm: string): CheckResult =>
 
 /**
  * Checks a KEM selection. Pure `ML-KEM-1024` is compliant. A hybrid whose post-quantum half is ML-KEM-1024
- * is `partial`: the parameter set is right, but the classical component of a CNSA 2.0 hybrid must come from
- * CNSA 1.0 (ECDH P-384), which this library does not implement, and hybrids are optional anyway.
+ * is `partial`: the parameter set is right, but NSA's CNSA 2.0 FAQ does not call a hybrid compliant (hybrids
+ * are not required and not to be used on NSS mission systems except NSA-specified exceptions such as IKEv2).
  */
 export function checkKem(algorithm: string): CheckResult {
   if (!KNOWN_KEM.test(algorithm)) return unknown('Key establishment', algorithm);
@@ -114,16 +120,16 @@ export function checkKem(algorithm: string): CheckResult {
   return result(
     'Key establishment',
     'partial',
-    `${algorithm} uses ${CNSA2_KEM}, but the classical component of a CNSA 2.0 hybrid must come from CNSA 1.0 (ECDH P-384), which this library does not implement. ` +
-      `Hybrid is optional: use pure ${CNSA2_KEM} (cnsa2.kem()).`,
-    `${CNSA2_KEM}; classical component P-384 if hybrid`,
+    `${algorithm} uses ${CNSA2_KEM}, as required, but a hybrid is outside what CNSA 2.0 prescribes. NSA's CNSA 2.0 FAQ (December 2024, Ver. 2.1) says NSA will not require hybrid products for security purposes and that a hybrid should not be used on NSS mission systems except for exceptions NSA specifically recommends (the one it names is IKEv2, which keeps CNSA 1.0 key establishment fortified by ML-KEM-1024). ` +
+      `Use pure ${CNSA2_KEM} (cnsa2.kem()).`,
+    `${CNSA2_KEM} (pure, not hybrid)`,
     algorithm,
   );
 }
 
 /**
  * Checks a signature selection. Pure `ML-DSA-87` is compliant. A hybrid whose post-quantum half is ML-DSA-87 is `partial`, for the same reason a
- * hybrid KEM is: the parameter set is right, but its classical half (Ed25519 or P-256) is not a CNSA 1.0 algorithm, and hybrid is optional.
+ * hybrid KEM is: the parameter set is right, but a hybrid is outside what CNSA 2.0 prescribes (see {@link checkKem}).
  */
 export function checkSignature(algorithm: string): CheckResult {
   if (!KNOWN_SIGNATURE.test(algorithm)) return unknown('Signatures', algorithm);
@@ -132,8 +138,9 @@ export function checkSignature(algorithm: string): CheckResult {
     return result(
       'Signatures',
       'partial',
-      `${algorithm} uses ${CNSA2_SIGNATURE}, but the classical half of a hybrid is not a CNSA 1.0 algorithm (ECDSA P-384), and hybrid is optional. Use pure ${CNSA2_SIGNATURE}.`,
-      `${CNSA2_SIGNATURE}; classical half P-384 if hybrid`,
+      `${algorithm} uses ${CNSA2_SIGNATURE}, as required, but a hybrid is outside what CNSA 2.0 prescribes. NSA's CNSA 2.0 FAQ (December 2024, Ver. 2.1) says NSA will not require hybrid products for security purposes and that a hybrid should not be used on NSS mission systems except for exceptions NSA specifically recommends (the one it names is IKEv2, which keeps CNSA 1.0 key establishment fortified by ML-KEM-1024). ` +
+        `Use pure ${CNSA2_SIGNATURE}.`,
+      `${CNSA2_SIGNATURE} (pure, not hybrid)`,
       algorithm,
     );
   }
@@ -168,7 +175,7 @@ function kdfCheck(kem: string): CheckResult {
     return result(
       'Key-derivation hash (this library)',
       'compliant',
-      'Pure ML-KEM-1024 envelopes (envelope v2, TypeScript-only) derive the AES-256-GCM key with HKDF-SHA-384.',
+      'Pure ML-KEM-1024 envelopes (envelope v2, also read and written by quantum-safe-py) derive the AES-256-GCM key with HKDF-SHA-384.',
       CNSA2_HASHES.join(' or '),
       'SHA-384',
     );
@@ -265,24 +272,24 @@ export function enforce(selection: { kem?: string; signature?: string } = {}, op
 }
 
 /**
- * Pure ML-KEM-1024: the CNSA 2.0 key-establishment algorithm. Hybrid is optional under CNSA 2.0 and
- * the NSA FAQ requires the classical half of a hybrid to be CNSA 1.0 (P-384), so this is the recommended
- * choice. Seal data with it via `Envelope.seal()`: a pure ML-KEM-1024 key produces an envelope v2
- * (HKDF-SHA-384 + AES-256-GCM, TypeScript-only; quantum-safe-py cannot read it).
+ * Pure ML-KEM-1024: the CNSA 2.0 key-establishment algorithm. NSA does not require hybrid and says not to use one
+ * on NSS mission systems except NSA-specified exceptions, so this is the recommended choice. Seal data with it via
+ * `Envelope.seal()`: a pure ML-KEM-1024 key produces an envelope v2 (HKDF-SHA-384 + AES-256-GCM; quantum-safe-py
+ * reads and writes the same bytes).
  */
 export function kem(): KEM {
   return new KEM('ML-KEM-1024');
 }
 
 /**
- * A hybrid KEM pinned to ML-KEM-1024 (`X25519+ML-KEM-1024`). Reported as `partial` by {@link report}:
- * the classical component of a CNSA 2.0 hybrid must be P-384, which is not implemented, and hybrids are
- * optional. Kept for quantum-safe-py compatibility (it is what quantum-safe-py's `cnsa2.hybrid_kem()` returns).
- * @throws {UnsupportedAlgorithmError} for `P-384`, which quantum-safe-py names but does not implement.
+ * A hybrid KEM pinned to ML-KEM-1024 (`X25519+ML-KEM-1024`). Reported as `partial` by {@link report}: hybrids are
+ * outside what CNSA 2.0 prescribes. Kept for quantum-safe-py compatibility (it is what quantum-safe-py's
+ * `cnsa2.hybrid_kem()` returns, and it reports it `partial` too). Use {@link kem} for a compliant configuration.
+ * @throws {UnsupportedAlgorithmError} for `P-384`, which is not implemented here or in quantum-safe-py.
  */
 export function hybridKem(classical: 'X25519' | 'P-384' = 'X25519'): HybridKEM {
   if (classical === 'P-384') {
-    throw new UnsupportedAlgorithmError('P-384 hybrids are not implemented (quantum-safe-py lists them but does not support them either).');
+    throw new UnsupportedAlgorithmError('P-384 hybrids are not implemented (neither here nor in quantum-safe-py), and a hybrid would still be reported partial.');
   }
   return new HybridKEM('X25519+ML-KEM-1024');
 }
@@ -307,9 +314,10 @@ export function describe(): string {
     'Things this does NOT give you:',
     '',
     `  1. Software and firmware signing: CNSA 2.0 requires ${CNSA2_CODE_SIGNING.join(' or ')} (SP 800-208); not implemented yet.`,
-    '  2. SHA-384/512 key derivation with hybrids: the hybrid combiner and envelope v1 use HKDF-SHA-256 for compatibility with quantum-safe-py.',
+    '  2. SHA-384/512 key derivation with hybrids: the hybrid combiner and envelope v1 use HKDF-SHA-256 for byte-compatibility with quantum-safe-py.',
     '     Pure ML-KEM-1024 (envelope v2) uses HKDF-SHA-384.',
-    '  3. A CNSA 2.0 hybrid: its classical half must be ECDH P-384 (CNSA 1.0), which is not implemented. Hybrid is optional.',
+    '  3. A CNSA 2.0 hybrid: NSA\'s FAQ does not define one (hybrids are not required and not to be used on NSS mission systems',
+    '     except NSA-specified exceptions such as IKEv2). Use pure ML-KEM-1024 and ML-DSA-87.',
     '  4. Validation: CNSA 2.0 compliance for National Security Systems runs through FIPS 140-3 validated modules.',
     '     Selecting the right parameters is necessary and not sufficient, and no self-assessment produces a CMVP certificate.',
   ].join('\n');

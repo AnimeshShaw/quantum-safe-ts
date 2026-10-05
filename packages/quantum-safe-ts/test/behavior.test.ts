@@ -55,7 +55,7 @@ describe('registry', () => {
       ].sort(),
     );
     expect(sigSuites().filter((s) => s.format !== 'v2')).toHaveLength(20); // the quantum-safe-py-compatible suites
-    expect(sigSuites().filter((s) => s.format === 'v2')).toHaveLength(8); // the TypeScript-only -v2 format
+    expect(sigSuites().filter((s) => s.format === 'v2')).toHaveLength(8); // the -v2 signature format
     expect(isInitialized()).toBe(true);
     expect(coreVersion()).toMatch(/^\d+\.\d+\.\d+/);
   });
@@ -403,13 +403,14 @@ describe('CNSA 2.0 profile', () => {
     expect(r.render()).toContain('NOT compliant');
     expect(r.render()).toContain('not a validation');
   });
-  it('hybrid X25519+ML-KEM-1024 is only partial: the classical half of a CNSA 2.0 hybrid must be P-384', () => {
+  it('hybrid X25519+ML-KEM-1024 is only partial: NSA\'s FAQ does not call a hybrid compliant', () => {
     const r = cnsa2.report({ kem: 'X25519+ML-KEM-1024', signature: 'Ed25519+ML-DSA-87', hashAlgorithm: 'sha384' });
     const kem = r.checks.find((c) => c.requirement === 'Key establishment')!;
     expect(kem.finding).toBe('partial');
     expect(kem.ok).toBe(false);
-    expect(kem.detail).toContain('P-384');
-    expect(r.checks.find((c) => c.requirement === 'Signatures')!.finding).toBe('partial'); // a hybrid signature's classical half is not CNSA 1.0 either
+    expect(kem.detail).toContain('FAQ');
+    expect(kem.detail).toContain('IKEv2');
+    expect(r.checks.find((c) => c.requirement === 'Signatures')!.finding).toBe('partial'); // a hybrid signature is outside what CNSA 2.0 prescribes too
     expect(r.checks.find((c) => c.requirement === 'Hashing')!.ok).toBe(true);
     expect(r.compliant).toBe(false);
     expect(r.failures.map((f) => f.requirement).sort()).toEqual([

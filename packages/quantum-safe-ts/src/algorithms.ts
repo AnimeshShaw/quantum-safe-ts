@@ -24,8 +24,9 @@ type V2Base =
   | 'ML-DSA-87';
 
 /**
- * Signature format v2 identifiers (`<suite>-v2`): a TypeScript-only format without the quantum-safe-py prefix construction. Its ML-DSA half is
- * plain FIPS 204 with the context `quantum-safe-sig-v2`; see the signatures guide. quantum-safe-py cannot read these.
+ * Signature format v2 identifiers (`<suite>-v2`): a format without the quantum-safe-py prefix construction. Its ML-DSA half is
+ * plain FIPS 204 with the context `quantum-safe-sig-v2`; see the signatures guide. quantum-safe-py 0.3.1 and later reads and writes these;
+ * quantum-safe-py 0.3.0 fails closed on the unknown identifier.
  */
 export type SignatureAlgorithmV2 = `${V2Base}-v2`;
 
@@ -66,9 +67,12 @@ export interface SuiteInfo {
   readonly nistLevel: number;
   /** True if the suite satisfies the CNSA 2.0 parameter requirement (ML-KEM-1024 / ML-DSA-87). */
   readonly meetsCnsa2: boolean;
-  /** True if quantum-safe-py can read/produce data for this suite. */
+  /**
+   * True if quantum-safe-py 0.3.0 (its original release) can read/produce data for this suite. The `-v2` signature suites
+   * (`format: 'v2'`) report `false` because 0.3.0 cannot read them; quantum-safe-py 0.3.1 and later can.
+   */
   readonly pyCompatible: boolean;
-  /** `'v2'` for the TypeScript-only signature format v2 (absent for every other suite). */
+  /** `'v2'` for the signature format v2 (absent for every other suite). */
   readonly format?: 'v2';
 }
 
