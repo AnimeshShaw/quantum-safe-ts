@@ -42,11 +42,10 @@ workflows. Out of scope: vulnerabilities in third-party dependencies that are no
 
 | Version | Supported |
 |---|---|
-| 0.1.x (once published to npm; the latest release) | Yes |
+| 0.1.x (the latest release) | Yes |
 | Anything older than the latest release | **No. Upgrade.** |
 
-Nothing has been published to npm yet, so there is no released version today. Only the latest release receives security fixes while the project is
-pre-1.0. The same applies to `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases.
+0.1.0 is the first release. Only the latest release receives security fixes while the project is pre-1.0. The same applies to `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases.
 
 ## Published advisories
 

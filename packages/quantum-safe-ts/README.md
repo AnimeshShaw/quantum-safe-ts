@@ -12,8 +12,6 @@ API, byte-compatible with [quantum-safe-py](https://github.com/AnimeshShaw/quant
 npm install quantum-safe-ts
 ```
 
-> Not published yet: until the first release, build from source (see the repository's CONTRIBUTING.md).
-
 ## Quick start
 
 The shortest path: strings and bytes in, strings and bytes out, nothing to free.

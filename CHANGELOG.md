@@ -4,7 +4,11 @@ All notable changes are documented here. The project follows semantic versioning
 add capability and, with notice, change behaviour that has not been released. **Wire formats are never changed**: new capability arrives
 as a new, explicitly identified algorithm suite.
 
-## [Unreleased] (0.1.0, not yet published to npm)
+## [Unreleased]
+
+## [0.1.0] - 2026-10-05
+
+The first release: `quantum-safe-ts`, `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases, all at 0.1.0, published to npm with provenance.
 
 ### Changed
 - **Planned change, announced here: the default hybrid signature suite (`HybridSign()` and the `easy` layer) moves from `Ed25519+ML-DSA-65` to `Ed25519+ML-DSA-65-v2` in the next minor release**, in step with quantum-safe-py 0.4.0. New signatures from the new default will not verify on quantum-safe-py 0.3.0 or earlier. Choose explicitly today if you want a particular format; explicit choices never change. See ROADMAP.md.

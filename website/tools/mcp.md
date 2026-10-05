@@ -8,11 +8,6 @@ It is also published under the short alias **`pqc-mcp`** (same server, same opti
 **Use it when** an agent is helping you migrate to post-quantum cryptography or write code with quantum-safe-ts and you want it to answer from
 facts rather than memory. **It will not** write or change files, run your code, touch the network, or give a compliance verdict.
 
-::: warning Not published yet
-`quantum-safe-mcp` is on npm only after the first release. Until then run it from a checkout of this repository: build it (`npm run build` in
-`packages/quantum-safe-mcp`) and use `node /path/to/packages/quantum-safe-mcp/dist/server.js` as the command.
-:::
-
 ## Install and configure
 
 The server speaks MCP over standard input and output (stdio). Every client below starts it as a command. Pin the version.

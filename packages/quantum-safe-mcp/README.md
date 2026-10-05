@@ -9,8 +9,6 @@ It is read-only and offline: it never writes files, never opens the network, and
 
 ## Use it
 
-> Not published yet: the command below works after the first release.
-
 ```jsonc
 // .mcp.json (Claude Code) or your client's MCP settings
 {

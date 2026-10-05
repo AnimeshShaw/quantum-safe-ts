@@ -2,10 +2,6 @@
 
 Run [`quantum-safe-audit`](/tools/audit) in CI, publish findings to GitHub code scanning, and fail the build at a severity you choose.
 
-::: warning Not released yet
-The `@v0.1.0` tag and the npm package exist only after the first release. Until then use `uses: ./` with `package-path` in a checkout of this repository.
-:::
-
 ```yaml
 name: Quantum-safe audit
 on: [push, pull_request]

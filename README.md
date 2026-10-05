@@ -8,6 +8,9 @@ ML-KEM · ML-DSA · SLH-DSA · hybrid envelopes and signatures · PQC JWTs · mi
 
 [![CI](https://github.com/AnimeshShaw/quantum-safe-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/AnimeshShaw/quantum-safe-ts/actions/workflows/ci.yml)
 [![Docs](https://github.com/AnimeshShaw/quantum-safe-ts/actions/workflows/docs.yml/badge.svg)](https://animeshshaw.github.io/quantum-safe-ts/)
+[![npm: quantum-safe-ts](https://img.shields.io/npm/v/quantum-safe-ts.svg?label=quantum-safe-ts)](https://www.npmjs.com/package/quantum-safe-ts)
+[![npm: quantum-safe-audit](https://img.shields.io/npm/v/quantum-safe-audit.svg?label=quantum-safe-audit)](https://www.npmjs.com/package/quantum-safe-audit)
+[![npm: quantum-safe-mcp](https://img.shields.io/npm/v/quantum-safe-mcp.svg?label=quantum-safe-mcp)](https://www.npmjs.com/package/quantum-safe-mcp)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Algorithms: FIPS 203/204/205](https://img.shields.io/badge/algorithms-FIPS_203%2F204%2F205-purple.svg)](https://csrc.nist.gov/pubs/fips)
 [![NIST ACVP: 1,317 cases](https://img.shields.io/badge/NIST_ACVP-1%2C317_cases_pass-informational.svg)](#evidence-and-how-to-reproduce-it)
@@ -33,7 +36,7 @@ A memory-safe Rust core compiled to WebAssembly behind a fully typed API, byte-c
 npm install quantum-safe-ts
 ```
 
-> **Not published yet.** `quantum-safe-ts`, `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases are not on npm yet, and the `@v0.1.0` action tag exists only after the first release. The [documentation site](https://animeshshaw.github.io/quantum-safe-ts/) is live. Until then build from source (see [CONTRIBUTING.md](CONTRIBUTING.md)); the commands below show how it will install.
+> **0.1.0 is the first release** of `quantum-safe-ts`, `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases. It is pre-1.0 and experimental (see the status note above). To build from source instead, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```ts
 import { easy } from 'quantum-safe-ts';
@@ -109,7 +112,7 @@ quantum-safe-py and quantum-safe-ts, not a standard signature over your message.
 
 ## Status and roadmap
 
-Pre-1.0. Nothing is on npm yet; the first release (0.1.0) waits on the maintainer. The next minor release moves the default hybrid signature to
+Pre-1.0. 0.1.0 is the first release. The next minor release moves the default hybrid signature to
 `Ed25519+ML-DSA-65-v2`, in step with quantum-safe-py 0.4.0. The roadmap lists what is now, next and later, what would make it 1.0, and what this
 library will not become: [ROADMAP.md](ROADMAP.md).
 

@@ -128,9 +128,9 @@ vulnerabilities in third-party dependencies that are not reachable through this 
 
 | Version | Supported |
 |---|---|
-| 0.1.x (once published to npm; the latest release) | Yes |
+| 0.1.x (the latest release) | Yes |
 | Anything older than the latest release | **No. Upgrade.** |
 
-Nothing has been published to npm yet, so there is no released version today. While the project is pre-1.0, only the latest release receives security
+0.1.0 is the first release. While the project is pre-1.0, only the latest release receives security
 fixes; the same applies to `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases. Pin an exact version in production and
 read the [changelog](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/CHANGELOG.md) before upgrading ([Upgrading](/guide/upgrading)).

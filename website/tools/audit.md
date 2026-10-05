@@ -7,11 +7,6 @@ separate package that does **not** depend on the library, and it is also publish
 **Use it for** building the inventory a post-quantum migration starts from, for gating CI on new classical cryptography, and for producing a
 CBOM. **Do not use it** as proof that a system is quantum-safe or compliant: it reports what the source names (see [Honest limits](#honest-limits)).
 
-::: warning Not published yet
-The npm package exists only after the first release. Until then build it from a checkout (`npm run build` in `packages/quantum-safe-audit`) and run
-`node packages/quantum-safe-audit/dist/cli.js`.
-:::
-
 ## Run it
 
 ```bash

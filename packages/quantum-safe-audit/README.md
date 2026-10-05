@@ -12,8 +12,6 @@ npx quantum-safe-audit cbom . --app-name my-app > cbom.json         # CycloneDX 
 
 (The installed command is `quantum-safe-audit`. It is deliberately not called `qs-audit`, which is the name of quantum-safe-py's tool, so both can be installed side by side.)
 
-> Not published yet: the `npx` commands above work after the first release.
-
 ## What it finds
 
 An AST walk (not grep) over `.js .mjs .cjs .jsx .ts .tsx .mts .cts` plus `<script>` blocks in `.vue`, `.svelte`, `.astro`,

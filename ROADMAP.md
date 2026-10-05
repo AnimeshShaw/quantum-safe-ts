@@ -9,15 +9,15 @@ While the version starts with `0.`, a **minor** release (0.1 to 0.2) is where br
 earlier in the documentation and the changelog. A patch release (0.1.0 to 0.1.1) does not break correct code. The wire formats of released
 identifiers never change: new capability arrives under a new, explicit identifier.
 
-## Now: 0.1.0 (the first npm release)
+## Now: 0.1.x (patch releases after the first release)
 
-Nothing has been published to npm yet. The release is gated on the maintainer, not on missing code.
+0.1.0 is the first release of `quantum-safe-audit`, `quantum-safe-ts`, `quantum-safe-mcp` and the short aliases `pqc-audit` and `pqc-mcp`, each
+published with npm provenance from a manually started workflow that waits for approval. The GitHub Action can be pinned as
+`AnimeshShaw/quantum-safe-ts@v0.1.0`.
 
-- Publish `quantum-safe-audit`, then `quantum-safe-ts`, then `quantum-safe-mcp`, then the short aliases `pqc-audit` and `pqc-mcp`, each with npm
-  provenance, from a manually started workflow that waits for approval.
-- The documentation site on GitHub Pages and the `llms.txt` / `llms-full.txt` references for coding agents (already built and tested; they go
-  fully live with the release).
-- Tag `v0.1.0` so that the GitHub Action can be pinned as `AnimeshShaw/quantum-safe-ts@v0.1.0`.
+- Patch releases: documentation, bug fixes and dependency updates. A patch release never changes a wire format.
+- Switch npm publishing to trusted publishing (no stored token).
+- Listings for coding agents (the MCP Registry and Context7) once the packages have settled.
 
 ## Next: 0.2.0 (the breaking release, in step with quantum-safe-py 0.4.0)
 

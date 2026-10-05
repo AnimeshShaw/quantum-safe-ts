@@ -40,7 +40,7 @@ migration tooling. Choose it for that layer, not for the primitives.
 ## When not to use quantum-safe-ts
 
 - You only need a primitive. A smaller dependency is better.
-- You want the most widely used, most scrutinised JavaScript implementation: that is `@noble/post-quantum` today (roughly half a million weekly downloads, against none for a package that is not yet published).
+- You want the most widely used, most scrutinised JavaScript implementation: that is `@noble/post-quantum` today. This library is new (0.1.0) and has no track record yet.
 - You need audited or validated code today. This library has had neither.
 - You cannot add WebAssembly to your runtime (some locked-down environments). Use a pure-JavaScript library.
 - You need Falcon / FN-DSA or HQC. Those standards are not final and are not implemented here.
