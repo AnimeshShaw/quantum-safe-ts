@@ -56,7 +56,7 @@ if (plain.length !== 14) throw new Error('unexpected length');
 | One-call encryption and signing | `easy` | defaults: `X25519+ML-KEM-768`, `Ed25519+ML-DSA-65` |
 | Key encapsulation | `HybridKEM`, `KEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `X-Wing`, pure `ML-KEM-512/768/1024` |
 | Public-key encryption (anonymous: no sender authentication) | `Envelope`, `SealedMessage` | any hybrid KEM + AES-256-GCM |
-| Signatures | `Sign`, `HybridSign`, `SignedMessage` | `ML-DSA-44/65/87`, `Ed25519+ML-DSA-*`, `P-256+ML-DSA-44/65`, SLH-DSA (12 parameter sets); plus the `-v2` format of each ML-DSA suite (quantum-safe-py 0.3.1+ reads it too) |
+| Signatures | `Sign`, `HybridSign`, `SignedMessage` | `ML-DSA-44/65/87`, `Ed25519+ML-DSA-*`, `P-256+ML-DSA-44/65`, SLH-DSA (12 parameter sets); plus the `-v2` format of each ML-DSA suite (native FIPS 204 context over a wrapped message, not a standard signature over your message; quantum-safe-py 0.3.2+ reads it too) |
 | Stateful hash-based verification | `Lms` | LMS / HSS (RFC 8554, SHA-256), verification only |
 | JWT | `JWTSigner`/`JWTVerifier`, `StandardJwt` | quantum-safe-py-compatible, and RFC 9964 (ML-DSA for JOSE) |
 | Password KDF | `deriveMasterKey` | Argon2id |

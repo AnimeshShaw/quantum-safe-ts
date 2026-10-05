@@ -1,9 +1,9 @@
-//! Signature format v2 (`<suite>-v2`). quantum-safe-py (0.3.1 and later) reads and writes it too; versions before that fail closed on the identifier. It never touches the py v1 wire formats.
+//! Signature format v2 (`<suite>-v2`). quantum-safe-py (0.3.2 or later) reads and writes it too; versions before that fail closed on the identifier. It never touches the py v1 wire formats.
 //!
 //! It fixes the structural problems of the quantum-safe-py construction (kept unchanged under its own identifiers):
 //! - no random prefix and no prefix length in the blob, so there is no message/prefix boundary for anyone to move;
-//! - the ML-DSA half is plain FIPS 204 `ML-DSA.Sign` with a non-empty native context ([`LABEL`]) over `M2`, so any FIPS 204 library can verify it
-//!   given `M2` and `LABEL`;
+//! - the ML-DSA half is FIPS 204 `ML-DSA.Sign` with a non-empty native context ([`LABEL`]) over the wrapped message `M2`, so a standard FIPS 204
+//!   library can verify it only by rebuilding `M2` and passing `LABEL` (it is not a standard signature over the caller's message);
 //! - the algorithm identifier and the caller's context are inside the signed bytes (`M2`), and both halves of a hybrid sign the same `M2`;
 //! - the signature blob has one fixed-length encoding (no CBOR wrapper around the halves, raw low-S P-256). The `SignedMessage` container around it is
 //!   the same CBOR container as in v1 and is NOT canonical (extra keys, order, and the `fp`/`ts`/`hybrid` metadata are not authenticated), so do not

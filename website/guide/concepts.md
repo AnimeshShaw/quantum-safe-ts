@@ -108,10 +108,11 @@ for one key. The [`-v2` format](#the-two-signature-formats) has no hedging mode 
 | Prefix | 32 random bytes (hedged) or none, length stored unsigned | none |
 | Hybrid blob | CBOR map holding both signatures | `classical (64 bytes) ‖ ML-DSA signature` |
 | Algorithm covered by the signature | no | yes (for both halves) |
-| Python | all versions | quantum-safe-py 0.3.1 and later |
+| Python | all versions | quantum-safe-py 0.3.2 or later |
 
-v2 removes the structure that makes v1 delicate. Its ML-DSA half is plain FIPS 204, so any FIPS 204 library can verify it once told the
-bytes (`M2`) and the context (`quantum-safe-sig-v2`). Keys are tagged with the format in their algorithm name (`...-v2`); the library refuses a
+v2 removes the structure that makes v1 delicate. Its ML-DSA half uses a native FIPS 204 context, but over the wrapped bytes `M2`, so a standard
+FIPS 204 library can verify it only by rebuilding `M2` and passing the context `quantum-safe-sig-v2`. `-v2` is for quantum-safe-py and
+quantum-safe-ts, not a standard signature over your message. Keys are tagged with the format in their algorithm name (`...-v2`); the library refuses a
 v1 key in a v2 signer and the reverse. The tag is metadata, though: v1 and v2 keys have identical bytes, so **never use the same key
 material in both formats**.
 

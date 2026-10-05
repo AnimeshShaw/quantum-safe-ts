@@ -82,7 +82,7 @@ If Python is on the other end, take the default. If anyone else is, take `X-Wing
 ### Envelope v1 or v2?
 
 You do not choose a version: `Envelope.seal` picks it from the key. A hybrid key gives **v1** (HKDF-SHA-256). A pure `ML-KEM-1024` key gives
-**v2** (HKDF-SHA-384, which is what CNSA 2.0 asks of key derivation). quantum-safe-py 0.3.1 and later reads and writes both.
+**v2** (HKDF-SHA-384, which is what CNSA 2.0 asks of key derivation). quantum-safe-py 0.3.2 or later reads and writes both.
 
 ## Signatures
 
@@ -117,13 +117,13 @@ if (sizes['ML-DSA-65'] !== 3309 + 33) throw new Error('unexpected default-format
 
 | | Default (v1) | `-v2` |
 |---|---|---|
-| Who can verify | quantum-safe-py (all versions) and quantum-safe-ts | quantum-safe-py **0.3.1 and later** and quantum-safe-ts. The ML-DSA half is plain FIPS 204, so any FIPS 204 library can verify it if you give it the signed bytes. |
+| Who can verify | quantum-safe-py (all versions) and quantum-safe-ts | quantum-safe-py **0.3.2 or later** and quantum-safe-ts. A standard FIPS 204 library can verify it only by rebuilding the wrapped message `M2` and passing the context `quantum-safe-sig-v2`. |
 | Structure | Hedging prefix and an unsigned length byte, wrapped in CBOR | No prefix; one fixed-length blob |
 | Hedging | Your choice (`hedged`); the verifier must match | Always hedged inside ML-DSA; nothing to match |
 | What is signed | Context yes; the algorithm no | Algorithm and context, for both halves |
 | Available for | Every ML-DSA suite, the hybrids, SLH-DSA | ML-DSA-44/65/87 and the Ed25519 / P-256 hybrids (no SLH-DSA) |
 
-**Recommendation.** For new signatures where every verifier you control is quantum-safe-py 0.3.1+ or quantum-safe-ts, use `-v2`. Keep the
+**Recommendation.** For new signatures where every verifier you control is quantum-safe-py 0.3.2+ or quantum-safe-ts, use `-v2`. Keep the
 default while an older Python verifier is in the loop. **The default of `easy.generateSigningKeys` and `HybridSign()` stays
 `Ed25519+ML-DSA-65` for now, so that existing Python deployments keep verifying; it is planned to flip to `-v2` in the next minor release.**
 Choosing `-v2` explicitly today is safe and is the clean choice.

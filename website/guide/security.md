@@ -45,8 +45,9 @@ Three properties follow from the formats and are worth knowing, because they exp
    and stores the prefix length *outside* the signed bytes. A verifier that accepted any length would let anyone move bytes between prefix and
    message and forge a signature on a suffix of a signed message. The TypeScript verifiers pin the length to their hedging mode (32 hedged, 0
    unhedged), which closes it without changing a byte on the wire. **Never use one key in both hedged and unhedged mode.** The `-v2` format
-   has no prefix and no such caveat: [Signatures](/guide/signatures#format-v2-v2). (The same issue existed in quantum-safe-py 0.3.0 and was
-   fixed there in 0.3.1.)
+   has no prefix and no such caveat: [Signatures](/guide/signatures#format-v2-v2). (The same issue existed in quantum-safe-py 0.1.0 to 0.3.0 and was fixed in 0.3.1,
+   [GHSA-wqv6-gm9x-69x8](https://github.com/AnimeshShaw/quantum-safe-py/security/advisories/GHSA-wqv6-gm9x-69x8). This library was never affected:
+   every v1 verification path pins the prefix length before it checks the signature, and that pin was in the code before any release.)
 3. **Hybrid halves.** In a default-format hybrid signature the classical and the post-quantum halves are independent signatures over the same bytes and
    neither commits to the other. Both must verify, so forging one half does not help; but halves from two signatures on the same message by the
    same key can be recombined (it changes the signature bytes, not the signed message). Do not use signature bytes as a unique identifier or a

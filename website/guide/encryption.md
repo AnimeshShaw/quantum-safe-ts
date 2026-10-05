@@ -102,7 +102,7 @@ if (info.ciphertextLength !== 5 + 16) throw new Error('ciphertext is plaintext l
 | `X25519+ML-KEM-512`, `-768` (default), `-1024` | 1 | HKDF-SHA-256 | Byte-compatible with quantum-safe-py |
 | `P-256+ML-KEM-512`, `-768` | 1 | HKDF-SHA-256 | Hybrid with NIST P-256 |
 | `X-Wing` | 1 | HKDF-SHA-256 | For data other X-Wing implementations must read |
-| `ML-KEM-1024` (pure) | 2 | HKDF-SHA-384 | The CNSA 2.0 profile; quantum-safe-py 0.3.1 and later reads and writes it too |
+| `ML-KEM-1024` (pure) | 2 | HKDF-SHA-384 | The CNSA 2.0 profile; quantum-safe-py 0.3.2 or later reads and writes it too |
 | `ML-KEM-512`, `ML-KEM-768` (pure) | not supported | | `Envelope.seal` throws `UnsupportedAlgorithmError` |
 
 The version is chosen by the key; you never pass it. See [Choosing what to use](/guide/choosing) for which to pick.

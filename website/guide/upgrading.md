@@ -21,7 +21,7 @@ At 1.0 the API is frozen under semantic versioning, which is gated on an indepen
 
 | Planned | What to do now |
 |---|---|
-| The default signature suite of `easy` and `HybridSign()` moves from `Ed25519+ML-DSA-65` to `Ed25519+ML-DSA-65-v2` in a later minor release | Choose explicitly: `new HybridSign('Ed25519+ML-DSA-65-v2')` if every verifier is quantum-safe-py 0.3.1+ or quantum-safe-ts; `new HybridSign('Ed25519+ML-DSA-65')` to keep the current format. Explicit choices never change. |
+| The default signature suite of `easy` and `HybridSign()` moves from `Ed25519+ML-DSA-65` to `Ed25519+ML-DSA-65-v2` in a later minor release | Choose explicitly: `new HybridSign('Ed25519+ML-DSA-65-v2')` if every verifier is quantum-safe-py 0.3.2+ or quantum-safe-ts; `new HybridSign('Ed25519+ML-DSA-65')` to keep the current format. Explicit choices never change. |
 | Argument order and naming of some calls may be made consistent before 1.0 (for example `sign(message, key)` versus `decapsulate(key, ciphertext)`), with deprecated aliases | Keep your calls in one place (a small wrapper) so a change is a one-line edit |
 | The ESM and CommonJS builds may be reduced to ESM only | Import the library one way throughout; use `QuantumSafeError.is(e)` rather than `instanceof` |
 | `Jwt*` and `JWT*` naming, subpath imports for migration/JWT/LMS | Same: wrap and keep imports central |
@@ -42,17 +42,18 @@ Keys, envelopes, signatures and tokens cross without conversion ([Interop](/guid
 | Secrets zeroized with `ctypes.memset` | `.free()` / `using`; copies in the JavaScript heap are yours to `wipe()` |
 | Stricter input in TypeScript: `ktype` required in key CBOR, JWK `kty` must be `AKP`, hybrid signature payloads exactly four entries, CBOR integers in shortest form | Every key and signature Python writes still loads; only input Python accepted by accident is refused |
 
-## From quantum-safe-py 0.3.0 to 0.3.1 (for mixed deployments)
+## From quantum-safe-py 0.3.0 to 0.3.2 (for mixed deployments)
 
-| Change in Python 0.3.1 | Effect on a mixed deployment |
+| Change in Python 0.3.1 and 0.3.2 | Effect on a mixed deployment |
 |---|---|
 | Verifiers pin the signature prefix length to the verifier's hedging mode | Signatures made with `hedged=False` verify only on a verifier built with `hedged=False` (same rule here). Default hedged signatures are unaffected. |
 | `verify(..., context=...)`, `Envelope.open(..., expected_aad=...)` | State what you expect, on both sides |
 | New formats: envelope v2, `-v2` signatures, `StandardJwt` | Readable by this library; **0.3.0 cannot read them** and fails closed |
 | Stricter key loaders and typed errors | Nothing valid is refused |
 | CNSA 2.0 helper reports every hybrid `partial` | Same verdicts as `cnsa2.report` here |
+| 0.3.2: `Sign.sign_raw()` and a standard `Sign.verify_raw()` (before, `verify_raw` rejected every standard signature) | The path for standard FIPS 204 signatures from Python; see [Interop](/guide/python-interop#compatible-is-not-the-same-as-standard) |
 
-Upgrade every Python verifier to 0.3.1 before you start issuing `-v2` signatures or envelope v2 to it.
+Upgrade every Python verifier to 0.3.2 before you start issuing `-v2` signatures or envelope v2 to it.
 
 ## Moving from the easy layer to the class API
 

@@ -24,8 +24,9 @@ export type V2Base =
   | 'ML-DSA-87';
 
 /**
- * Signature format v2 identifiers (`<suite>-v2`): a format without the quantum-safe-py prefix construction. Its ML-DSA half is
- * plain FIPS 204 with the context `quantum-safe-sig-v2`; see the signatures guide. quantum-safe-py 0.3.1 and later reads and writes these;
+ * Signature format v2 identifiers (`<suite>-v2`): a format without the quantum-safe-py prefix construction. Its ML-DSA half signs a wrapped
+ * message `M2` under the FIPS 204 context `quantum-safe-sig-v2`, so a standard FIPS 204 library can verify it only by rebuilding `M2`; see the
+ * signatures guide. quantum-safe-py 0.3.2 or later reads and writes these;
  * quantum-safe-py 0.3.0 fails closed on the unknown identifier.
  */
 export type SignatureAlgorithmV2 = `${V2Base}-v2`;
@@ -69,7 +70,7 @@ export interface SuiteInfo {
   readonly meetsCnsa2: boolean;
   /**
    * True if quantum-safe-py 0.3.0 (its original release) can read/produce data for this suite. The `-v2` signature suites
-   * (`format: 'v2'`) report `false` because 0.3.0 cannot read them; quantum-safe-py 0.3.1 and later can.
+   * (`format: 'v2'`) report `false` because 0.3.0 cannot read them; quantum-safe-py 0.3.2 or later can.
    */
   readonly pyCompatible: boolean;
   /** `'v2'` for the signature format v2 (absent for every other suite). */

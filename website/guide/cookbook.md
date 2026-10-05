@@ -282,7 +282,7 @@ and is recorded.
 
 ## 7. Exchange data with a Python service
 
-**Problem.** A Python service using quantum-safe-py (0.3.1 or later for the `-v2` and envelope-v2 formats; 0.3.0 for the originals) and a
+**Problem.** A Python service using quantum-safe-py (0.3.2 or later for the `-v2` and envelope-v2 formats; 0.3.0 for the originals) and a
 TypeScript service must exchange keys, ciphertexts and signatures.
 
 **Design.** Exchange keys as PEM and everything else as the library's own bytes. Both libraries state their expectations on the receiving
@@ -312,7 +312,7 @@ console.log('files for the Python side are in', dir);
 ```
 
 And the Python side, which reads those files (this block is Python, not run by the TypeScript test suite; it was run against the files above
-with quantum-safe-py 0.3.1):
+with quantum-safe-py 0.3.2):
 
 ```python
 from quantum_safe import HybridSign

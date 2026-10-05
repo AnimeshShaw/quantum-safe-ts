@@ -153,6 +153,33 @@ describe('documentation completeness', () => {
     expect(page).toContain(resource);
   });
 
+  it('does not call -v2 a standard signature, and pairs with quantum-safe-py 0.3.2 or later', () => {
+    // quantum-safe-py's docs: `-v2` signs a wrapped message M2 under a native context; a standard FIPS 204 library can verify it only by rebuilding M2.
+    const publicDocs = [
+      ...siteFiles,
+      join(root, 'README.md'),
+      join(root, 'COMPATIBILITY.md'),
+      join(root, 'SECURITY.md'),
+      join(here, '..', 'README.md'),
+      join(here, '..', 'llms.txt'),
+      join(here, '..', 'llms-full.txt'),
+      join(root, 'packages', 'quantum-safe-mcp', 'src', 'knowledge.ts'),
+      join(here, '..', 'src', 'algorithms.ts'),
+    ];
+    const banned: [RegExp, string][] = [
+      [/any FIPS 204 librar(y|ies)[^.\r\n]*\bverif/i, 'says any FIPS 204 library can verify -v2'],
+      [/plain FIPS 204[^.\r\n]*(-v2|\bv2\b|\bhalf\b)/i, 'calls the -v2 ML-DSA half plain FIPS 204'],
+      [/quantum-safe-py\)? ?\(?0\.3\.1(\+| and later| or later)/, 'names 0.3.1 as the matching Python version'],
+    ];
+    const problems: string[] = [];
+    for (const f of publicDocs) {
+      if (!existsSync(f)) continue;
+      const text = read(f);
+      for (const [re, why] of banned) if (re.test(text)) problems.push(`${f}: ${why}`);
+    }
+    expect(problems).toEqual([]);
+  });
+
   it('the error page lists every error code', () => {
     const errors = read(join(here, '..', 'src', 'errors.ts'));
     const page = read(join(root, 'website', 'guide', 'errors.md'));

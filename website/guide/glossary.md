@@ -39,7 +39,7 @@ Terms as this documentation uses them. Entries link to the page that explains th
 | **Shared secret** | The secret both sides of a KEM end up with. Derive keys from it; never use it directly. `SecretBytes` / `SharedSecret`. |
 | **STREAM** | A construction for chunked authenticated encryption (counter and last-chunk flag in the nonce). [Streaming](/guide/streaming) |
 | **Typed error** | An error with a class, a stable `code` and a static `hint`. [Errors](/guide/errors) |
-| **`-v2`** | The cleaner signature format: no prefix, FIPS 204 native context, algorithm and context signed. [Signatures](/guide/signatures#format-v2-v2) |
+| **`-v2`** | The cleaner signature format: no prefix, native FIPS 204 context over a wrapped message `M2`, algorithm and context signed. Not a standard signature over your message. [Signatures](/guide/signatures#format-v2-v2) |
 | **WebAssembly (WASM)** | The portable binary format the Rust core is compiled to. [Runtimes](/guide/runtimes) |
 | **X-Wing** | A hybrid KEM (X25519 + ML-KEM-768) specified in `draft-connolly-cfrg-xwing-kem`, implemented by several libraries. [KEM](/guide/kem#about-x-wing) |
 | **X25519 / Ed25519 / P-256** | The classical key exchange, signature and NIST-curve algorithms used as the classical half of hybrids. |

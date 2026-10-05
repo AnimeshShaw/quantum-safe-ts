@@ -1,14 +1,14 @@
 # Interop with quantum-safe-py
 
-quantum-safe-ts is byte-compatible with [quantum-safe-py](https://github.com/AnimeshShaw/quantum-safe-py) 0.3.0, and with 0.3.1 and later for
-the additional formats marked below. Data written by one opens in the other, in both directions. That is checked in CI against the **real
+quantum-safe-ts is byte-compatible with [quantum-safe-py](https://github.com/AnimeshShaw/quantum-safe-py) 0.3.0, and with 0.3.2 or later for
+the additional formats marked below (they first appeared in 0.3.1). Data written by one opens in the other, in both directions. That is checked in CI against the **real
 Python library** (liboqs backend), not a re-implementation: the fixtures are produced by Python and verified here, and produced here and
 verified by Python.
 
-:::tip Python 0.3.1 and PyPI
-The formats marked "0.3.1+" below need quantum-safe-py 0.3.1. As of 2026-10-05 it is tagged (`v0.3.1`) in the quantum-safe-py repository but PyPI still
-offers 0.3.0 as the latest release: until 0.3.1 is published there, install it from the repository tag (`pip install
-git+https://github.com/AnimeshShaw/quantum-safe-py@v0.3.1`).
+:::tip Which Python version
+Use quantum-safe-py **0.3.2 or later** (`pip install "quantum-safe-py>=0.3.2"`). Version 0.3.1 fixed a signature-verification flaw in Python
+0.1.0 to 0.3.0 (see [Security](/guide/security)) and added the formats marked "0.3.2+" below; 0.3.2 added `Sign.sign_raw()` and a standard
+`Sign.verify_raw()`. The vectors in this repository's tests were checked against the released 0.3.2.
 :::
 
 ## What crosses
@@ -21,28 +21,44 @@ git+https://github.com/AnimeshShaw/quantum-safe-py@v0.3.1`).
 | Signatures and `SignedMessage` (`ML-DSA`, SLH-DSA shared sets, hybrids), default format | Yes |
 | JWTs in quantum-safe-py mode | Yes |
 | Migration `Upgrader` output and migration store layout | Yes (through converters for the store) |
-| Envelope v2 (CNSA profile: pure `ML-KEM-1024`, HKDF-SHA-384) | Yes, with quantum-safe-py 0.3.1+ |
-| Signature format `-v2` (all eight identifiers) | Yes, with quantum-safe-py 0.3.1+ |
-| `StandardJwt` (RFC 9964) tokens and public `AKP` JWKs | Yes, with quantum-safe-py 0.3.1+. Private JWKs (`priv` is a seed) are TypeScript only: liboqs cannot derive a Python key from a seed |
+| Envelope v2 (CNSA profile: pure `ML-KEM-1024`, HKDF-SHA-384) | Yes, with quantum-safe-py 0.3.2+ |
+| Signature format `-v2` (all eight identifiers) | Yes, with quantum-safe-py 0.3.2+ |
+| `StandardJwt` (RFC 9964) tokens and public `AKP` JWKs | Yes, with quantum-safe-py 0.3.2+. Private JWKs (`priv` is a seed) are TypeScript only: liboqs cannot derive a Python key from a seed |
 | `X-Wing`, streaming encryption, LMS signing, nine SLH-DSA sets | TypeScript only |
 
 Python 0.3.0 fails closed on the identifiers it does not know (it never mis-verifies). The full table, the wire formats and the known quirks
 are in [COMPATIBILITY.md](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/COMPATIBILITY.md).
 
-## What "compatible" does and does not mean
+## Compatible is not the same as standard
 
-Matching quantum-safe-py means matching its own constructions: an HKDF-SHA-256 hybrid combiner, and (in the default signature format) a
-random message prefix signed with an empty FIPS 204 context. They are sound engineering choices but **not** X-Wing, **not** TLS
-`X25519MLKEM768`, and **not** FIPS 204's native context, and they have not been reviewed against NIST SP 800-227's key-combiner guidance.
+Matching quantum-safe-py means matching its own constructions: an HKDF-SHA-256 hybrid key combiner, and an ML-DSA "context" that is a message
+prefix signed under an empty FIPS 204 context. They are sound engineering choices, but they are **not** X-Wing, **not** the TLS
+`X25519MLKEM768` group and **not** FIPS 204's native context, and they have not been reviewed against NIST SP 800-227's key-combiner guidance.
 
-Use the defaults when both ends are quantum-safe-py or quantum-safe-ts. Use `X-Wing`, `StandardJwt` and the `-v2` signatures when other
-ecosystems must read your data (`-v2` needs an ML-DSA verifier that supplies the native context `quantum-safe-sig-v2`).
+| Your situation | Use |
+|---|---|
+| Both ends are quantum-safe-py or quantum-safe-ts | The defaults, or `-v2` for new signatures |
+| The other side is a standard FIPS 204 ML-DSA implementation, and you need a signature over your own bytes | Python: `Sign.sign_raw()` / `Sign.verify_raw()` (0.3.2). TypeScript: not in the public API yet (see below) |
+| A JOSE or JWT library must read the token | `StandardJwt` (RFC 9964), in both libraries |
+| The other side is a third-party X-Wing or TLS-hybrid implementation | Use `X-Wing` for KEMs. quantum-safe-py envelopes (HKDF-SHA-256 combiner) cannot be read by them |
+
+What each signature format is, exactly:
+
+- **Default (v1):** signs `len(ctx) ‖ ctx ‖ prefix ‖ message` under an empty FIPS 204 context, in a library-specific blob. A standard library cannot verify it.
+- **`-v2`:** signs `M2 = len(algo) ‖ algo ‖ len(ctx) ‖ ctx ‖ message` under the FIPS 204 context `quantum-safe-sig-v2`. A standard library could verify it
+  only by rebuilding `M2` and passing that context. `-v2` is for quantum-safe-py and quantum-safe-ts.
+- **Standard ML-DSA:** `ML-DSA.Sign(sk, message, ctx)` with the native context and the bare signature. Python 0.3.2 makes and checks it with
+  `sign_raw` / `verify_raw`; before 0.3.2, `verify_raw` rejected every standard signature.
+
+In TypeScript the bare FIPS 204 primitive exists in the core (it is what `StandardJwt` uses) but is not a public function. It is tested against
+Python's `sign_raw` and `verify_raw` for ML-DSA-44, 65 and 87 with empty, short and 255-byte contexts, in both directions, and a public
+`signRaw` / `verifyRaw` is a [roadmap](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/ROADMAP.md) item. Until then use `StandardJwt` or `-v2`.
 
 ## Settings that must match across the two libraries
 
 The verifiers state what they expect, in both libraries. A mismatch fails closed, with no detail about why.
 
-| What | quantum-safe-ts | quantum-safe-py (0.3.1+) |
+| What | quantum-safe-ts | quantum-safe-py (0.3.2+) |
 |---|---|---|
 | Signature context | `verify(signed, pub, { expectedContext })` | `verify(sm, pub, context=...)` |
 | Hedging mode of v1 signatures | `new Sign(algo, { hedged })` (default `true`) | `Sign(algo, hedged=...)`, `JWTVerifier(..., hedged=)`, `verify_cosig(..., hedged=)` |
@@ -75,7 +91,7 @@ console.log(Object.fromEntries(Object.entries(files).map(([name, v]) => [name, t
 if (typeof files['ts-signing-public.pem'] !== 'string' || files['ts-signed.bin'].length < 3000 || files['ts-sealed.bin'].length < 1100) throw new Error('unexpected sizes');
 ```
 
-Python then reads them, stating the context and AAD it expects (verified with quantum-safe-py 0.3.1; the files are the ones the block above
+Python then reads them, stating the context and AAD it expects (verified with quantum-safe-py 0.3.2; the files are the ones the block above
 writes, plus the secret PEM of the key it encrypted to):
 
 ```python
@@ -137,11 +153,11 @@ eight `-v2` identifiers, `StandardJwt` tokens) and `tests/vectors/ts_v2_vectors.
 
 | Situation | Use |
 |---|---|
-| Both ends are quantum-safe-py 0.3.1+ or quantum-safe-ts, new signatures | `-v2` |
+| Both ends are quantum-safe-py 0.3.2+ or quantum-safe-ts, new signatures | `-v2` |
 | A Python 0.3.0 verifier is in the loop | The default format, with matching `hedged` |
 | Encrypting between the two | Hybrid envelopes (v1). For the CNSA 2.0 profile, pure `ML-KEM-1024` (v2) |
 | Tokens that only your own services verify | `JWTSigner` / `JWTVerifier` on both sides |
-| Tokens other parties verify | `StandardJwt` (Python 0.3.1+ and TypeScript) |
+| Tokens other parties verify | `StandardJwt` (Python 0.3.2+ and TypeScript) |
 | Moving migration state | `exportToPyStore` / `importFromPyStore` ([Migration](/guide/migration#moving-state-to-or-from-quantum-safe-py)) |
 
 ## When interop fails
@@ -149,7 +165,7 @@ eight `-v2` identifiers, `StandardJwt` tokens) and `tests/vectors/ts_v2_vectors.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `VerificationError` on a signature the other side made | Different context, or a different hedging mode (default format) | Same context on both ends; same `hedged`; or use `-v2` |
-| `UnsupportedAlgorithmError` / Python `UnsupportedAlgorithm` for `...-v2` | The Python side is 0.3.0 | Upgrade Python to 0.3.1+, or use the default format |
+| `UnsupportedAlgorithmError` / Python `UnsupportedAlgorithm` for `...-v2` | The Python side is 0.3.0 | Upgrade Python to 0.3.2+, or use the default format |
 | `DecryptionAuthenticationError` on an envelope | Different AAD, wrong key, or modified bytes | Same AAD on both ends |
 | Envelope v2 cannot be opened by Python | Python is 0.3.0 | Upgrade, or use a hybrid key |
 | `KeyParseError` on a key from Python | A secret key presented as public, or a damaged PEM | Export the right half; copy the PEM whole |

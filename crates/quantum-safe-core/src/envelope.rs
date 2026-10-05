@@ -14,7 +14,7 @@ use thiserror::Error;
 use zeroize::Zeroizing;
 
 pub const ENVELOPE_VERSION: u8 = 1;
-/// Envelope v2: the CNSA 2.0 profile (pure ML-KEM-1024, HKDF-SHA384, AES-256-GCM). quantum-safe-py (0.3.1 and later) reads and writes it too.
+/// Envelope v2: the CNSA 2.0 profile (pure ML-KEM-1024, HKDF-SHA384, AES-256-GCM). quantum-safe-py (0.3.2 or later) reads and writes it too.
 pub const ENVELOPE_VERSION_CNSA2: u8 = 2;
 /// The only KEM suite v2 envelopes use.
 pub const CNSA2_ENVELOPE_ALGORITHM: &str = "ML-KEM-1024";

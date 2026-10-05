@@ -34,7 +34,7 @@ const MAX_HKDF_OUTPUT_SHA384: usize = 255 * 48;
 
 /// HKDF-SHA384 with no salt: the key derivation used by the CNSA 2.0 envelope profile (envelope v2).
 /// CNSA 2.0 requires SHA-384 or SHA-512 for key derivation; the quantum-safe-py-compatible suites use
-/// HKDF-SHA256 and therefore cannot satisfy that requirement. quantum-safe-py (0.3.1 and later) uses the same
+/// HKDF-SHA256 and therefore cannot satisfy that requirement. quantum-safe-py (0.3.2 or later) uses the same
 /// derivation for its envelope v2.
 pub fn derive_key_sha384(shared_secret: &[u8], info: &[u8], length: usize) -> Result<Vec<u8>, KdfError> {
     if length > MAX_HKDF_OUTPUT_SHA384 {

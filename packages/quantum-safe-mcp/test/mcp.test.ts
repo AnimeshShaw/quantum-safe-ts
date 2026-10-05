@@ -154,6 +154,11 @@ describe('knowledge tools', () => {
     expect(recommend('sign-data', true, 'none').code).toContain("new Sign('ML-DSA-87')");
     expect(recommend('sign-data', false, 'none').code).toContain('expectedContext'); // the snippet must verify what it signs
     expect(recommend('sign-data', false, 'other-ecosystems').algorithm).toBe('ML-DSA-65-v2');
+    // -v2 is not a standard signature over the user's message: the advice must say what a standard library needs, and must not oversell it.
+    const other = recommend('sign-data', false, 'other-ecosystems');
+    expect(other.compatibility).toContain('rebuilding M2');
+    expect(other.compatibility).toContain('0.3.2 or later');
+    expect(JSON.stringify(other)).not.toMatch(/plain FIPS 204/i);
     expect(recommend('jwt', false, 'none').algorithm).toBe('ML-DSA-65');
   });
   it('explain_error knows every library error code', async () => {

@@ -87,7 +87,7 @@ In a secrets manager or KMS and load it at start-up, not in source control or an
 
 **Why is the default signature `Ed25519+ML-DSA-65` and not `-v2`?**
 So deployments that include an older Python verifier keep working. `-v2` is cleaner and safe to choose today if every verifier is quantum-safe-py
-0.3.1+ or quantum-safe-ts; the default is planned to flip in the next minor release ([Upgrading](/guide/upgrading)).
+0.3.2+ or quantum-safe-ts; the default is planned to flip in the next minor release ([Upgrading](/guide/upgrading)).
 
 **Do I need X-Wing?**
 Only if systems that are not quantum-safe-py or quantum-safe-ts must decrypt your data. They are not compatible with the default hybrid.
@@ -115,7 +115,7 @@ Report it privately through GitHub Security Advisories ([Security model](/guide/
 ## Python
 
 **Can Python decrypt what TypeScript encrypts, and the reverse?**
-Yes, for the shared formats, in both directions ([Interop](/guide/python-interop)). Formats marked "0.3.1+" need quantum-safe-py 0.3.1.
+Yes, for the shared formats, in both directions ([Interop](/guide/python-interop)). Formats marked "0.3.2+" need quantum-safe-py 0.3.2.
 
 **Why does a Python signature fail here?**
 Almost always a context or hedging mismatch ([When interop fails](/guide/python-interop#when-interop-fails)).

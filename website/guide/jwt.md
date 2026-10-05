@@ -62,7 +62,7 @@ if (header.alg !== 'Ed25519+ML-DSA-65-v2') throw new Error('the header names the
 ## Standards mode (RFC 9964)
 
 `StandardJwt` produces tokens signed with plain ML-DSA exactly as RFC 9964 specifies (JWS with `alg` `ML-DSA-44`, `ML-DSA-65` or `ML-DSA-87`, and
-keys as `AKP` JWKs). It has been checked against `@noble/post-quantum` and Node's WebCrypto, and against quantum-safe-py 0.3.1+.
+keys as `AKP` JWKs). It has been checked against `@noble/post-quantum` and Node's WebCrypto, and against quantum-safe-py 0.3.2+.
 
 ```ts test
 import { StandardJwt, QuantumSafeError } from 'quantum-safe-ts';
@@ -90,7 +90,7 @@ The private JWK's `priv` member is the secret seed as a string, which is inheren
 publish only `publicJwk` (for example at a `jwks.json` URL).
 :::
 
-- Tokens made by quantum-safe-py 0.3.1+ `StandardJwt` verify here, and the reverse. **Private** JWKs are TypeScript-only: liboqs cannot
+- Tokens made by quantum-safe-py 0.3.2+ `StandardJwt` verify here, and the reverse. **Private** JWKs are TypeScript-only: liboqs cannot
   derive a Python key pair from a seed, so only public JWKs and tokens cross.
 - `StandardJwt` supports pure ML-DSA only (no hybrids, no SLH-DSA). For a hybrid you control, use the quantum-safe mode.
 - Both modes pin the algorithm to the key and reject `alg: "none"`.

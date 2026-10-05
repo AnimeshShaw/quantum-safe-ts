@@ -80,8 +80,9 @@ quantum-safe-py construction delicate:
 
 - **No prefix, no unsigned length byte.** There is no boundary between "prefix" and "message" to move, and no `hedged` setting to get wrong.
   The blob is the signature itself, in one fixed-length encoding.
-- **Plain FIPS 204 for the ML-DSA half.** It signs `M2` with the native context `quantum-safe-sig-v2`, so any FIPS 204 library (noble, Node
-  WebCrypto) verifies it given `M2`. Signing is always hedged inside ML-DSA.
+- **A native FIPS 204 context for the ML-DSA half.** It signs `M2` (not your message) under the FIPS 204 context `quantum-safe-sig-v2`. A standard
+  FIPS 204 library can verify it only by rebuilding `M2` and passing that context; it is **not** a standard signature over your message. For that,
+  see [Standard ML-DSA](#standard-ml-dsa-for-other-ecosystems) below. Signing is always hedged inside ML-DSA.
 - **Algorithm and context are signed.** `M2 = len(algo) ‖ algo ‖ len(ctx) ‖ ctx ‖ message`, and both halves of a hybrid sign the same bytes
   (the classical half signs `label ‖ 0x00 ‖ M2`).
 - **One encoding.** Hybrid blob = classical signature (64 bytes) ‖ ML-DSA signature; P-256 signatures are raw `r ‖ s` and the high-S twin is refused.
@@ -103,12 +104,31 @@ if (!rejected) throw new Error('context must be enforced');
 if (signed.signature.length !== 64 + 3309) throw new Error('hybrid v2 blob is 64 + the ML-DSA-65 signature');
 ```
 
-quantum-safe-py 0.3.1 and later reads and writes v2 (all eight identifiers are verified in both directions); 0.3.0 cannot read it and fails
-closed on the identifier. There is no SLH-DSA v2. `JWTSigner` / `JWTVerifier` accept v2 keys too.
+quantum-safe-py 0.3.2 or later reads and writes v2 (all eight identifiers are verified in both directions); 0.3.0 cannot read it and fails
+closed on the identifier (the format first appeared in 0.3.1). There is no SLH-DSA v2. `JWTSigner` / `JWTVerifier` accept v2 keys too.
 
 **Which to use:** the default stays `Ed25519+ML-DSA-65` for now so existing Python deployments keep verifying, and is planned to flip to
-`-v2` in the next minor release. Choose `-v2` explicitly when every verifier you control is quantum-safe-py 0.3.1+ or quantum-safe-ts
+`-v2` in the next minor release. Choose `-v2` explicitly when every verifier you control is quantum-safe-py 0.3.2+ or quantum-safe-ts
 ([Choosing what to use](/guide/choosing#default-format-or-v2)).
+
+## Standard ML-DSA for other ecosystems
+
+Compatible with quantum-safe-py is not the same as standard. Three different things get called "an ML-DSA signature" here:
+
+| Format | What is signed | A standard FIPS 204 library can verify it |
+|---|---|---|
+| Default (v1) | `len(ctx) ‖ ctx ‖ prefix ‖ message`, under an **empty** FIPS 204 context, in a library-specific blob | No: it signs a different byte string |
+| `-v2` | `M2 = len(algo) ‖ algo ‖ len(ctx) ‖ ctx ‖ message`, under the FIPS 204 context `quantum-safe-sig-v2` | Only by rebuilding `M2` and passing that context |
+| Standard ML-DSA (FIPS 204 `ML-DSA.Sign(sk, message, ctx)`) | Your message, with your context as FIPS 204's own `ctx` input; the bare signature | Yes |
+
+When the other side is not quantum-safe-py or quantum-safe-ts:
+
+- **JOSE and JWT:** use [`StandardJwt`](/guide/jwt) (RFC 9964). Any compliant JOSE library verifies it.
+- **A standard signature over arbitrary bytes:** the public TypeScript API does not expose this yet. The primitive exists in the core (it is what
+  `StandardJwt` uses, with an empty context) and is tested against quantum-safe-py 0.3.2 in both directions (its `Sign.sign_raw()` and
+  `Sign.verify_raw()` for ML-DSA-44, 65 and 87, with an empty, a short and a 255-byte context), but a public `signRaw` / `verifyRaw` is a
+  [roadmap](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/ROADMAP.md) item, not something to depend on today.
+- **`-v2`** is for quantum-safe-py and quantum-safe-ts.
 
 ## Verifying bytes from elsewhere
 

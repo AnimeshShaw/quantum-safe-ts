@@ -57,8 +57,8 @@ The Rust core lives in [`crates/`](crates), the WebAssembly bindings in [`bindin
 | One-call encryption and signing | `easy` | defaults `X25519+ML-KEM-768`, `Ed25519+ML-DSA-65` |
 | Key encapsulation | `HybridKEM`, `KEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `X-Wing`, pure `ML-KEM-512/768/1024` |
 | Streaming encryption of large data (experimental, TypeScript-only) | `sealStream`, `openStream` | any hybrid KEM or `ML-KEM-1024`, chunked AES-256-GCM (STREAM) |
-| Public-key encryption (anonymous: no sender authentication) | `Envelope`, `SealedMessage` | any hybrid KEM + AES-256-GCM; CNSA 2.0 profile with pure `ML-KEM-1024` + HKDF-SHA-384 (envelope v2; quantum-safe-py 0.3.1+ reads and writes it too) |
-| Signatures | `Sign`, `HybridSign`, `SignedMessage` | `ML-DSA-44/65/87`, `Ed25519+ML-DSA-*`, `P-256+ML-DSA-44/65`, SLH-DSA (all 12 FIPS 205 sets); plus the cleaner `-v2` format of each ML-DSA suite (no prefix, FIPS 204 native context; quantum-safe-py 0.3.1+ reads it too) |
+| Public-key encryption (anonymous: no sender authentication) | `Envelope`, `SealedMessage` | any hybrid KEM + AES-256-GCM; CNSA 2.0 profile with pure `ML-KEM-1024` + HKDF-SHA-384 (envelope v2; quantum-safe-py 0.3.2+ reads and writes it too) |
+| Signatures | `Sign`, `HybridSign`, `SignedMessage` | `ML-DSA-44/65/87`, `Ed25519+ML-DSA-*`, `P-256+ML-DSA-44/65`, SLH-DSA (all 12 FIPS 205 sets); plus the cleaner `-v2` format of each ML-DSA suite (no prefix, native FIPS 204 context over a wrapped message; quantum-safe-py 0.3.2+ reads it too; not a standard signature over your message) |
 | Stateful hash-based signatures | `Lms` | LMS/HSS verification (RFC 8554). Signing is intentionally not provided. |
 | JWT | `JWTSigner`/`JWTVerifier`, `StandardJwt` | quantum-safe-py-compatible, and RFC 9964 (ML-DSA for JOSE) |
 | Password KDF | `deriveMasterKey` | Argon2id |
