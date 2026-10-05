@@ -198,6 +198,29 @@ if StandardJwt is not None and v2_path.exists():
         except Exception as exc:  # noqa: BLE001
             check(f"standard jwt {t['algorithm']} ({type(exc).__name__}: {exc})", False)
 
+# ---- Standard FIPS 204 ML-DSA with a native context (quantum-safe-py >= 0.3.2: Sign.verify_raw) ----
+raw_path = root / "ts_raw_fips204_vectors.json"
+if hasattr(Sign, "verify_raw") and hasattr(Sign, "sign_raw") and raw_path.exists():
+    raw = json.loads(raw_path.read_text(encoding="utf-8"))
+    for i, r in enumerate(raw["vectors"]):
+        label = f"raw fips204 {r['algorithm']} ctx{len(r['context']) // 2} [{i}]"
+        try:
+            verifier = Sign(r["algorithm"])
+            pub = PublicKey(raw=bytes.fromhex(r["public_key"]), algorithm=r["algorithm"])
+            msg, ctx, sig = bytes.fromhex(r["message"]), bytes.fromhex(r["context"]), bytes.fromhex(r["signature"])
+            verifier.verify_raw(msg, sig, pub, context=ctx)
+            rejected_wrong_ctx = False
+            try:
+                verifier.verify_raw(msg, sig, pub, context=ctx + b"x")
+            except Exception:  # noqa: BLE001
+                rejected_wrong_ctx = True
+            check(label, rejected_wrong_ctx)
+        except Exception as exc:  # noqa: BLE001
+            check(f"{label} ({type(exc).__name__}: {exc})", False)
+    check("raw fips204: at least 9 vectors were checked (got %d)" % len(raw["vectors"]), len(raw["vectors"]) >= 9)
+else:
+    print("skip raw FIPS 204 vectors: this quantum-safe-py predates 0.3.2 (no Sign.verify_raw/sign_raw)")
+
 # ---- Guards against vacuous passes ----
 for label, items, minimum in [
     ("kem", v["kem"], 8),

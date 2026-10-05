@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Generate vectors for the formats added in quantum-safe-py 0.3.1, from the REAL Python library.
+"""Generate vectors for the formats added in quantum-safe-py 0.3.1 (and kept in 0.3.2), from the REAL Python library.
 
 Writes tests/vectors/py_v2_vectors.json: envelope v2 (pure ML-KEM-1024, HKDF-SHA-384), the ``-v2``
 signature format (all eight identifiers) and RFC 9964 ``StandardJwt`` tokens. quantum-safe-ts must open and
 verify all of it (packages/quantum-safe-ts/test/py-v2-interop.test.ts).
 
-Requires quantum-safe-py >= 0.3.1 (NOT yet released: install it from the ``security/0.3.1`` branch of
-quantum-safe-py, e.g. ``pip install -e <path-to-quantum_safe>``). The pin in scripts/requirements.txt is for the
-0.3.0 vectors and does not have these formats; this script refuses to run on it.
+Requires quantum-safe-py >= 0.3.1 (released on PyPI: ``pip install quantum-safe-py==0.3.2``). Version 0.3.0 does not
+have these formats; the import below fails on it.
 
 Run from the repository root:
     python scripts/generate_py_v2_vectors.py
@@ -29,7 +28,7 @@ V2_IDS = [
     "P-256+ML-DSA-44-v2", "P-256+ML-DSA-65-v2",
 ]
 
-out: dict = {"generated_by": "quantum-safe-py >= 0.3.1 (security/0.3.1 branch)", "envelope_v2": [], "signatures_v2": [], "standard_jwt": []}
+out: dict = {"generated_by": "quantum-safe-py 0.3.2 (PyPI)", "envelope_v2": [], "signatures_v2": [], "standard_jwt": []}
 
 kp = KEM("ML-KEM-1024").generate_keypair()
 for aad in (b"", b"py-v2-vector"):

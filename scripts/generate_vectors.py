@@ -6,7 +6,7 @@ must reproduce bit-for-bit: the hybrid KEM shared-secret combiner, the
 envelope's AAD construction, its key derivation, and its AES-256-GCM call.
 Uses fixed, deterministic byte inputs -- no key generation, no randomness --
 so every value here is exactly reproducible by re-running this script against
-the pinned quantum-safe-py==0.3.0 in scripts/requirements.txt.
+the quantum-safe-py version pinned in scripts/requirements.txt (the checked-in vectors record the version that made them in `_meta`).
 
 Run from the repository root:
     python scripts/generate_vectors.py
