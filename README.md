@@ -7,11 +7,18 @@
 ML-KEM · ML-DSA · SLH-DSA · hybrid envelopes and signatures · PQC JWTs · migration tooling
 
 [![CI](https://github.com/AnimeshShaw/quantum-safe-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/AnimeshShaw/quantum-safe-ts/actions/workflows/ci.yml)
+[![Docs](https://github.com/AnimeshShaw/quantum-safe-ts/actions/workflows/docs.yml/badge.svg)](https://animeshshaw.github.io/quantum-safe-ts/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![Status: pre-1.0 experimental](https://img.shields.io/badge/status-pre--1.0%20experimental-orange.svg)
-![Not audited](https://img.shields.io/badge/security%20audit-none%20yet-red.svg)
+[![Algorithms: FIPS 203/204/205](https://img.shields.io/badge/algorithms-FIPS_203%2F204%2F205-purple.svg)](https://csrc.nist.gov/pubs/fips)
+[![NIST ACVP: 1,317 cases](https://img.shields.io/badge/NIST_ACVP-1%2C317_cases_pass-informational.svg)](#evidence-and-how-to-reproduce-it)
+[![Byte-compatible with quantum-safe-py 0.3.2+](https://img.shields.io/badge/quantum--safe--py-0.3.2%2B_byte--compatible-green.svg)](COMPATIBILITY.md)
+![Runs on: Node, browsers, Deno, Bun, Workers](https://img.shields.io/badge/runs_on-Node_%C2%B7_browsers_%C2%B7_Deno_%C2%B7_Bun_%C2%B7_Workers-lightgrey.svg)
+[![FIPS 140-3: not validated](https://img.shields.io/badge/FIPS_140--3-not_validated-lightgrey.svg)](SECURITY.md)
+[![Security audit: none yet](https://img.shields.io/badge/security_audit-none_yet-red.svg)](SECURITY.md)
+[![Status: pre-1.0 experimental](https://img.shields.io/badge/status-pre--1.0_experimental-orange.svg)](ROADMAP.md)
+[![Roadmap: 0.1.0](https://img.shields.io/badge/roadmap-0.1.0-blue.svg)](ROADMAP.md)
 
-[Documentation](https://animeshshaw.github.io/quantum-safe-ts/) · [Which library should I use?](https://animeshshaw.github.io/quantum-safe-ts/compare) · [Compatibility](COMPATIBILITY.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
+[Documentation](https://animeshshaw.github.io/quantum-safe-ts/) · [Which library should I use?](https://animeshshaw.github.io/quantum-safe-ts/compare) · [Roadmap](ROADMAP.md) · [Compatibility](COMPATIBILITY.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -20,13 +27,13 @@ A memory-safe Rust core compiled to WebAssembly behind a fully typed API, byte-c
 
 > **Status: pre-1.0, experimental.** Not independently audited. Not FIPS 140-3 / CMVP validated. NIST ACVP results are conformance
 > *evidence*, not a validation. JavaScript and WebAssembly runtimes give no constant-time guarantee. Do not protect real secrets with it
-> until an independent review is published. See [SECURITY.md](SECURITY.md).
+> until an independent review is published. See [SECURITY.md](SECURITY.md) and the [roadmap](ROADMAP.md).
 
 ```bash
 npm install quantum-safe-ts
 ```
 
-> **Not published yet.** `quantum-safe-ts`, `quantum-safe-audit` and `quantum-safe-mcp` are not on npm yet, and the documentation site and the `@v0.1.0` action tag exist only after the first release. Until then build from source (see [CONTRIBUTING.md](CONTRIBUTING.md)); the commands below show how it will install.
+> **Not published yet.** `quantum-safe-ts`, `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases are not on npm yet, and the `@v0.1.0` action tag exists only after the first release. The [documentation site](https://animeshshaw.github.io/quantum-safe-ts/) is live. Until then build from source (see [CONTRIBUTING.md](CONTRIBUTING.md)); the commands below show how it will install.
 
 ```ts
 import { easy } from 'quantum-safe-ts';
@@ -45,7 +52,7 @@ Both styles are in the [getting-started guide](https://animeshshaw.github.io/qua
 |---|---|---|
 | [`quantum-safe-ts`](packages/quantum-safe-ts) | **The library.** Hybrid KEMs, envelopes, signatures, JWT, keys, Argon2id, migration helpers. | `npm install quantum-safe-ts` |
 | [`quantum-safe-audit`](packages/quantum-safe-audit) (alias: `pqc-audit`) | **A scanner** that finds classical (quantum-vulnerable) crypto in JS/TS projects; SARIF and CycloneDX CBOM output. Independent of the library. | `npx quantum-safe-audit scan .` |
-| [`quantum-safe-mcp`](packages/quantum-safe-mcp) | **An MCP server** that lets coding agents run the scanner and get algorithm guidance. Depends on the scanner. | `npx quantum-safe-mcp` |
+| [`quantum-safe-mcp`](packages/quantum-safe-mcp) (alias: `pqc-mcp`) | **An MCP server** that lets coding agents run the scanner and get algorithm guidance. Depends on the scanner. | `npx quantum-safe-mcp` |
 | [GitHub Action](action.yml) | Runs the scanner in CI, uploads SARIF, gates on severity. | `uses: AnimeshShaw/quantum-safe-ts@v0.1.0` |
 
 The Rust core lives in [`crates/`](crates), the WebAssembly bindings in [`bindings/wasm`](bindings/wasm).
@@ -85,9 +92,26 @@ Use something else if you need audited or FIPS 140-3 validated code today: this 
 ## Compatibility with quantum-safe-py, and what it means
 
 Envelopes, keys (CBOR, PEM, JWK, fingerprints), signed messages, signatures, JWTs and migration records are **byte-compatible in both
-directions** (see [COMPATIBILITY.md](COMPATIBILITY.md)). That is compatibility, not general interoperability: quantum-safe-py's hybrid combiner
-and signature context are its own constructions. They are not X-Wing, not TLS `X25519MLKEM768`, and not FIPS 204's native context. For data
-that other ecosystems must read, use `HybridKEM('X-Wing')` and `StandardJwt` (RFC 9964).
+directions** with quantum-safe-py (see [COMPATIBILITY.md](COMPATIBILITY.md)); pair it with quantum-safe-py **0.3.2 or later**. Envelope v2, the `-v2`
+signatures and `StandardJwt` first appeared in Python 0.3.1 (0.3.0 fails closed on them). That is compatibility, not general
+interoperability: quantum-safe-py's hybrid combiner and signature context are its own constructions. They are not X-Wing, not TLS
+`X25519MLKEM768`, and not FIPS 204's native context.
+
+| You need | Use |
+|---|---|
+| Python and TypeScript services exchange data | The defaults, or `-v2` for new signatures |
+| Another ecosystem reads your KEM output | `HybridKEM('X-Wing')` |
+| A standard JOSE library verifies a token | `StandardJwt` (RFC 9964) |
+| A standard FIPS 204 signature over your own bytes | Python 0.3.2: `Sign.sign_raw()` / `verify_raw()`. TypeScript: not a public function yet ([roadmap](ROADMAP.md)); the primitive is tested against Python's in both directions |
+
+`-v2` signs a wrapped message under a native FIPS 204 context, so a standard library can verify it only by rebuilding that message; it is for
+quantum-safe-py and quantum-safe-ts, not a standard signature over your message.
+
+## Status and roadmap
+
+Pre-1.0. Nothing is on npm yet; the first release (0.1.0) waits on the maintainer. The next minor release moves the default hybrid signature to
+`Ed25519+ML-DSA-65-v2`, in step with quantum-safe-py 0.4.0. The roadmap lists what is now, next and later, what would make it 1.0, and what this
+library will not become: [ROADMAP.md](ROADMAP.md).
 
 ## Where it runs
 
@@ -109,10 +133,11 @@ Not supported yet: React Native. The WebAssembly is about 410 KiB gzipped (built
 | Claim | Reproduce |
 |---|---|
 | 1,317 NIST ACVP known-answer cases pass | `python scripts/fetch_acvp.py && QS_REQUIRE_ACVP=1 cargo test --release -p quantum-safe-core --test acvp` |
-| Byte parity with the real quantum-safe-py, both directions | `python scripts/generate_suite_vectors.py` … `python scripts/verify_ts_vectors.py` (see [CONTRIBUTING.md](CONTRIBUTING.md)) |
+| Byte parity with the real quantum-safe-py (checked against the released 0.3.2), both directions, including standard FIPS 204 ML-DSA against `Sign.sign_raw` / `verify_raw` | `python scripts/generate_suite_vectors.py` … `python scripts/verify_ts_vectors.py` (see [CONTRIBUTING.md](CONTRIBUTING.md)) |
 | Works in 12 real toolchains from the packed tarball | `node tests/fixtures/run.mjs` |
 | Differential tests against `@noble/post-quantum` and Node WebCrypto | `npx vitest run test/differential.test.ts` in `packages/quantum-safe-ts` |
 | Reproducible WASM build | `node scripts/repro-check.mjs` |
+| SBOM and CBOM of the library; licences of the 113 Rust crates in the WebAssembly | `node scripts/generate-sboms.mjs`; `node scripts/generate-third-party-licenses.mjs --check` |
 
 ## Using it with AI coding agents
 
@@ -128,9 +153,11 @@ Secret keys live in WASM memory; the owned secret buffers are zeroized on `.free
 
 ## Contributing, support, security
 
-[CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · report vulnerabilities privately as described in
-[SECURITY.md](SECURITY.md). Cite it with [CITATION.cff](CITATION.cff).
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [ROADMAP.md](ROADMAP.md). Report vulnerabilities
+privately through GitHub Security Advisories or by email, as described in [SECURITY.md](SECURITY.md) (which also has the supported versions and the
+statement that the library has had no independent third-party review). Cite it with [CITATION.cff](CITATION.cff).
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Every npm package carries `THIRD_PARTY_LICENSES.md` (the Rust crates compiled into the
+WebAssembly, with their licence texts).
