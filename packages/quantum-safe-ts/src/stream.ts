@@ -1,6 +1,6 @@
 /**
  * Streaming envelope (format v3): authenticated public-key encryption for data that does not fit in memory or arrives in pieces.
- * TypeScript-only (quantum-safe-py cannot read it) and experimental until reviewed.
+ * TypeScript-only (quantum-safe-py cannot read it).
  *
  * One KEM encapsulation per stream; the data is cut into fixed-size chunks, each sealed with AES-256-GCM under a key derived from the KEM shared
  * secret and the stream header, with a counter and a "last chunk" flag in the nonce (the STREAM construction). Chunks cannot be reordered,

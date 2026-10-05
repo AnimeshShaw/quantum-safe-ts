@@ -3,7 +3,7 @@
 > CLI and library that scans JavaScript/TypeScript projects for classical (quantum-vulnerable) cryptography and suggests migrations to quantum-safe-ts. Outputs text, JSON, SARIF 2.1.0 and CycloneDX 1.6 CBOM. Command: quantum-safe-audit (not qs-audit, which is quantum-safe-py's tool).
 
 Use when: asked to find RSA/ECDSA/ECDH/Ed25519/X25519/DSA/DH usage, weak hashes/ciphers, classical JWT algorithms, or embedded private keys in a JS/TS repo; or to produce a CBOM/SARIF.
-Limits: static analysis only (runtime-chosen algorithms are invisible); not a CNSA 2.0 assessment or FIPS validation.
+Limits: static analysis only (runtime-chosen algorithms are invisible); not a CNSA 2.0 assessment.
 
 Commands:
 - `npx quantum-safe-audit scan <paths> [--format text|json|sarif|cbom] [--fail-on high] [--cnsa2] [--exclude <glob>] [--ignore-rule QSJ050]`

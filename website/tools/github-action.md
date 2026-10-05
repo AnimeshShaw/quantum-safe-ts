@@ -15,12 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: AnimeshShaw/quantum-safe-ts@v0.1.0   # pin a release tag or, better, its commit SHA
+      - uses: AnimeshShaw/quantum-safe-ts@v0.1.1   # pin a release tag or, better, its commit SHA
         with:
           path: .
           fail-on: high
           upload-sarif: true
-          version: 0.1.0     # pin the audit tool version too
+          version: 0.1.1     # pin the audit tool version too
 ```
 
 ## Inputs
@@ -38,7 +38,7 @@ jobs:
 | `exclude` | | Newline-separated glob patterns to exclude. |
 | `inline-ignores` | `false` | Honour `// qs-audit-ignore` comments in the scanned code. Off by default: in a gate for untrusted code a pull request could add one to pass its own check. |
 | `allow-incomplete` | `false` | Accept a scan in which files were skipped (too large, unreadable, unparseable) or nothing was scanned. By default that is an error: an incomplete scan is never reported as a pass. |
-| `version` | `0.1.0` | `quantum-safe-audit` version from npm. Defaults to the version the action release was made with; pin your own exact version in production. |
+| `version` | `0.1.1` | `quantum-safe-audit` version from npm. Defaults to the version the action release was made with; pin your own exact version in production. |
 | `package-path` | | Run a locally built copy instead of npm (for monorepos and this repository's own CI). |
 
 Outputs: `exit-code`, `findings`, `report-file`, `cbom-file`.
@@ -59,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: audit
-        uses: AnimeshShaw/quantum-safe-ts@v0.1.0
+        uses: AnimeshShaw/quantum-safe-ts@v0.1.1
         with:
           fail-on: none          # inventory only: do not fail the schedule
           cbom: true
@@ -78,7 +78,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: trusted
-      - uses: AnimeshShaw/quantum-safe-ts@v0.1.0
+      - uses: AnimeshShaw/quantum-safe-ts@v0.1.1
         with:
           policy: trusted/.qs-audit.json
 ```

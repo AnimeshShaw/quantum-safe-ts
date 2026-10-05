@@ -30,7 +30,7 @@ A small project with an RSA key and a SHA-1 hash produces:
            fix: SHA-384 or SHA-512.
 
 Scanned 1 file(s): 0 critical, 1 high, 1 medium, 0 low, 0 info.
-Static analysis sees only what the source names; an empty result is not evidence of absence. This is an inventory, not a compliance verdict or a FIPS 140-3 validation.
+Static analysis sees only what the source names; an empty result is not evidence of absence. This is an inventory, not a compliance verdict.
 ```
 
 and exits with code 1, because a HIGH finding meets the default `--fail-on high`.
@@ -71,7 +71,7 @@ quantum-safe-ts, and references.
 
 - Static analysis sees what the source names. Algorithms chosen at runtime, built from strings, configured elsewhere or hidden inside
   dependencies are invisible. **An empty result is not evidence of absence.**
-- It is an inventory and a migration aid, not a CNSA 2.0 assessment or a FIPS validation.
+- It is an inventory and a migration aid, not a CNSA 2.0 assessment.
 - Its rules are measured on a labelled corpus written by its authors, which is a regression guard, not an independent accuracy claim.
   Please report false positives and negatives.
 

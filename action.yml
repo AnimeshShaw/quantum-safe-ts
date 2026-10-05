@@ -1,5 +1,5 @@
 name: 'Quantum-safe audit'
-description: 'Find classical (quantum-vulnerable) cryptography in JavaScript and TypeScript code. SARIF for GitHub code scanning, optional CycloneDX CBOM, optional CNSA 2.0 hash gaps.'
+description: 'Find quantum-vulnerable cryptography in JavaScript and TypeScript code. SARIF for code scanning, CycloneDX CBOM output.'
 author: 'Animesh Shaw'
 branding:
   icon: 'shield'
@@ -41,7 +41,7 @@ inputs:
     default: 'false'
   version:
     description: 'quantum-safe-audit version to run from npm. Defaults to the version this action release was made with; pin your own exact version in production, or use latest at your own risk.'
-    default: '0.1.0'
+    default: '0.1.1'
   package-path:
     description: 'Run a locally built copy of the audit package instead of npm (for this repository CI and monorepos).'
     default: ''

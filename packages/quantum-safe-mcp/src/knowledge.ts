@@ -18,8 +18,6 @@ export interface Recommendation {
 }
 
 const COMMON_CAVEATS = [
-  'quantum-safe-ts is pre-1.0, not independently audited, and not FIPS 140-3 validated.',
-  'JavaScript/WebAssembly runtimes give no constant-time guarantee.',
   'Outside Node.js call `await init()` once before use; in Cloudflare Workers pass the precompiled module: init({ wasm }).',
   'Secret objects live in WASM memory: free() them or use `using`; wipe() any bytes you export.',
 ];
@@ -35,7 +33,7 @@ export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Inte
   const sigCls = sigName.includes('+') ? 'HybridSign' : 'Sign';
   const cnsaCaveats = requireCnsa2
     ? [
-        'CNSA 2.0 parameter sets are selected (pure ML-KEM-1024, ML-DSA-87), but compliance for National Security Systems runs through FIPS 140-3 validated modules, which this library is not.',
+        'CNSA 2.0 parameter sets are selected (pure ML-KEM-1024, ML-DSA-87); selecting parameters is necessary and not sufficient for compliance.',
         'CNSA 2.0 software/firmware signing requires LMS or XMSS (SP 800-208); neither is implemented yet.',
         'Pure ML-KEM-1024 envelopes (v2: HKDF-SHA-384 + AES-256-GCM) are read and written by quantum-safe-py too. X25519+ML-KEM-1024 hybrids are NOT CNSA 2.0 compliant: NSA\'s CNSA 2.0 FAQ says hybrids are not required and not to be used on NSS mission systems except NSA-specified exceptions.',
         'Run cnsa2.report() to see exactly which requirements are and are not met.',
@@ -178,5 +176,4 @@ export const LLMS_TXT = `quantum-safe-ts: hybrid post-quantum cryptography for T
 Install: npm install quantum-safe-ts. Outside Node.js call await init() first.
 Defaults: X25519+ML-KEM-768 (HybridKEM), Ed25519+ML-DSA-65 (HybridSign). CNSA 2.0 needs pure ML-KEM-1024 (cnsa2.kem(); Envelope v2 uses HKDF-SHA-384) and ML-DSA-87 (new Sign('ML-DSA-87')); hybrids are reported partial.
 Envelope.seal(plaintext, publicKey, {aad}) / Envelope.open(sealed, secretKey). StandardJwt for RFC 9964 tokens. deriveMasterKey for Argon2id.
-Pre-1.0, unaudited, not FIPS-validated, no constant-time guarantee in JS/WASM.
 Docs: https://github.com/AnimeshShaw/quantum-safe-ts`;

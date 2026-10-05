@@ -1,5 +1,5 @@
 /**
- * Attacks found by an independent review, kept as permanent regression tests.
+ * Attacks found in review, kept as permanent regression tests.
  *
  * 1. Prefix/message boundary confusion. quantum-safe-py's construction signs `len(ctx) || ctx || prefix || message` and stores the prefix
  *    length in the UNSIGNED signature blob. Without a pinned prefix length, anyone can move bytes between prefix and message of a valid

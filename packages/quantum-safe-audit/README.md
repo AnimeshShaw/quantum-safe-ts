@@ -50,7 +50,7 @@ Default exclusions (`node_modules`, `dist`, `build`, `vendor`, caches, minified 
 - Aliased or indirect calls are often missed (for example `const { generateKeyPairSync: g } = require('crypto'); g('rsa')` or a call through a variable algorithm).
 - Static analysis sees what the source names. Algorithms chosen at runtime, built from strings, configured outside the code, or
   hidden inside dependencies are invisible, so **an empty result is not evidence of absence**.
-- It is an inventory and a migration aid, **not** a CNSA 2.0 assessment or a FIPS 140-3 validation.
+- It is an inventory and a migration aid, **not** a CNSA 2.0 assessment.
 - The detection rules are measured on a labelled corpus in this repository (`test/corpus`). That corpus was written by the
   authors, so its 100% precision/recall is a regression guard, not an independent accuracy claim. Treat results on your code
   as a starting point and review them. Please report false positives and negatives.

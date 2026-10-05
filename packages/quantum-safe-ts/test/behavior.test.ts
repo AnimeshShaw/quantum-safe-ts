@@ -401,7 +401,7 @@ describe('CNSA 2.0 profile', () => {
     expect(r.failures.map((f) => f.requirement)).toContain('Key establishment');
     expect(r.failures.map((f) => f.requirement)).toContain('Signatures');
     expect(r.render()).toContain('NOT compliant');
-    expect(r.render()).toContain('not a validation');
+    expect(r.render()).toContain('necessary and not sufficient');
   });
   it('hybrid X25519+ML-KEM-1024 is only partial: NSA\'s FAQ does not call a hybrid compliant', () => {
     const r = cnsa2.report({ kem: 'X25519+ML-KEM-1024', signature: 'Ed25519+ML-DSA-87', hashAlgorithm: 'sha384' });

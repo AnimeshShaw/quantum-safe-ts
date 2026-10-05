@@ -1,6 +1,6 @@
 {
   "name": "pqc-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Alias of quantum-safe-mcp: a Model Context Protocol server that lets coding agents audit a JavaScript/TypeScript project for quantum-vulnerable cryptography and choose a post-quantum algorithm suite.",
   "license": "Apache-2.0",
   "author": "Animesh Shaw",
@@ -30,6 +30,6 @@
     "test": "node test.js"
   },
   "dependencies": {
-    "quantum-safe-mcp": "^0.1.0"
+    "quantum-safe-mcp": "^0.1.1"
   }
 }

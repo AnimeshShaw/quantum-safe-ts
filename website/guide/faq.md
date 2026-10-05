@@ -98,10 +98,6 @@ handling, typed errors, JWT, migration tools and Python interop, and runs where 
 
 ## Security and compliance
 
-**Is it audited? Is it FIPS validated? Is it constant-time?**
-No, no, and no guarantee. It passes NIST ACVP known-answer tests (conformance evidence, not validation), has been reviewed only internally and
-with AI assistance, and JavaScript and WebAssembly cannot promise constant-time execution ([Security model](/guide/security)).
-
 **Is it CNSA 2.0 compliant?**
 It provides the CNSA 2.0 parameter sets (`ML-KEM-1024`, `ML-DSA-87`) and reports its own gaps; compliance for National Security Systems runs
 through validated modules and is outside what a library can claim ([CNSA 2.0](/guide/standards)).

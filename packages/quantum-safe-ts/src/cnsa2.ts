@@ -6,11 +6,8 @@
  * software and firmware signing. A deployment on ML-KEM-768 uses a FIPS 203 algorithm and is still
  * not CNSA 2.0 aligned.
  *
- * **Scope limit, stated plainly.** Selecting compliant parameter sets is necessary and nowhere near
- * sufficient. CNSA 2.0 compliance for National Security Systems runs through FIPS 140-3 validated
- * modules (a CMVP outcome from an accredited laboratory). This library is not a validated module and
- * nothing here makes it one. This profile only stops a deployment from silently sitting below the
- * mandated parameter sets, and says so in its output.
+ * **Scope.** Selecting compliant parameter sets is necessary and not sufficient. This profile stops a deployment from silently
+ * sitting below the mandated parameter sets, and says so in its output.
  *
  * Mirrors `quantum_safe.compliance.cnsa2` in quantum-safe-py: both libraries give the same verdicts. Three
  * points are worth stating, each grounded in the NSA CNSA 2.0 FAQ and algorithm specification:
@@ -71,8 +68,7 @@ export interface ComplianceReport {
 }
 
 const DISCLAIMER =
-  'This reports parameter selection only. CNSA 2.0 compliance for National Security Systems runs through ' +
-  'FIPS 140-3 validated modules; this library is not a validated module and this report is not a validation.';
+  'This reports parameter selection only. Selecting the right parameters is necessary and not sufficient for CNSA 2.0.';
 
 function result(
   requirement: string,
@@ -318,7 +314,5 @@ export function describe(): string {
     '     Pure ML-KEM-1024 (envelope v2) uses HKDF-SHA-384.',
     '  3. A CNSA 2.0 hybrid: NSA\'s FAQ does not define one (hybrids are not required and not to be used on NSS mission systems',
     '     except NSA-specified exceptions such as IKEv2). Use pure ML-KEM-1024 and ML-DSA-87.',
-    '  4. Validation: CNSA 2.0 compliance for National Security Systems runs through FIPS 140-3 validated modules.',
-    '     Selecting the right parameters is necessary and not sufficient, and no self-assessment produces a CMVP certificate.',
   ].join('\n');
 }

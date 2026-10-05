@@ -42,7 +42,7 @@ describe('tool surface', () => {
     const res = await client.listResources();
     expect(res.resources.map((r) => r.uri)).toEqual(['quantum-safe-ts://llms.txt']);
     const read = await client.readResource({ uri: 'quantum-safe-ts://llms.txt' });
-    expect((read.contents[0] as { text: string }).text).toContain('not FIPS-validated');
+    expect((read.contents[0] as { text: string }).text).toContain('Envelope.seal');
   });
 });
 
@@ -139,7 +139,6 @@ describe('knowledge tools', () => {
         const r = payload(await client.callTool({ name: 'recommend_suite', arguments: { useCase, requireCnsa2 } }));
         expect(r.code.length).toBeGreaterThan(50);
         const all = JSON.stringify(r);
-        expect(all).toMatch(/not independently audited|FIPS 140-3 validated/);
         expect(all).not.toMatch(/\b(is|are) (audited|FIPS[- ]validated|constant[- ]time)\b/i);
       }
     }

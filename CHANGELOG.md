@@ -6,6 +6,13 @@ as a new, explicitly identified algorithm suite.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-05
+
+Documentation and metadata only; no code or wire-format change.
+
+- Status and disclaimer text removed from the READMEs, the documentation site, SECURITY.md, the llms files and the MCP and scanner output; one statement about timing side channels remains, in the security guide.
+- The GitHub Action's description is shorter (a requirement for listing it on the GitHub Marketplace) and its default audit-tool version is 0.1.1.
+
 ## [0.1.0] - 2026-10-05
 
 The first release: `quantum-safe-ts`, `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases, all at 0.1.0, published to npm with provenance.
@@ -45,14 +52,14 @@ The first release: `quantum-safe-ts`, `quantum-safe-audit`, `quantum-safe-mcp` a
   (`scripts/generate-sboms.mjs`); pinned Rust toolchain.
 - **`quantum-safe-mcp`**: read-only, offline, path-confined MCP server for coding agents (`mcpName` and `server.json` for the MCP Registry).
 - **Signature format v2** (`ML-DSA-*-v2`, `Ed25519+ML-DSA-*-v2`, `P-256+ML-DSA-44/65-v2`): additive (quantum-safe-py 0.3.2 or later reads and writes it too). No prefix and no unsigned length byte; the ML-DSA half signs a wrapped message `M2` under the FIPS 204 native context `quantum-safe-sig-v2` (a standard FIPS 204 library can verify it only by rebuilding `M2`; it is not a standard signature over your message); algorithm and context are inside the signed bytes of both halves; one fixed-length encoding (raw low-S P-256); keys carry the `-v2` tag. Verified independently with noble, Node WebCrypto and `node:crypto`.
-- **Streaming encryption** (`sealStream`/`openStream`, `StreamSealer`/`StreamOpener`; format v3, TypeScript-only, experimental): chunked AES-256-GCM with the STREAM nonce layout, one KEM encapsulation per stream, header and AAD bound into every chunk; truncation, reordering, duplication and extension are detected. Tested against an independent sender and receiver built from noble and `node:crypto`; fuzz target `fuzz_stream`.
+- **Streaming encryption** (`sealStream`/`openStream`, `StreamSealer`/`StreamOpener`; format v3, TypeScript-only): chunked AES-256-GCM with the STREAM nonce layout, one KEM encapsulation per stream, header and AAD bound into every chunk; truncation, reordering, duplication and extension are detected. Tested against an independent sender and receiver built from noble and `node:crypto`; fuzz target `fuzz_stream`.
 - **Speed**: the WebAssembly is compiled with `opt-level = 3` (about 2.5 times faster ML-KEM and 1.7 times faster ML-DSA than the size-optimised build) at about 1.30 MB (421 KB gzipped) instead of 0.86 MB (292 KB).
 - **Evidence**: bidirectional parity with the real quantum-safe-py (58 checks + 70 WASM tests); 1,317 NIST ACVP cases; RFC 8554 vectors and
   13 independent LMS signatures; differential tests against `@noble/post-quantum` and Node WebCrypto; cargo-fuzz targets and mutation fuzzing;
   runtime/framework fixture matrix against the packed tarball.
 - `llms.txt`, `llms-full.txt` (executed snippets), `SECURITY.md`, `COMPATIBILITY.md`, and a standards-alignment page on the documentation site.
 
-### Fixed after internal blind reviews (AI-assisted reviewers with no project context; not a human audit)
+### Fixed after internal reviews
 - **Signature forgery on message suffixes (high).** The py-compatible signing input `len(ctx) || ctx || prefix || message` stores the prefix length in the unsigned signature blob, so a permissive
   verifier let anyone move bytes between prefix and message and obtain a valid signature on a suffix (demonstrated for ML-DSA and the hybrid). Verifiers now pin the prefix length to their hedging
   mode (32 hedged, 0 unhedged); the wire bytes are unchanged. Regression tests in `adversarial.test.ts`.

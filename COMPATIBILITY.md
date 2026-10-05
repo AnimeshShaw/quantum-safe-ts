@@ -3,9 +3,7 @@
 `quantum-safe-ts` is the TypeScript/WASM sibling of
 [quantum-safe-py](https://github.com/AnimeshShaw/quantum-safe-py). The goal is **byte-for-byte wire compatibility** for every persisted or
 transmitted format, proven by shared fixtures, not assumed. This page is the source of truth for what is compatible, what is not, and why.
-Status reflects **quantum-safe-ts 0.1.0** and **quantum-safe-py 0.3.0** (original release), **0.3.1** (adds the formats marked below) and **0.3.2** (adds `Sign.sign_raw` and a standard `Sign.verify_raw`; the version to pair with), as of 2026-10-05.
-
-> Pre-1.0, experimental, not independently audited. Conformance evidence is not a CAVP/CMVP validation.
+Status reflects **quantum-safe-ts 0.1.1** and **quantum-safe-py 0.3.0** (original release), **0.3.1** (adds the formats marked below) and **0.3.2** (adds `Sign.sign_raw` and a standard `Sign.verify_raw`; the version to pair with), as of 2026-10-05.
 
 ## Legend
 
@@ -72,12 +70,10 @@ Status reflects **quantum-safe-ts 0.1.0** and **quantum-safe-py 0.3.0** (origina
 | 25d | `qs-audit cnsa2` (CLI report) | **Library only** | `cnsa2.report()` / `cnsa2.enforce()`; no CLI (the audit package does not depend on the library). |
 | 25e | `qs-migrate scan` / `upgrade-key` / `status` CLI | **Partly** | `scan` is `quantum-safe-audit scan`. `upgrade-key` and `status` are library calls (`Upgrader`, `MigrationStateManager`); no key-file CLI is provided (it would put secret keys on a command line or in files by default). |
 | 30 | ACVP known-answer harness | **DONE (more)** | **1,317** NIST ACVP cases (py: 225): ML-KEM, ML-DSA, SLH-DSA keyGen/sigGen/sigVer/encap/decap. |
-| 31 | Timing-leakage harness | **Maintainer-side screen (not published)** | A dudect-style screen is run privately before releases; it is not a proof. JS/WASM gives no constant-time guarantee. |
 | 32 | `ctypes.memset` zeroization | **N/A → replaced** | Rust `zeroize` + explicit `.free()` / `using`. JS-heap copies cannot be wiped; documented. |
 | 33 | Pluggable backends | **N/A → reframed** | One WASM backend, verified by tests; native WebCrypto is used only as a test oracle (a native provider was evaluated and not built: with the speed-optimised build the WebAssembly code is within about 2x of Node's native ML-KEM). |
-| 34 | CMVP / FIPS 140-3 validation | **N/A** | Neither library can claim it. |
 | 35 | Signature format `-v2` (`<suite>-v2`) | **Additive; also in quantum-safe-py 0.3.2+** | New identifiers; quantum-safe-py 0.3.0 cannot read them and fails closed on the unknown name; 0.3.2 or later reads and writes them (all eight identifiers verified in both directions). No prefix, ML-DSA half = FIPS 204 with the native context `quantum-safe-sig-v2` over the wrapped message `M2` (a standard library verifies it only by rebuilding `M2`; not a standard signature over the user's message), keys tagged `-v2`. See `website/guide/signatures.md`; tests in `signature-v2.test.ts` and `sig/v2.rs`. |
-| 36 | Streaming envelope (format v3) | **TS-only, additive, experimental** | `sealStream`/`openStream`; STREAM construction over AES-256-GCM; layout and key derivation in `crates/quantum-safe-core/src/stream.rs`; independent sender/receiver tests in `stream.test.ts`. quantum-safe-py cannot read it (it has no streaming format). |
+| 36 | Streaming envelope (format v3) | **TS-only, additive** | `sealStream`/`openStream`; STREAM construction over AES-256-GCM; layout and key derivation in `crates/quantum-safe-core/src/stream.rs`; independent sender/receiver tests in `stream.test.ts`. quantum-safe-py cannot read it (it has no streaming format). |
 
 ### Known quirks reproduced for parity (not endorsements)
 

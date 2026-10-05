@@ -13,7 +13,7 @@ It is read-only and offline: it never writes files, never opens the network, and
 // .mcp.json (Claude Code) or your client's MCP settings
 {
   "mcpServers": {
-    "quantum-safe": { "command": "npx", "args": ["-y", "quantum-safe-mcp@0.1.0"] }
+    "quantum-safe": { "command": "npx", "args": ["-y", "quantum-safe-mcp@0.1.1"] }
   }
 }
 ```
@@ -35,7 +35,7 @@ It also serves a short summary of the library as an MCP resource.
 ## What it is not
 
 - Static analysis sees only what the source names. An empty result is **not** evidence that a project has no classical cryptography.
-- It is an inventory and migration aid, not a CNSA 2.0 assessment or a FIPS validation.
+- It is an inventory and migration aid, not a CNSA 2.0 assessment.
 - Text that comes from the scanned repository (comments, string literals) can contain prompt-injection attempts. The server returns only
   short identifier-like details and redacts other literals, but treat everything an agent reads from a hostile repository as data.
 

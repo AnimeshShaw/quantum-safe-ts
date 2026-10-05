@@ -3,10 +3,6 @@
 quantum-safe-ts is a TypeScript/JavaScript library for hybrid post-quantum cryptography. A Rust core is compiled to
 WebAssembly and wrapped in a typed API. It is byte-compatible with the Python library quantum-safe-py.
 
-STATUS (as stated by the project): pre-1.0, experimental, NOT independently audited, NOT FIPS 140-3 / CMVP
-validated. NIST ACVP known-answer results are conformance evidence, not a validation. JavaScript and WebAssembly runtimes
-give no constant-time guarantee. It is not recommended for protecting real secrets until an independent review is published.
-
 Snippets in fenced blocks labelled `ts test` are executed by this package's test suite against the built WASM, so they are
 known to run.
 
@@ -16,7 +12,7 @@ Use it when you need: hybrid (classical + post-quantum) encryption or signatures
 PEM, JWK); PQC JWTs; an Argon2id master key; or data that must interoperate with quantum-safe-py.
 
 Do not use it when: you only need a raw ML-KEM/ML-DSA primitive (use WebCrypto in Node >= 24.7 / Chromium, or
-@noble/post-quantum); you need a FIPS 140-3 validated module (none that we know of is); or you need TLS (platforms already
+@noble/post-quantum); or you need TLS (platforms already
 negotiate X25519MLKEM768, RFC 10024).
 
 ## 2. Install and initialise
@@ -48,7 +44,7 @@ hybrid is optional under CNSA 2.0) and `ML-DSA-87` (`Ed25519+ML-DSA-87` from `cn
 other ecosystems must read, use `X-Wing` (draft-connolly-cfrg-xwing-kem) and `StandardJwt` (RFC 9964) instead of the
 quantum-safe-py-compatible constructions.
 
-Streaming (experimental, TypeScript-only): `sealStream(publicKey, source, { aad, chunkSize })` and `openStream(secretKey, source, { expectedAad })` take and yield `Uint8Array` pieces (async generators); a truncated, reordered or modified stream throws and stops. See the streaming guide.
+Streaming (TypeScript-only): `sealStream(publicKey, source, { aad, chunkSize })` and `openStream(secretKey, source, { expectedAad })` take and yield `Uint8Array` pieces (async generators); a truncated, reordered or modified stream throws and stops. See the streaming guide.
 
 ## 3b. Easy layer (shortest path, nothing to free)
 
@@ -211,8 +207,7 @@ CNSA 2.0 mandates ML-KEM-1024, ML-DSA-87, AES-256, SHA-384/512, and LMS/XMSS (SP
 Selecting the parameter sets is necessary and not sufficient. Known gaps in this library, reported honestly by `cnsa2.report()`:
 (1) a hybrid is outside what CNSA 2.0 prescribes (NSA's FAQ: not required, not to be used on NSS mission systems except NSA-specified exceptions), so `X25519+ML-KEM-1024` is `partial`; hybrid
 is optional and pure ML-KEM-1024 is compliant; (2) the quantum-safe-py-compatible hybrid combiner and envelope v1 use HKDF-SHA-256 (below
-the SHA-384/512 requirement); pure ML-KEM-1024 envelopes (v2) use HKDF-SHA-384; (3) LMS/XMSS are not implemented; (4) compliance for National
-Security Systems runs through FIPS 140-3 validated modules and this library is not one.
+the SHA-384/512 requirement); pure ML-KEM-1024 envelopes (v2) use HKDF-SHA-384; (3) LMS/XMSS are not implemented.
 
 ## 10. Errors
 
@@ -279,7 +274,7 @@ Decision table (full version: /guide/choosing on the documentation site):
 | Encrypt to a public key | `Envelope.seal` with a hybrid key (`HybridKEM`, default `X25519+ML-KEM-768`) |
 | CNSA 2.0 parameter sets | `cnsa2.kem()` (pure `ML-KEM-1024`, envelope v2) and `new Sign('ML-DSA-87')`; every hybrid is `partial` |
 | Data other (non-Python) ecosystems must decrypt | `X-Wing` |
-| Large or streamed data | `sealStream` / `openStream` (experimental) |
+| Large or streamed data | `sealStream` / `openStream` |
 | Sign for quantum-safe libraries | `HybridSign` + a `context`, verify with `expectedContext`; prefer `...-v2` when every verifier is quantum-safe-py 0.3.2+ or quantum-safe-ts (the default flips to `-v2` in the next minor release) |
 | Tokens only your services verify / any JOSE library verifies | `JWTSigner`/`JWTVerifier` / `StandardJwt` |
 | Move keys to post-quantum | `Upgrader` + `MigrationStateManager` |

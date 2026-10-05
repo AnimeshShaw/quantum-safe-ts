@@ -8,4 +8,4 @@
 - **Which package do I need?** `quantum-safe-ts` is the library. `quantum-safe-audit` scans code for classical cryptography.
   `quantum-safe-mcp` exposes the scanner and guidance to AI coding agents.
 
-This is a volunteer-maintained, pre-1.0 project: there is no support SLA, and it is not a substitute for a security review of your system.
+This is a volunteer-maintained project: there is no support SLA.

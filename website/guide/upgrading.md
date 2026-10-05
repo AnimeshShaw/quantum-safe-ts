@@ -5,7 +5,7 @@ quantum-safe-py.
 
 ## Version policy
 
-The project is pre-1.0. Until 1.0:
+Until 1.0:
 
 - **Wire formats are never changed.** A key, a sealed message or a signature written by one version is read by every later version. New capability
   arrives as a **new, explicitly named suite** (for example `X-Wing`, the `-v2` signatures); an existing identifier never changes meaning. The

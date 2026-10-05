@@ -12,8 +12,7 @@ need, what we cannot accept, and how to get a change merged quickly.
    that runs against the **built WASM artifact**, not only native Rust.
 3. **Parsers fail closed.** Any function that parses bytes or text from a caller returns a typed error; it never panics or throws a raw
    `TypeError`. New parsers need a fuzz target or a property test.
-4. **No overclaiming.** Do not write "audited", "FIPS validated", "constant-time" (JS/WASM cannot promise it), "quantum-proof" or
-   "CNSA 2.0 compliant". Say what is tested and what is not.
+4. **No overclaiming.** Say what is tested and what is not.
 5. **No secrets in logs, errors or hints.**
 6. **Pure Rust, no C dependencies**, so `npm install` never needs a toolchain.
 
@@ -48,7 +47,6 @@ python scripts/fetch_acvp.py && QS_REQUIRE_ACVP=1 cargo test --release -p quantu
 
 ## What helps most right now
 
-- Independent review of the cryptographic constructions and the WASM boundary (see [SECURITY.md](SECURITY.md)).
 - False-positive and false-negative reports for `quantum-safe-audit` (a minimal snippet is ideal).
 - Reports from runtimes and bundlers we do not list yet, with a minimal reproduction.
 - Cross-implementation test vectors, especially from other languages.

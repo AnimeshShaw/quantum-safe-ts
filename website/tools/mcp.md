@@ -14,18 +14,18 @@ The server speaks MCP over standard input and output (stdio). Every client below
 
 | Client | How |
 |---|---|
-| **Claude Code** | `claude mcp add quantum-safe -- npx -y quantum-safe-mcp@0.1.0`, or put the JSON below in `.mcp.json` at the project root |
+| **Claude Code** | `claude mcp add quantum-safe -- npx -y quantum-safe-mcp@0.1.1`, or put the JSON below in `.mcp.json` at the project root |
 | **Claude Desktop** | Add the JSON below under `mcpServers` in `claude_desktop_config.json` (Settings, Developer, Edit Config), then restart |
 | **Cursor** | Add it to `.cursor/mcp.json` in the project, or `~/.cursor/mcp.json` for all projects |
 | **VS Code** | In `.vscode/mcp.json`, under `servers` (not `mcpServers`), with `"type": "stdio"` |
-| **Other clients** | Any client that can launch a stdio MCP server: command `npx`, arguments `-y quantum-safe-mcp@0.1.0` |
+| **Other clients** | Any client that can launch a stdio MCP server: command `npx`, arguments `-y quantum-safe-mcp@0.1.1` |
 
 ```json
 {
   "mcpServers": {
     "quantum-safe": {
       "command": "npx",
-      "args": ["-y", "quantum-safe-mcp@0.1.0"],
+      "args": ["-y", "quantum-safe-mcp@0.1.1"],
       "env": { "QS_MCP_ROOT": "/path/to/the/project/to/audit" }
     }
   }
@@ -70,7 +70,7 @@ You ask the agent: *"Check this project for crypto that a quantum computer break
     { "rule": "QSJ030", "severity": "medium", "file": "src/auth.ts", "line": 3, "message": "SHA-1 (sha1)", "migrateTo": "SHA-384 or SHA-512." }
   ],
   "scanComplete": true,
-  "limits": "Static analysis sees only what the source names. An empty result is not evidence of absence. Inventory only: not a CNSA 2.0 assessment or FIPS 140-3 validation. ..."
+  "limits": "Static analysis sees only what the source names. An empty result is not evidence of absence. Inventory only: not a CNSA 2.0 assessment. ..."
 }
 ```
 
@@ -85,7 +85,7 @@ write. A typical exchange:
 ## Example: choosing a suite
 
 `recommend_suite` with `{ "useCase": "sign-data", "requireCnsa2": true }` returns pure ML-DSA-87 (a hybrid is only `partial` under CNSA 2.0), with
-this code and caveats such as "compliance for National Security Systems runs through FIPS 140-3 validated modules, which this library is not":
+this code and caveats such as "CNSA 2.0 parameter sets are selected, but compliance depends on more than parameters":
 
 ```ts no-run
 // Returned verbatim by recommend_suite (sign-data, CNSA 2.0). The same snippet shape runs in the docs test for the suites it names.

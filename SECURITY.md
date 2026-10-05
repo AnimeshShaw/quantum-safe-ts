@@ -1,13 +1,8 @@
 # Security Policy
 
-## Status
+## Memory
 
-`quantum-safe-ts` is **pre-1.0 and experimental**. It has **not** been independently audited, and it is **not** FIPS 140-3 / CMVP / CAVP validated.
-Conformance tests against NIST ACVP vectors are evidence of correctness, not a validation. Do not use it to protect real secrets until a
-third-party review is published and this notice is removed. The upstream RustCrypto crates it builds on (`ml-kem`, `ml-dsa`, `slh-dsa`,
-`x-wing`) also state that they have not been independently audited.
-
-JavaScript and WebAssembly runtimes give **no constant-time guarantee**. The owned buffers of secret-bearing objects are zeroized on the WASM side by `.free()`, but that is not a promise that no copy remains: the
+The owned buffers of secret-bearing objects are zeroized on the WASM side by `.free()`, but that is not a promise that no copy remains: the
 buffers wasm-bindgen uses to pass arguments in, and intermediate values created while parsing or serialising a key (CBOR, PEM), are not all wiped, and a
 review found residual copies in WASM linear memory after `.free()`. Any copy extracted into the JavaScript heap is outside this library's control. Treat memory
 as not reliably scrubbed.
@@ -45,7 +40,7 @@ workflows. Out of scope: vulnerabilities in third-party dependencies that are no
 | 0.1.x (the latest release) | Yes |
 | Anything older than the latest release | **No. Upgrade.** |
 
-0.1.0 is the first release. Only the latest release receives security fixes while the project is pre-1.0. The same applies to `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases.
+Only the latest release receives security fixes. The same applies to `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases.
 
 ## Published advisories
 
@@ -54,14 +49,6 @@ None for quantum-safe-ts. The signature prefix forgery in quantum-safe-py 0.1.0 
 this library: every public TypeScript verification path for the default signature format (`verify`, `verifyBytes`, and the JWT verifier that calls it)
 pins the prefix length to the verifier's hedging mode before it checks the signature, and that check was in the code before any release. Details are in the
 threat model below. If you use quantum-safe-py alongside this library, use quantum-safe-py 0.3.2 or later.
-
-## Security reviews
-
-- The reviews done so far were **internal** (AI-assisted blind reviews with no project context, plus the maintainer's own checks). They are not a human
-  audit, and their findings and fixes are listed in [CHANGELOG.md](CHANGELOG.md).
-- **The library has had no independent third-party review**, and it is **not validated under FIPS 140-3, CMVP or CAVP**. NIST ACVP test vectors are run against
-  the primitives as a correctness check; that is not a validation. The independent review of the signature, envelope and streaming formats is on the
-  [roadmap](ROADMAP.md) and gates 1.0.
 
 ## Threat model (summary)
 
@@ -98,15 +85,11 @@ threat model below. If you use quantum-safe-py alongside this library, use quant
 
 **Explicitly not defended against**
 
-- Side channels: no constant-time guarantee in JS/WASM; ML-DSA signing time varies with the number of rejection-sampling iterations (by design not secret-dependent, but it makes timing screens noisy); browsers and JITs add noise and leakage. A timing-leakage *screen* is run privately by the maintainer before releases; it is not a proof and nothing here depends on it.
+- Side channels: ML-DSA signing time varies with the number of rejection-sampling iterations (by design not secret-dependent); browsers and JITs add noise. See the security guide.
 - Memory disclosure of the JS heap, swap, core dumps, browser extensions with page access, or a compromised runtime.
 - Fault attacks (hedged signing mitigates some lattice fault attacks; it is not a general defence).
 - Weak passwords: Argon2id slows guessing; it cannot rescue a guessable password. No Unicode normalisation is applied (documented).
 - Key management: storage, rotation, backup and access control of keys are the application's responsibility.
-- Compliance: nothing here makes a system CNSA 2.0, FIPS 140-3, or any other certification compliant.
-
-**Residual risks to weigh before any production use:** no independent audit; unaudited upstream crates; novel combination of constructions
-(compatible with quantum-safe-py, but neither library's custom hybrid combiner has been reviewed against NIST SP 800-227's key-combiner guidance).
 
 ## Defences verified by tests in this repository
 

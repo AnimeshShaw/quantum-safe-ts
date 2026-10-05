@@ -4,10 +4,6 @@ Hybrid post-quantum cryptography for **TypeScript and JavaScript**: ML-KEM, ML-D
 encryption and signatures, post-quantum JWTs, and a CNSA 2.0 profile. A memory-safe Rust core compiled to WebAssembly, behind a fully typed
 API, byte-compatible with [quantum-safe-py](https://github.com/AnimeshShaw/quantum-safe-py).
 
-> **Status: pre-1.0, experimental.** Not independently audited. Not FIPS 140-3 / CMVP validated. NIST ACVP results are conformance
-> *evidence*, not a validation. JavaScript and WebAssembly runtimes give no constant-time guarantee. Do not protect real secrets with it
-> until an independent review is published. See [SECURITY.md](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/SECURITY.md).
-
 ```bash
 npm install quantum-safe-ts
 ```

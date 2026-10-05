@@ -99,7 +99,7 @@ issuer you did not check.
 
 ## 5. Encrypt a large file in chunks
 
-**For:** data that does not fit in memory or arrives in pieces: uploads, backups, exports. Experimental, TypeScript-only.
+**For:** data that does not fit in memory or arrives in pieces: uploads, backups, exports. TypeScript-only.
 
 ```ts test
 import { HybridKEM, openStream, sealStream, utf8 } from 'quantum-safe-ts';

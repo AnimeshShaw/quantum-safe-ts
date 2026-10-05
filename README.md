@@ -16,7 +16,6 @@ ML-KEM · ML-DSA · SLH-DSA · hybrid envelopes and signatures · PQC JWTs · mi
 [![NIST ACVP: 1,317 cases](https://img.shields.io/badge/NIST_ACVP-1%2C317_cases_pass-informational.svg)](#evidence-and-how-to-reproduce-it)
 [![Byte-compatible with quantum-safe-py 0.3.2+](https://img.shields.io/badge/quantum--safe--py-0.3.2%2B_byte--compatible-green.svg)](COMPATIBILITY.md)
 ![Runs on: Node, browsers, Deno, Bun, Workers](https://img.shields.io/badge/runs_on-Node_%C2%B7_browsers_%C2%B7_Deno_%C2%B7_Bun_%C2%B7_Workers-lightgrey.svg)
-[![Status: pre-1.0 experimental](https://img.shields.io/badge/status-pre--1.0_experimental-orange.svg)](ROADMAP.md)
 [![Roadmap: 0.1.0](https://img.shields.io/badge/roadmap-0.1.0-blue.svg)](ROADMAP.md)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23160434.svg)](https://doi.org/10.5281/zenodo.23160434)
 
@@ -27,15 +26,9 @@ ML-KEM · ML-DSA · SLH-DSA · hybrid envelopes and signatures · PQC JWTs · mi
 A memory-safe Rust core compiled to WebAssembly behind a fully typed API, byte-compatible with
 [quantum-safe-py](https://github.com/AnimeshShaw/quantum-safe-py). It runs in Node.js, browsers, Deno, Bun, Cloudflare Workers and Chrome extensions.
 
-> **Status: pre-1.0, experimental.** Not independently audited. Not FIPS 140-3 / CMVP validated. NIST ACVP results are conformance
-> *evidence*, not a validation. JavaScript and WebAssembly runtimes give no constant-time guarantee. Do not protect real secrets with it
-> until an independent review is published. See [SECURITY.md](SECURITY.md) and the [roadmap](ROADMAP.md).
-
 ```bash
 npm install quantum-safe-ts
 ```
-
-> **0.1.0 is the first release** of `quantum-safe-ts`, `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases. It is pre-1.0 and experimental (see the status note above). To build from source instead, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```ts
 import { easy } from 'quantum-safe-ts';
@@ -55,7 +48,7 @@ Both styles are in the [getting-started guide](https://animeshshaw.github.io/qua
 | [`quantum-safe-ts`](packages/quantum-safe-ts) | **The library.** Hybrid KEMs, envelopes, signatures, JWT, keys, Argon2id, migration helpers. | `npm install quantum-safe-ts` |
 | [`quantum-safe-audit`](packages/quantum-safe-audit) (alias: `pqc-audit`) | **A scanner** that finds classical (quantum-vulnerable) crypto in JS/TS projects; SARIF and CycloneDX CBOM output. Independent of the library. | `npx quantum-safe-audit scan .` |
 | [`quantum-safe-mcp`](packages/quantum-safe-mcp) (alias: `pqc-mcp`) | **An MCP server** that lets coding agents run the scanner and get algorithm guidance. Depends on the scanner. | `npx quantum-safe-mcp` |
-| [GitHub Action](action.yml) | Runs the scanner in CI, uploads SARIF, gates on severity. | `uses: AnimeshShaw/quantum-safe-ts@v0.1.0` |
+| [GitHub Action](action.yml) | Runs the scanner in CI, uploads SARIF, gates on severity. | `uses: AnimeshShaw/quantum-safe-ts@v0.1.1` |
 
 The Rust core lives in [`crates/`](crates), the WebAssembly bindings in [`bindings/wasm`](bindings/wasm).
 
@@ -65,7 +58,7 @@ The Rust core lives in [`crates/`](crates), the WebAssembly bindings in [`bindin
 |---|---|---|
 | One-call encryption and signing | `easy` | defaults `X25519+ML-KEM-768`, `Ed25519+ML-DSA-65` |
 | Key encapsulation | `HybridKEM`, `KEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `X-Wing`, pure `ML-KEM-512/768/1024` |
-| Streaming encryption of large data (experimental, TypeScript-only) | `sealStream`, `openStream` | any hybrid KEM or `ML-KEM-1024`, chunked AES-256-GCM (STREAM) |
+| Streaming encryption of large data (TypeScript-only) | `sealStream`, `openStream` | any hybrid KEM or `ML-KEM-1024`, chunked AES-256-GCM (STREAM) |
 | Public-key encryption (anonymous: no sender authentication) | `Envelope`, `SealedMessage` | any hybrid KEM + AES-256-GCM; CNSA 2.0 profile with pure `ML-KEM-1024` + HKDF-SHA-384 (envelope v2; quantum-safe-py 0.3.2+ reads and writes it too) |
 | Signatures | `Sign`, `HybridSign`, `SignedMessage` | `ML-DSA-44/65/87`, `Ed25519+ML-DSA-*`, `P-256+ML-DSA-44/65`, SLH-DSA (all 12 FIPS 205 sets); plus the cleaner `-v2` format of each ML-DSA suite (no prefix, native FIPS 204 context over a wrapped message; quantum-safe-py 0.3.2+ reads it too; not a standard signature over your message) |
 | Stateful hash-based signatures | `Lms` | LMS/HSS verification (RFC 8554). Signing is intentionally not provided. |
@@ -89,7 +82,6 @@ good pure-JavaScript libraries such as `@noble/post-quantum` exist. quantum-safe
 - **Agent-friendly.** `llms.txt`, executed documentation snippets, typed errors with actionable hints, and an MCP server.
 
 Use something simpler if you only need a primitive (see the [decision guide](https://animeshshaw.github.io/quantum-safe-ts/compare)).
-Use something else if you need audited or FIPS 140-3 validated code today: this library has had neither.
 
 ## Compatibility with quantum-safe-py, and what it means
 
@@ -111,7 +103,7 @@ quantum-safe-py and quantum-safe-ts, not a standard signature over your message.
 
 ## Status and roadmap
 
-Pre-1.0. 0.1.0 is the first release. The next minor release moves the default hybrid signature to
+The next minor release moves the default hybrid signature to
 `Ed25519+ML-DSA-65-v2`, in step with quantum-safe-py 0.4.0. The roadmap lists what is now, next and later, what would make it 1.0, and what this
 library will not become: [ROADMAP.md](ROADMAP.md).
 
@@ -156,8 +148,7 @@ Secret keys live in WASM memory; the owned secret buffers are zeroized on `.free
 ## Contributing, support, security
 
 [CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [ROADMAP.md](ROADMAP.md). Report vulnerabilities
-privately through GitHub Security Advisories or by email, as described in [SECURITY.md](SECURITY.md) (which also has the supported versions and the
-statement that the library has had no independent third-party review). Cite it with [CITATION.cff](CITATION.cff) or the Zenodo record, [10.5281/zenodo.23160434](https://doi.org/10.5281/zenodo.23160434) (this DOI always resolves to the latest release; each release also has its own version DOI).
+privately through GitHub Security Advisories or by email, as described in [SECURITY.md](SECURITY.md) (which also has the supported versions). Cite it with [CITATION.cff](CITATION.cff) or the Zenodo record, [10.5281/zenodo.23160434](https://doi.org/10.5281/zenodo.23160434) (this DOI always resolves to the latest release; each release also has its own version DOI).
 
 ## License
 

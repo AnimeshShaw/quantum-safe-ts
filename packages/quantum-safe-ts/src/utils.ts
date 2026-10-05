@@ -79,7 +79,7 @@ export function fromBase64UrlStrict(s: string): Uint8Array {
   return out;
 }
 
-/** Constant-time-ish equality for equal-length arrays (best effort in JS; not a guarantee). */
+/** Equality for equal-length arrays that does not exit at the first difference. */
 export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;

@@ -121,7 +121,7 @@ export function buildCbom(report: ScanReport, options: CbomOptions = {}): Record
           {
             type: 'application',
             name: 'quantum-safe-audit',
-            version: options.toolVersion ?? '0.1.0',
+            version: options.toolVersion ?? '0.1.1',
             description: 'Static cryptographic asset discovery for JavaScript and TypeScript',
           },
         ],
@@ -137,7 +137,7 @@ export function buildCbom(report: ScanReport, options: CbomOptions = {}): Record
         {
           name: 'quantum-safe:not-a-compliance-verdict',
           value:
-            'Inventory only. Neither this document nor the scanner is a CNSA 2.0 assessment or a FIPS 140-3 validation.',
+            'Inventory only. Neither this document nor the scanner is a CNSA 2.0 assessment.',
         },
       ],
     },

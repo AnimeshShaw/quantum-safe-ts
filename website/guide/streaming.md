@@ -1,7 +1,7 @@
 # Streaming encryption
 
 `sealStream` and `openStream` encrypt data that does not fit in memory, or arrives in pieces: files, uploads, backups, exports. They are
-**TypeScript-only** (quantum-safe-py has no streaming format) and **experimental until the construction has been reviewed**.
+**TypeScript-only** (quantum-safe-py has no streaming format).
 
 **Use them for** large or unbounded data. **Do not use them** for small messages (use [`Envelope`](/guide/encryption): simpler, and its output is
 also readable by Python), or if you need sender authentication (a stream, like an envelope, is anonymous: sign it separately).
@@ -135,7 +135,7 @@ if (p1.length !== 1024 || p2.length !== 10 || p2[0] !== 2) throw new Error('roun
 
 ## Limits
 
-Not audited, and the construction has not had an independent review. No constant-time guarantee. A stream may have at most 2^32 chunks
+A stream may have at most 2^32 chunks
 (256 TiB at the default size). Memory use is about one chunk plus the input you hand over. Keys must be hybrid (including `X-Wing`) or pure
 `ML-KEM-1024`; other pure KEM keys throw `UnsupportedAlgorithmError`.
 

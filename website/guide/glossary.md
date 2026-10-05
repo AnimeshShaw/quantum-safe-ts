@@ -5,7 +5,7 @@ Terms as this documentation uses them. Entries link to the page that explains th
 | Term | Meaning |
 |---|---|
 | **AAD** (associated data) | Data that is authenticated but not encrypted. In an envelope it is stored in clear and bound to the ciphertext; the opener states the value it expects (`expectedAad`). [Encryption](/guide/encryption) |
-| **ACVP** | NIST's Automated Cryptographic Validation Protocol: known-answer test vectors. Passing them is evidence of correctness, not a validation. [Security](/guide/security) |
+| **ACVP** | NIST's Automated Cryptographic Validation Protocol: known-answer test vectors. Passing them is evidence of correctness. [Security](/guide/security) |
 | **AEAD** | Authenticated encryption with associated data. Here: AES-256-GCM. |
 | **AKP** | "Algorithm Key Pair": the JWK key type (`kty: "AKP"`) RFC 9964 uses for ML-DSA keys. [JWT](/guide/jwt) |
 | **Algorithm binding** | Every key, sealed message and signed message names its algorithm and version, and readers check both. [Concepts](/guide/concepts#versions-and-algorithm-binding) |
@@ -19,7 +19,6 @@ Terms as this documentation uses them. Entries link to the page that explains th
 | **Decapsulation / encapsulation** | The two KEM operations: the sender encapsulates to a public key and gets a ciphertext and a shared secret; the key holder decapsulates the ciphertext to the same secret. [KEM](/guide/kem) |
 | **Envelope** | A self-describing, authenticated, public-key encrypted message (`SealedMessage`). v1 for hybrid keys, v2 for pure `ML-KEM-1024`. [Encryption](/guide/encryption) |
 | **FIPS 203 / 204 / 205** | The NIST standards for ML-KEM, ML-DSA and SLH-DSA. |
-| **FIPS 140-3 / CMVP** | NIST's validation of cryptographic modules. This library is not validated. |
 | **Hedged signing** | Signing with fresh randomness mixed in, which blunts some fault attacks. In the default format a verifier must match the signer's mode. [Concepts](/guide/concepts#hedged-signing-and-why-a-verifier-must-match-the-signer) |
 | **HKDF** | HMAC-based key derivation (RFC 5869). SHA-256 for v1 envelopes and `deriveKey`, SHA-384 for v2 envelopes. |
 | **Hybrid** | A classical algorithm and a post-quantum one used together so that an attacker must break both. [Concepts](/guide/concepts#why-hybrid) |

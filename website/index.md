@@ -40,9 +40,3 @@ features:
     link: /tools/mcp
     linkText: MCP server
 ---
-
-::: warning Pre-1.0 and experimental
-Not independently audited. Not FIPS 140-3 validated. NIST ACVP results are conformance evidence, not a validation. JavaScript and
-WebAssembly runtimes give no constant-time guarantee. Do not protect real secrets with it until an independent review is published.
-See the [security model](/guide/security).
-:::

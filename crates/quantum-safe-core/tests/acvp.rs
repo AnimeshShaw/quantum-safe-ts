@@ -1,4 +1,4 @@
-//! NIST ACVP known-answer tests (conformance *evidence*, not a CAVP/CMVP validation).
+//! NIST ACVP known-answer tests.
 //!
 //! Runs the vectors that `scripts/fetch_acvp.py` caches from usnistgov/ACVP-Server (pinned
 //! commit, the same one quantum-safe-py pins) against ML-KEM, ML-DSA and SLH-DSA.

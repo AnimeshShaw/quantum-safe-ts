@@ -32,7 +32,7 @@ export function toText(report: ScanReport): string {
   for (const e of report.errors) lines.push(`warning: ${e}`);
   for (const n of report.notes) lines.push(`note: ${n}`);
   lines.push(
-    'Static analysis sees only what the source names; an empty result is not evidence of absence. This is an inventory, not a compliance verdict or a FIPS 140-3 validation.',
+    'Static analysis sees only what the source names; an empty result is not evidence of absence. This is an inventory, not a compliance verdict.',
   );
   return lines.join('\n');
 }
@@ -58,7 +58,7 @@ function secScore(s: Severity): string {
 }
 
 /** SARIF 2.1.0 for GitHub Code Scanning and other consumers. */
-export function toSarif(report: ScanReport, toolVersion = '0.1.0'): string {
+export function toSarif(report: ScanReport, toolVersion = '0.1.1'): string {
   const used = new Set(report.findings.map((f) => f.ruleId));
   const rules = RULES.filter((r) => used.has(r.id)).map((r) => ({
     id: r.id,

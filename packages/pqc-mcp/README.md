@@ -8,4 +8,4 @@ npx pqc-mcp
 
 It installs `quantum-safe-mcp` and runs its server unchanged (stdio). Tools, resources, client set-up for Claude Code, Claude Desktop and Cursor, and limits: see the [MCP server page](https://animeshshaw.github.io/quantum-safe-ts/tools/mcp) and the [`quantum-safe-mcp` README](https://github.com/AnimeshShaw/quantum-safe-ts/tree/master/packages/quantum-safe-mcp#readme).
 
-Pre-1.0 and not independently audited. Apache-2.0.
+Apache-2.0.

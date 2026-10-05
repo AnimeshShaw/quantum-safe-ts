@@ -3,11 +3,6 @@
 This page takes you from nothing to a working encrypt/decrypt and sign/verify in a few minutes, in whichever JavaScript environment you use.
 Every code block on this page is executed by the test suite, so what you read here runs.
 
-::: warning Pre-1.0
-quantum-safe-ts is experimental and has not been independently audited. Read the [security model](/guide/security) before you protect
-anything that matters with it.
-:::
-
 ## 1. Install
 
 ```bash

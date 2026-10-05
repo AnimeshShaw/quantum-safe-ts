@@ -8,4 +8,4 @@ npx pqc-audit scan .
 
 It installs `quantum-safe-audit` and runs its command unchanged. Documentation, options, rules and exit codes: see the [`quantum-safe-audit` README](https://github.com/AnimeshShaw/quantum-safe-ts/tree/master/packages/quantum-safe-audit#readme).
 
-Pre-1.0 and not independently audited. Apache-2.0.
+Apache-2.0.

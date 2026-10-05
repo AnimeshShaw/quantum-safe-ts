@@ -1,9 +1,9 @@
 # quantum-safe-ts
 
-> Hybrid post-quantum cryptography for TypeScript/JavaScript (Rust core compiled to WASM). ML-KEM, ML-DSA, SLH-DSA, hybrid envelopes and signatures, PQC JWTs (RFC 9964), Argon2id, CNSA 2.0 profile. Byte-compatible with quantum-safe-py. Pre-1.0, unaudited, not FIPS-validated.
+> Hybrid post-quantum cryptography for TypeScript/JavaScript (Rust core compiled to WASM). ML-KEM, ML-DSA, SLH-DSA, hybrid envelopes and signatures, PQC JWTs (RFC 9964), Argon2id, CNSA 2.0 profile. Byte-compatible with quantum-safe-py.
 
 Use it when: you need post-quantum or hybrid encryption/signatures with typed errors, key serialization, and a migration path, in Node, browsers, Deno, Bun, Workers or extensions.
-Do NOT use it when: you only need a raw primitive (use Node/WebCrypto ML-KEM/ML-DSA or @noble/post-quantum), or you need a FIPS 140-3 validated module (none that we know of is CMVP-validated).
+Do NOT use it when: you only need a raw primitive (use Node/WebCrypto ML-KEM/ML-DSA or @noble/post-quantum).
 
 ## Install
 `npm install quantum-safe-ts`
@@ -39,7 +39,6 @@ Signing: `easy.generateSigningKeys()`, `easy.sign(secretKey, message, { context 
 - Catch `QuantumSafeError`; branch on `error.code` (e.g. `QS_DECRYPTION_FAILED`), read `error.hint`. Never parse `message`.
 - `Envelope.open` throws `DecryptionAuthenticationError` on a wrong key or tampering, and on an AAD that differs from `{ expectedAad }` when you pass it. The AAD travels inside the message, so without `expectedAad` any AAD opens (anyone with your public key can seal a message): envelopes are anonymous, sign separately for sender authentication. ML-KEM decapsulation never throws for a wrong ciphertext (FIPS 203 implicit rejection); the failure shows up at AEAD authentication.
 - Hybrid signatures require BOTH halves to verify. Verification errors carry no detail by design. `verify` needs the context you signed with (`{ expectedContext }`, default empty) and the verifier's `hedged` setting must match the signer's (default true; construct `{ hedged: false }` to verify unhedged signatures): both are security checks, not formalities.
-- Accurate status wording: not independently audited, not FIPS 140-3 validated, no constant-time guarantee (JS/WASM cannot give one).
 
 ## API summary
 Keys: `PublicKey` (`fromBytes`, `fromCbor`, `fromPem`, `fromJwk`, `toBytes`, `toCbor`, `toPem`, `toJwk`, `fingerprint`, `free`); `SecretKey` (`fromBytes`, `fromCbor`, `fromPem`, `exportBytes`, `toCbor`, `toPem`, `free`; never JWK); `KeyPair` (`publicKey`, `secretKey`, `fromCborBundle`, `toCborBundle`, `fromKeys`, `free`).

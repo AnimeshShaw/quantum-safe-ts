@@ -1,11 +1,5 @@
 # Security model
 
-::: warning Status
-Pre-1.0 and experimental. Not independently audited and not FIPS 140-3 validated. The RustCrypto crates it builds on (`ml-kem`, `ml-dsa`,
-`slh-dsa`, `x-wing`) also state that they have not been independently audited. Do not protect real secrets with it until an independent
-review is published.
-:::
-
 The authoritative policy, including how to report a vulnerability privately, is
 [SECURITY.md](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/SECURITY.md). This page explains the model behind it: what is protected,
 from whom, what is not, and what to do about the gaps.
@@ -25,14 +19,13 @@ the published packages.
 
 ## What it does not defend against
 
-- **Side channels.** JavaScript and WebAssembly give no constant-time guarantee ([below](#timing-and-side-channels)).
+- **Side channels.** See [below](#timing-and-side-channels).
 - **Memory disclosure** of the JavaScript heap, swap, core dumps, browser extensions with page access, or a compromised runtime.
 - **Fault attacks.** Hedged signing mitigates some lattice fault attacks; it is not a general defence.
 - **Weak passwords.** Argon2id slows guessing; it cannot rescue a guessable password.
 - **Key management.** Storage, rotation, backup and access control are your responsibility ([Keys](/guide/keys)).
 - **Sender authentication by encryption.** Envelopes and streams are anonymous: anyone with your public key can encrypt to you. Sign what must be attributable.
 - **Replay.** A valid signed message or token is valid every time you see it. Put a nonce, id or expiry inside what is signed.
-- **Compliance.** Nothing here makes a system CNSA 2.0 or FIPS 140-3 compliant ([CNSA 2.0](/guide/standards)).
 
 ## Constructions to understand
 
@@ -90,9 +83,6 @@ reliably scrubbed.
 | Packed-tarball fixtures in 12 real toolchains | `tests/fixtures/` |
 | Reproducible-build check | `scripts/repro-check.mjs` |
 
-Conformance evidence is not validation. The reviews done so far were internal and AI-assisted; none of them is an independent audit and none
-should be described as one.
-
 ## Security history
 
 | Advisory | Affected | Fixed in | Summary |
@@ -105,11 +95,6 @@ not affect this library. Every public TypeScript verification path for the defau
 calls it) pins the prefix length to the verifier's hedging mode before it checks the signature, and that check was in the code before any release. The
 Rust core's own `verify` is permissive by design; use the core only through the TypeScript layer. If you run quantum-safe-py next to this library, use
 quantum-safe-py 0.3.2 or later.
-
-**Reviews so far were internal.** AI-assisted blind reviews with no project context found issues that were fixed and are listed in the
-[changelog](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/CHANGELOG.md). **The library has had no independent third-party review and is not
-validated under FIPS 140-3, CMVP or CAVP.** The independent review of the `-v2`, envelope and streaming formats is on the
-[roadmap](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/ROADMAP.md) and gates 1.0.
 
 ## Reporting a vulnerability
 
@@ -131,6 +116,6 @@ vulnerabilities in third-party dependencies that are not reachable through this 
 | 0.1.x (the latest release) | Yes |
 | Anything older than the latest release | **No. Upgrade.** |
 
-0.1.0 is the first release. While the project is pre-1.0, only the latest release receives security
+Only the latest release receives security
 fixes; the same applies to `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases. Pin an exact version in production and
 read the [changelog](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/CHANGELOG.md) before upgrading ([Upgrading](/guide/upgrading)).

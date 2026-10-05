@@ -13,7 +13,7 @@ identifiers never change: new capability arrives under a new, explicit identifie
 
 0.1.0 is the first release of `quantum-safe-audit`, `quantum-safe-ts`, `quantum-safe-mcp` and the short aliases `pqc-audit` and `pqc-mcp`, each
 published with npm provenance from a manually started workflow that waits for approval. The GitHub Action can be pinned as
-`AnimeshShaw/quantum-safe-ts@v0.1.0`.
+`AnimeshShaw/quantum-safe-ts@v0.1.1`.
 
 - Patch releases: documentation, bug fixes and dependency updates. A patch release never changes a wire format.
 - Switch npm publishing to trusted publishing (no stored token).
@@ -33,8 +33,6 @@ The theme is "make the safe thing the only thing", the same as in Python.
   quantum-safe-py 0.3.2's `Sign.sign_raw()` and `Sign.verify_raw()` for ML-DSA-44, 65 and 87 with empty, short and 255-byte contexts, in both
   directions. What is missing is a public API and a decision on keys (the TypeScript core signs from a 32-byte seed; liboqs uses an expanded secret key).
 - **Benchmarks and timing-leakage figures re-measured with raw samples published**, on more than one machine.
-- An **independent review** of the `-v2` signature format, the streaming construction and the envelope formats. This library says "not
-  independently reviewed" until that happens.
 
 ## Later (no release assigned)
 
@@ -60,15 +58,11 @@ The theme is "make the safe thing the only thing", the same as in Python.
 1.0 means the API and formats are stable and will not break without a major version. It will not be called 1.0 before:
 
 1. the 0.2.0 breaking changes have shipped and settled for at least one release cycle;
-2. the signature, envelope and streaming formats have had an independent cryptographic review;
-3. the benchmarks and timing figures are re-measured and reproducible from published data;
-4. the documentation and quantum-safe-py are in step, with the interop vectors passing in both directions on every release.
+2. the benchmarks and timing figures are re-measured and reproducible from published data;
+3. the documentation and quantum-safe-py are in step, with the interop vectors passing in both directions on every release.
 
 ## What this library will not become
 
-- **A FIPS 140-3 validated module.** It is pure Rust compiled to WebAssembly and says so; validation is a property of a module and a laboratory,
-  not of an npm package. ACVP test vectors are run against the primitives as a correctness check, which is not a validation.
-- **A claim of constant-time execution.** JavaScript and WebAssembly cannot promise it. The timing screens run on this library are screens for gross dependence, not proofs.
 - **A TLS stack.** It helps build hybrid protocols; it does not implement TLS.
 - **An application, a vault or a key-management service.** It is a library.
 

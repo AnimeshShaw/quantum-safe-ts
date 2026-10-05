@@ -10,7 +10,7 @@ use something. It is the answer the maintainers would give you in person.
 | Encrypt data to someone's public key | `Envelope.seal` with a hybrid key (`HybridKEM`, default `X25519+ML-KEM-768`) | `HybridKEM.encapsulate` plus your own AES code |
 | Encrypt under the CNSA 2.0 parameter sets | `Envelope.seal` with a pure `ML-KEM-1024` key (envelope v2) via `cnsa2.kem()` | A hybrid key (reported `partial`); `ML-KEM-768` |
 | Encrypt data that other ecosystems (not Python) must decrypt | `X-Wing` | The default hybrid (it is its own construction: only Python and this library read it) |
-| Encrypt a large file or an upload | `sealStream` / `openStream` (experimental) | `Envelope.seal` on a multi-gigabyte buffer |
+| Encrypt a large file or an upload | `sealStream` / `openStream` | `Envelope.seal` on a multi-gigabyte buffer |
 | Sign data that only quantum-safe libraries verify | `HybridSign` with a `context` | A signature without a context |
 | Sign data that other ecosystems must verify | `Sign('ML-DSA-65-v2')` or `HybridSign('Ed25519+ML-DSA-65-v2')` | The default format (a generic ML-DSA library cannot verify it) |
 | Issue tokens your own services verify | `JWTSigner` / `JWTVerifier` | Hand-built tokens |
@@ -156,17 +156,9 @@ with `compareAndSet` whenever more than one process shares it ([Migration](/guid
 
 ## When this library is not the right tool
 
-Being straightforward about limits is part of being safe to adopt.
-
-- **You need a validated module.** It is not FIPS 140-3 validated and is not a CAVP or CMVP result. The ACVP known-answer tests it passes are
-  evidence, not validation. If a procurement rule needs a certificate, use a validated module.
 - **You need stateful hash-based signing** (LMS or XMSS, for firmware signing under CNSA 2.0). Only LMS *verification* is provided. Signing
   needs durable state and is deliberately left out.
-- **You need constant-time guarantees.** JavaScript and WebAssembly runtimes give none ([security model](/guide/security)). Use a native
-  implementation in a hardened environment if a local timing attacker is in your threat model.
 - **You need to run on constrained or embedded devices.** The WebAssembly is about 410 KiB gzipped. Use liboqs, mlkem-native or a vendor SDK
   there.
-- **You need a formally verified implementation.** It builds on RustCrypto crates that state they are not independently audited, and nobody
-  has audited this layer yet.
 - **You only need a primitive** and the platform already has it (recent Node.js and some browsers expose ML-KEM and ML-DSA in WebCrypto). A
   smaller dependency is better; see [Which library should I use?](/compare).

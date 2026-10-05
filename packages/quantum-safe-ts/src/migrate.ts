@@ -1,6 +1,6 @@
 /**
  * Migration helpers, mirroring `quantum_safe.migrate` in quantum-safe-py: upgrade an existing classical key to a hybrid key, and track
- * migration progress with an audited state machine over a storage backend you provide.
+ * migration progress with a tested state machine over a storage backend you provide.
  *
  * What these do **not** do: find classical cryptography in your code (use `quantum-safe-audit`), re-encrypt stored data, or provide
  * distributed locking. The state manager serialises transitions per key **within one process**; across processes you must either supply a

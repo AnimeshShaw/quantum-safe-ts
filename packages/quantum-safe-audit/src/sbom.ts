@@ -36,12 +36,12 @@ const classical = (what: string): Entry => ({
 const pq = (reason: string): Entry => ({ readiness: 'READY', reason, action: 'No action required for the library itself. Review how your code uses it.' });
 
 const KNOWLEDGE: Readonly<Record<string, Entry>> = {
-  'quantum-safe-ts': pq('Provides ML-KEM, ML-DSA, SLH-DSA, hybrids and migration tooling. Pre-1.0, not independently audited, not FIPS validated.'),
-  '@noble/post-quantum': pq('Provides ML-KEM, ML-DSA, SLH-DSA and hybrids. Not independently audited per its own documentation.'),
+  'quantum-safe-ts': pq('Provides ML-KEM, ML-DSA, SLH-DSA, hybrids and migration tooling.'),
+  '@noble/post-quantum': pq('Provides ML-KEM, ML-DSA, SLH-DSA and hybrids.'),
   mlkem: pq('Provides ML-KEM (FIPS 203) only.'),
   'crystals-kyber-js': pq('Provides ML-KEM (FIPS 203) only.'),
   '@hpke/hybridkem-x-wing': pq('Provides the X-Wing hybrid KEM for HPKE.'),
-  '@oqs/liboqs-js': pq('WebAssembly bindings to liboqs. Its documentation says it is for research and prototyping, not an official OQS product, and unaudited.'),
+  '@oqs/liboqs-js': pq('WebAssembly bindings to liboqs. Its documentation says it is for research and prototyping and not an official OQS product.'),
   'pqc-kyber': {
     readiness: 'PARTIAL',
     reason: 'Implements the pre-standard Kyber, not FIPS 203 ML-KEM, and appears unmaintained.',

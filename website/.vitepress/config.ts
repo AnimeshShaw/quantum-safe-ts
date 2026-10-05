@@ -81,7 +81,7 @@ export default defineConfig({
     },
     socialLinks: [{ icon: 'github', link: 'https://github.com/AnimeshShaw/quantum-safe-ts' }],
     footer: {
-      message: 'Apache-2.0. Pre-1.0 and experimental: not independently audited, not FIPS validated.',
+      message: 'Apache-2.0.',
     },
   },
 });
