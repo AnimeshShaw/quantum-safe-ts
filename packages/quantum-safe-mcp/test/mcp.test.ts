@@ -150,7 +150,10 @@ describe('knowledge tools', () => {
     expect(cnsa.caveats.join(' ')).toContain("CNSA 2.0 FAQ says hybrids are not required");
     expect(recommend('encrypt-data', false, 'other-ecosystems').algorithm).toBe('X-Wing');
     expect(recommend('encrypt-data', true, 'other-ecosystems').algorithm).toBe('ML-KEM-1024'); // CNSA wins over X-Wing
-    expect(recommend('sign-data', true, 'none').algorithm).toBe('Ed25519+ML-DSA-87');
+    expect(recommend('sign-data', true, 'none').algorithm).toBe('ML-DSA-87'); // pure: a hybrid is only partial under CNSA 2.0
+    expect(recommend('sign-data', true, 'none').code).toContain("new Sign('ML-DSA-87')");
+    expect(recommend('sign-data', false, 'none').code).toContain('expectedContext'); // the snippet must verify what it signs
+    expect(recommend('sign-data', false, 'other-ecosystems').algorithm).toBe('ML-DSA-65-v2');
     expect(recommend('jwt', false, 'none').algorithm).toBe('ML-DSA-65');
   });
   it('explain_error knows every library error code', async () => {

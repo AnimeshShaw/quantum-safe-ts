@@ -38,7 +38,7 @@ pub const MAX_PAYLOAD_BYTES: usize = 10 * 1024 * 1024;
 
 pub const DEFAULT_HYBRID_SIG: &str = "Ed25519+ML-DSA-65";
 pub const DEFAULT_SIG: &str = "ML-DSA-65";
-/// CNSA 2.0 signature suite (ML-DSA-87).
+/// The hybrid at CNSA 2.0's ML-DSA parameter set, kept for quantum-safe-py compatibility. CNSA 2.0 does not prescribe hybrids; pure `ML-DSA-87` is the compliant choice.
 pub const CNSA2_SIG: &str = "Ed25519+ML-DSA-87";
 
 #[derive(Debug, Error, PartialEq, Eq)]

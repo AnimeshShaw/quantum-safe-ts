@@ -41,7 +41,7 @@ pub struct NistLevel(pub u8);
 
 /// Default hybrid suite name (quantum-safe-py default).
 pub const DEFAULT_KEM: &str = "X25519+ML-KEM-768";
-/// CNSA 2.0 key-establishment hybrid suite (ML-KEM-1024).
+/// The hybrid at CNSA 2.0's ML-KEM parameter set, kept for quantum-safe-py compatibility. CNSA 2.0 does not prescribe hybrids (NSA's FAQ); pure `ML-KEM-1024` is the compliant choice.
 pub const CNSA2_KEM: &str = "X25519+ML-KEM-1024";
 pub const XWING_NAME: &str = "X-Wing";
 

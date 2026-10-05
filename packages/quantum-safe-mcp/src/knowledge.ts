@@ -30,7 +30,9 @@ export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Inte
   const kemName = requireCnsa2 ? 'ML-KEM-1024' : interop === 'other-ecosystems' ? 'X-Wing' : 'X25519+ML-KEM-768';
   const kemCtor = requireCnsa2 ? 'new KEM' : 'new HybridKEM';
   const kemImport = requireCnsa2 ? 'KEM' : 'HybridKEM';
-  const sigName = requireCnsa2 ? 'Ed25519+ML-DSA-87' : 'Ed25519+ML-DSA-65';
+  // Signatures: pure ML-DSA-87 under CNSA 2.0 (a hybrid is only `partial`); for other ecosystems the clean -v2 format; otherwise the default hybrid.
+  const sigName = requireCnsa2 ? 'ML-DSA-87' : interop === 'other-ecosystems' ? 'ML-DSA-65-v2' : 'Ed25519+ML-DSA-65';
+  const sigCls = sigName.includes('+') ? 'HybridSign' : 'Sign';
   const cnsaCaveats = requireCnsa2
     ? [
         'CNSA 2.0 parameter sets are selected (pure ML-KEM-1024, ML-DSA-87), but compliance for National Security Systems runs through FIPS 140-3 validated modules, which this library is not.',
@@ -84,18 +86,25 @@ const sessionKey = sharedSecret.deriveKey(32, utf8('myapp-session-v1'));`,
     case 'sign-data':
       return {
         ...base,
-        summary: 'Sign with a hybrid classical + post-quantum signature; both halves must verify.',
+        summary: requireCnsa2
+          ? 'Sign with pure ML-DSA-87, the CNSA 2.0 signature parameter set.'
+          : interop === 'other-ecosystems'
+            ? 'Sign with the clean -v2 format, whose ML-DSA half is plain FIPS 204 with a native context.'
+            : 'Sign with a hybrid classical + post-quantum signature; both halves must verify.',
         algorithm: sigName,
-        api: 'HybridSign.sign / verify',
-        code: `import { HybridSign, utf8 } from 'quantum-safe-ts';
-const signer = new HybridSign('${sigName}');
+        api: `${sigCls}.sign / verify`,
+        code: `import { ${sigCls}, utf8 } from 'quantum-safe-ts';
+const signer = new ${sigCls}('${sigName}');
 using pair = signer.generateKeyPair();
 const signed = signer.sign(message, pair.secretKey, { context: utf8('myapp-v1-docs') });
-signer.verify(signed, pair.publicKey); // throws VerificationError on failure`,
+signer.verify(signed, pair.publicKey, { expectedContext: utf8('myapp-v1-docs') }); // throws VerificationError on failure`,
         compatibility:
-          'quantum-safe-py-compatible construction (a message prefix, not FIPS 204 native context). Third-party ML-DSA libraries cannot verify it unless they rebuild len(ctx)||ctx||prefix||message.',
+          interop === 'other-ecosystems'
+            ? 'The -v2 ML-DSA half is plain FIPS 204 ML-DSA with context quantum-safe-sig-v2 over M2 = len(algo)||algo||len(ctx)||ctx||message, so a third-party FIPS 204 library can verify it given M2. quantum-safe-py 0.3.1 and later reads it too; 0.3.0 does not.'
+            : 'Default format: byte-compatible with every quantum-safe-py version (a message prefix with an empty FIPS 204 context); third-party ML-DSA libraries cannot verify it. The -v2 format (for example Ed25519+ML-DSA-65-v2) is cleaner and is read by quantum-safe-py 0.3.1 and later. Never use one key in both formats.',
         alternatives: [
-          'For signatures other ecosystems must verify, use StandardJwt (RFC 9964) or sign with a standard ML-DSA library directly.',
+          'Always sign with a context and verify with expectedContext: a signature without one is valid for any purpose of the key.',
+          'For signatures other ecosystems must verify, use StandardJwt (RFC 9964) or the -v2 format with their FIPS 204 library.',
         ],
       };
     case 'jwt':
@@ -167,7 +176,7 @@ export function findError(query: string): ErrorInfo | undefined {
 
 export const LLMS_TXT = `quantum-safe-ts: hybrid post-quantum cryptography for TypeScript/JavaScript (Rust core compiled to WASM).
 Install: npm install quantum-safe-ts. Outside Node.js call await init() first.
-Defaults: X25519+ML-KEM-768 (HybridKEM), Ed25519+ML-DSA-65 (HybridSign). CNSA 2.0 needs pure ML-KEM-1024 (cnsa2.kem(); Envelope v2 uses HKDF-SHA-384) and ML-DSA-87 (cnsa2.hybridSign()).
+Defaults: X25519+ML-KEM-768 (HybridKEM), Ed25519+ML-DSA-65 (HybridSign). CNSA 2.0 needs pure ML-KEM-1024 (cnsa2.kem(); Envelope v2 uses HKDF-SHA-384) and ML-DSA-87 (new Sign('ML-DSA-87')); hybrids are reported partial.
 Envelope.seal(plaintext, publicKey, {aad}) / Envelope.open(sealed, secretKey). StandardJwt for RFC 9964 tokens. deriveMasterKey for Argon2id.
 Pre-1.0, unaudited, not FIPS-validated, no constant-time guarantee in JS/WASM.
 Docs: https://github.com/AnimeshShaw/quantum-safe-ts`;

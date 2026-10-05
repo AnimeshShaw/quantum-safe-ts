@@ -12,8 +12,8 @@ export type KemAlgorithm =
   | 'ML-KEM-768'
   | 'ML-KEM-1024';
 
-/** Base names of the signature suites that also exist in format v2. */
-type V2Base =
+/** Base names of the signature suites that also exist in format v2 (the `-v2` identifiers append the suffix to these). */
+export type V2Base =
   | 'Ed25519+ML-DSA-44'
   | 'Ed25519+ML-DSA-65'
   | 'Ed25519+ML-DSA-87'

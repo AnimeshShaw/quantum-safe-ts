@@ -148,7 +148,8 @@ export class StreamOpener implements Disposable {
 /** The slice of the WebAssembly `StreamCipher` class used here. */
 type WasmStreamCipher = ReturnType<typeof makeSealer>['cipher'];
 
-type ByteSource = AsyncIterable<Uint8Array> | Iterable<Uint8Array>;
+/** What `sealStream` and `openStream` read from: any async or sync iterable of byte arrays (Node.js streams, web `ReadableStream`s, generators, arrays). */
+export type ByteSource = AsyncIterable<Uint8Array> | Iterable<Uint8Array>;
 
 /** Accumulates byte pieces and hands out exact-length slices without repeatedly copying the whole buffer. */
 class ByteQueue {

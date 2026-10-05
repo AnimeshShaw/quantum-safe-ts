@@ -56,7 +56,7 @@ export const RULES: readonly Rule[] = [
     description:
       "RSA is broken by Shor's algorithm on a cryptographically relevant quantum computer. Data encrypted or signed under RSA today can be harvested now and attacked later.",
     replacement:
-      'Encryption/key transport: HybridKEM + Envelope (X25519+ML-KEM-768; CNSA 2.0: X25519+ML-KEM-1024). Signatures: HybridSign (Ed25519+ML-DSA-65; CNSA 2.0: ML-DSA-87).',
+      'Encryption/key transport: HybridKEM + Envelope (X25519+ML-KEM-768; CNSA 2.0: pure ML-KEM-1024 via cnsa2.kem()). Signatures: HybridSign (Ed25519+ML-DSA-65; CNSA 2.0: pure ML-DSA-87).',
     example:
       "import { HybridKEM, Envelope, utf8 } from 'quantum-safe-ts';\nconst kem = new HybridKEM();\nconst pair = kem.generateKeyPair();\nconst sealed = Envelope.seal(utf8('data'), pair.publicKey);",
     references: [NIST_IR_8547, CNSA2],
@@ -72,7 +72,7 @@ export const RULES: readonly Rule[] = [
     quantumLevel: 0,
     quantumVulnerable: true,
     description: 'RSA signatures (PKCS#1 v1.5 / RSA-SHA*) are quantum-vulnerable.',
-    replacement: 'HybridSign (Ed25519+ML-DSA-65; CNSA 2.0: Ed25519+ML-DSA-87), or StandardJwt for JOSE interoperability.',
+    replacement: 'HybridSign (Ed25519+ML-DSA-65; CNSA 2.0: pure ML-DSA-87), or StandardJwt for JOSE interoperability.',
     example: "import { HybridSign, utf8 } from 'quantum-safe-ts';\nconst signer = new HybridSign();\nconst pair = signer.generateKeyPair();\nconst sm = signer.sign(utf8('doc'), pair.secretKey, { context: utf8('app-v1') });",
     references: [NIST_IR_8547, CNSA2],
   },
@@ -117,7 +117,7 @@ export const RULES: readonly Rule[] = [
     quantumLevel: 0,
     quantumVulnerable: true,
     description: 'ECDH and X25519/X448 key agreement are broken by a quantum computer, and are exposed to harvest-now-decrypt-later.',
-    replacement: 'HybridKEM (X25519+ML-KEM-768; CNSA 2.0: X25519+ML-KEM-1024). Keeps the classical component for defence in depth.',
+    replacement: 'HybridKEM (X25519+ML-KEM-768; CNSA 2.0: pure ML-KEM-1024 via cnsa2.kem(), as NSA does not require hybrids). Keeps the classical component for defence in depth.',
     example: "import { HybridKEM } from 'quantum-safe-ts';\nconst kem = new HybridKEM();\nconst { ciphertext, sharedSecret } = kem.encapsulate(peerPublicKey);",
     references: [NIST_IR_8547, CNSA2],
   },

@@ -10,7 +10,7 @@ export {
   sigSuites,
   coreVersion,
 } from './algorithms.js';
-export type { KemAlgorithm, SignatureAlgorithm, SignatureAlgorithmV2, MigrationState, SuiteInfo } from './algorithms.js';
+export type { KemAlgorithm, SignatureAlgorithm, SignatureAlgorithmV2, V2Base, MigrationState, SuiteInfo } from './algorithms.js';
 export { PublicKey, SecretKey, KeyPair, SecretBytes, SharedSecret } from './keys.js';
 export { HybridKEM, KEM } from './kem.js';
 export type { Encapsulation } from './kem.js';
@@ -19,7 +19,7 @@ export type { SealOptions, SealedInfo } from './envelope.js';
 export { Sign, HybridSign, SignedMessage } from './signatures.js';
 export type { SignOptions, SignedInfo } from './signatures.js';
 export { sealStream, openStream, sealBytes, openBytes, StreamSealer, StreamOpener, inspectStreamHeader, DEFAULT_STREAM_CHUNK_SIZE } from './stream.js';
-export type { SealStreamOptions, OpenStreamOptions, StreamHeaderInfo } from './stream.js';
+export type { SealStreamOptions, OpenStreamOptions, StreamHeaderInfo, ByteSource } from './stream.js';
 export { deriveMasterKey } from './kdf.js';
 export { Lms } from './lms.js';
 export type { HssPublicKeyInfo } from './lms.js';
