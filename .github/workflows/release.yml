@@ -64,7 +64,13 @@ jobs:
         run: |
           # The MCP package's lockfile pins the local file: dependency, which prepare-release.mjs replaced with a version range.
           # The alias packages have no lockfile and depend on already-published packages.
-          if [ "$PACKAGE" = "quantum-safe-mcp" ] || [ "$PACKAGE" = "pqc-audit" ] || [ "$PACKAGE" = "pqc-mcp" ]; then npm install --ignore-scripts; else npm ci --ignore-scripts; fi
+          if [ "$PACKAGE" = "quantum-safe-mcp" ]; then
+            # The lockfile still records the dependency as a link to ../quantum-safe-audit (an unbuilt folder in this job), so npm would keep
+            # the link instead of the published package. Drop it: the registry version of quantum-safe-audit is what gets installed.
+            rm -f package-lock.json
+            npm install --ignore-scripts
+          elif [ "$PACKAGE" = "pqc-audit" ] || [ "$PACKAGE" = "pqc-mcp" ]; then npm install --ignore-scripts
+          else npm ci --ignore-scripts; fi
           npm run build
           npm test
       - name: Pack once; this exact file is what gets published
