@@ -16,8 +16,6 @@ ML-KEM · ML-DSA · SLH-DSA · hybrid envelopes and signatures · PQC JWTs · mi
 [![NIST ACVP: 1,317 cases](https://img.shields.io/badge/NIST_ACVP-1%2C317_cases_pass-informational.svg)](#evidence-and-how-to-reproduce-it)
 [![Byte-compatible with quantum-safe-py 0.3.2+](https://img.shields.io/badge/quantum--safe--py-0.3.2%2B_byte--compatible-green.svg)](COMPATIBILITY.md)
 ![Runs on: Node, browsers, Deno, Bun, Workers](https://img.shields.io/badge/runs_on-Node_%C2%B7_browsers_%C2%B7_Deno_%C2%B7_Bun_%C2%B7_Workers-lightgrey.svg)
-[![FIPS 140-3: not validated](https://img.shields.io/badge/FIPS_140--3-not_validated-lightgrey.svg)](SECURITY.md)
-[![Security audit: none yet](https://img.shields.io/badge/security_audit-none_yet-red.svg)](SECURITY.md)
 [![Status: pre-1.0 experimental](https://img.shields.io/badge/status-pre--1.0_experimental-orange.svg)](ROADMAP.md)
 [![Roadmap: 0.1.0](https://img.shields.io/badge/roadmap-0.1.0-blue.svg)](ROADMAP.md)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23160434.svg)](https://doi.org/10.5281/zenodo.23160434)
