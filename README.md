@@ -147,7 +147,7 @@ Secret keys live in WASM memory; the owned secret buffers are zeroized on `.free
 
 ## Contributing, support, security
 
-[CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [ROADMAP.md](ROADMAP.md). Report vulnerabilities
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [ROADMAP.md](ROADMAP.md) · [REVIEW_WANTED.md](REVIEW_WANTED.md) (what needs an independent cryptographic review). Report vulnerabilities
 privately through GitHub Security Advisories or by email, as described in [SECURITY.md](SECURITY.md) (which also has the supported versions). Cite it with [CITATION.cff](CITATION.cff) or the Zenodo record, [10.5281/zenodo.23160434](https://doi.org/10.5281/zenodo.23160434) (this DOI always resolves to the latest release; each release also has its own version DOI).
 
 ## License

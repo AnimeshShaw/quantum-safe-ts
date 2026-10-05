@@ -58,8 +58,9 @@ The theme is "make the safe thing the only thing", the same as in Python.
 1.0 means the API and formats are stable and will not break without a major version. It will not be called 1.0 before:
 
 1. the 0.2.0 breaking changes have shipped and settled for at least one release cycle;
-2. the benchmarks and timing figures are re-measured and reproducible from published data;
-3. the documentation and quantum-safe-py are in step, with the interop vectors passing in both directions on every release.
+2. the constructions listed in [REVIEW_WANTED.md](REVIEW_WANTED.md) (the `-v2` format, the streaming envelope, the hybrid combiner and the envelope first) have had an independent cryptographic review;
+3. the benchmarks and timing figures are re-measured and reproducible from published data;
+4. the documentation and quantum-safe-py are in step, with the interop vectors passing in both directions on every release.
 
 ## What this library will not become
 
