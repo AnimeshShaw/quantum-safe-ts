@@ -56,8 +56,8 @@ if (sessionKey.length !== 32) throw new Error('unexpected');
 | `X-Wing` | A widely implemented hybrid KEM specified in an individual Internet-Draft (`draft-connolly-cfrg-xwing-kem`; not an RFC). Use it for data other ecosystems must read; pass `'X-Wing'` to `easy.generateEncryptionKeys` or `new HybridKEM('X-Wing')`. |
 | `ML-KEM-512/768/1024` (pure) | Not recommended for new deployments except `ML-KEM-1024` in the [CNSA 2.0 profile](/guide/standards). |
 
-Envelopes need a hybrid key, except pure `ML-KEM-1024`, which produces an envelope v2 (HKDF-SHA-384; TypeScript only, not readable by
-quantum-safe-py).
+Envelopes need a hybrid key, except pure `ML-KEM-1024`, which produces an envelope v2 (HKDF-SHA-384; quantum-safe-py 0.3.1 and later reads and
+writes it too, byte for byte).
 
 ## Be aware
 

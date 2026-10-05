@@ -31,10 +31,10 @@ cnsa2.enforce({ kem: kem.algorithm, signature: 'ML-DSA-87' }, { strict: true });
 CNSA 2.0 requires ML-KEM-1024, ML-DSA-87, AES-256, SHA-384 or SHA-512, and LMS or XMSS for software and firmware signing. Picking the
 parameter sets is necessary and **not sufficient**. Known gaps, reported by `cnsa2.report()`:
 
-1. A CNSA 2.0 hybrid needs a CNSA 1.0 classical half (ECDH P-384), which is not implemented, so `X25519+ML-KEM-1024` reports `partial`.
-   Hybrid is optional under CNSA 2.0, and pure ML-KEM-1024 satisfies the key-establishment requirement (NSA CNSA 2.0 FAQ, sourced).
+1. A hybrid is outside what CNSA 2.0 prescribes, so `X25519+ML-KEM-1024` reports `partial`. NSA's CNSA 2.0 FAQ (Dec 2024, Ver. 2.1) says hybrid products are not required and a hybrid should not be used on NSS mission systems except for exceptions NSA specifically recommends (it names IKEv2). Pure ML-KEM-1024 satisfies the
+   key-establishment requirement. quantum-safe-py (0.3.1+) reports hybrids the same way.
 2. The quantum-safe-py-compatible combiner and envelope v1 use HKDF-SHA-256, below the SHA-384/512 requirement. Envelope v2 uses HKDF-SHA-384
-   (verified against independent HKDF and AES-GCM implementations).
+   (verified against independent HKDF and AES-GCM implementations, and against quantum-safe-py 0.3.1+ in both directions).
 3. LMS is verification-only and XMSS is absent.
 4. Compliance for National Security Systems runs through FIPS 140-3 validated modules. This library is not one.
 

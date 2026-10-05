@@ -44,7 +44,7 @@ if (!pure.isValid(pure.sign(utf8('x'), p2.secretKey), p2.publicKey)) throw new E
 | `SLH-DSA-*` (12 parameter sets) | FIPS 205, hash-based. Large signatures, conservative assumptions. |
 | LMS / HSS | **Verification only** (`Lms`), per RFC 8554. Signing needs durable state and is intentionally not provided. |
 
-## Format v2 (`-v2`): the cleaner format, TypeScript only
+## Format v2 (`-v2`): the cleaner format
 
 Every ML-DSA and hybrid suite also exists as `<name>-v2` (`ML-DSA-65-v2`, `Ed25519+ML-DSA-65-v2`, ...). It removes the structure that makes the quantum-safe-py construction delicate:
 
@@ -67,7 +67,7 @@ try { signer.verify(signed, pair.publicKey); } catch (e) { rejected = e instance
 if (!rejected) throw new Error('context must be enforced');
 ```
 
-quantum-safe-py cannot read v2. It has no SLH-DSA v2. Use v1 when Python must verify; use v2 otherwise. `JWTSigner`/`JWTVerifier` accept v2 keys too.
+quantum-safe-py 0.3.1 and later reads and writes v2 (all eight identifiers are verified in both directions); 0.3.0 cannot read it and fails closed on the identifier. There is no SLH-DSA v2. Use v1 when a quantum-safe-py older than 0.3.1 must verify; use v2 otherwise. `JWTSigner`/`JWTVerifier` accept v2 keys too.
 
 ## Compatibility note
 

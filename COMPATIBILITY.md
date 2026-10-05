@@ -3,7 +3,7 @@
 `quantum-safe-ts` is the TypeScript/WASM sibling of
 [quantum-safe-py](https://github.com/AnimeshShaw/quantum-safe-py). The goal is **byte-for-byte wire compatibility** for every persisted or
 transmitted format, proven by shared fixtures, not assumed. This page is the source of truth for what is compatible, what is not, and why.
-Status reflects **quantum-safe-ts 0.1.0** and **quantum-safe-py 0.3.0**, as of 2026-10-03.
+Status reflects **quantum-safe-ts 0.1.0** and **quantum-safe-py 0.3.0** (original release) and **0.3.1** (adds the formats marked below), as of 2026-10-05.
 
 > Pre-1.0, experimental, not independently audited. Conformance evidence is not a CAVP/CMVP validation.
 
@@ -13,7 +13,7 @@ Status reflects **quantum-safe-ts 0.1.0** and **quantum-safe-py 0.3.0**, as of 2
 |---|---|
 | **DONE** | Implemented; a committed fixture proves it in CI against the real quantum-safe-py, through the WASM artifact |
 | **N/A** | Cannot or should not be ported; reason given |
-| **NEW** | Exists only in quantum-safe-ts (additive; never alters a py-compatible byte) |
+| **NEW** | Added by quantum-safe-ts (additive; never alters a py-compatible byte). Some, marked, are also in quantum-safe-py 0.3.1+ |
 | **PARTIAL** | Some of the feature exists; the gap is stated |
 
 ## 1. Parity matrix
@@ -76,8 +76,8 @@ Status reflects **quantum-safe-ts 0.1.0** and **quantum-safe-py 0.3.0**, as of 2
 | 32 | `ctypes.memset` zeroization | **N/A → replaced** | Rust `zeroize` + explicit `.free()` / `using`. JS-heap copies cannot be wiped; documented. |
 | 33 | Pluggable backends | **N/A → reframed** | One WASM backend, verified by tests; native WebCrypto is used only as a test oracle (a native provider was evaluated and not built: with the speed-optimised build the WebAssembly code is within about 2x of Node's native ML-KEM). |
 | 34 | CMVP / FIPS 140-3 validation | **N/A** | Neither library can claim it. |
-| 35 | Signature format `-v2` (`<suite>-v2`) | **TS-only, additive** | New identifiers; quantum-safe-py cannot read them and fails closed on the unknown name. No prefix, ML-DSA half = FIPS 204 with context `quantum-safe-sig-v2` over `M2`, keys tagged `-v2`. See `website/guide/signatures.md`; tests in `signature-v2.test.ts` and `sig/v2.rs`. |
-| 36 | Streaming envelope (format v3) | **TS-only, additive, experimental** | `sealStream`/`openStream`; STREAM construction over AES-256-GCM; layout and key derivation in `crates/quantum-safe-core/src/stream.rs`; independent sender/receiver tests in `stream.test.ts`. quantum-safe-py cannot read it. |
+| 35 | Signature format `-v2` (`<suite>-v2`) | **Additive; also in quantum-safe-py 0.3.1+** | New identifiers; quantum-safe-py 0.3.0 cannot read them and fails closed on the unknown name; 0.3.1 and later reads and writes them (all eight identifiers verified in both directions). No prefix, ML-DSA half = FIPS 204 with context `quantum-safe-sig-v2` over `M2`, keys tagged `-v2`. See `website/guide/signatures.md`; tests in `signature-v2.test.ts` and `sig/v2.rs`. |
+| 36 | Streaming envelope (format v3) | **TS-only, additive, experimental** | `sealStream`/`openStream`; STREAM construction over AES-256-GCM; layout and key derivation in `crates/quantum-safe-core/src/stream.rs`; independent sender/receiver tests in `stream.test.ts`. quantum-safe-py cannot read it (it has no streaming format). |
 
 ### Known quirks reproduced for parity (not endorsements)
 
@@ -85,13 +85,13 @@ Status reflects **quantum-safe-ts 0.1.0** and **quantum-safe-py 0.3.0**, as of 2
 - **Stricter than py on input (every key py writes still loads):** a key CBOR must carry `ktype` (`pub` or `sec`; py accepts an absent one as either type, and both libraries always write it); a public key must have the exact length for its algorithm; a JWK must have `kty: "AKP"` (py ignores `kty`); a hybrid signature payload must have exactly its four entries; CBOR integers and lengths must be in shortest form. These checks refuse inputs py would accept, never the reverse.
 - The signature prefix-length ambiguity and its mitigation (see SECURITY.md): TypeScript verifiers pin the prefix length per hedging mode, so signatures made with hedging disabled need a verifier created with `hedged: false`.
 
-## 2. TypeScript-only additions (never alter a py-compatible byte)
+## 2. Additions beyond quantum-safe-py 0.3.0 (never alter a py-compatible byte)
 
 | Addition | Why |
 |---|---|
 | `X-Wing` KEM suite | py's combiner is bespoke (§3). X-Wing (an individual Internet-Draft, not an RFC) is tested against `@noble/post-quantum`'s `ml_kem768_x25519`, is built on the RustCrypto `x-wing` crate, has not been tested against hpke-js, and is mentioned as an example in NIST SP 800-227. |
-| `StandardJwt` (RFC 9964: ML-DSA JOSE, `AKP` JWK) | Verifiable by any compliant JOSE implementation (checked against noble and Node WebCrypto). |
-| Envelope **v2** (pure ML-KEM-1024 + HKDF-SHA-384 + AES-256-GCM) | The CNSA 2.0 profile; py's HKDF-SHA-256 combiner cannot meet CNSA's SHA-384/512 requirement. |
+| `StandardJwt` (RFC 9964: ML-DSA JOSE, `AKP` JWK) | Verifiable by any compliant JOSE implementation (checked against noble and Node WebCrypto). Tokens and public JWKs are also read and written by quantum-safe-py 0.3.1+. |
+| Envelope **v2** (pure ML-KEM-1024 + HKDF-SHA-384 + AES-256-GCM) | The CNSA 2.0 profile; py's HKDF-SHA-256 combiner cannot meet CNSA's SHA-384/512 requirement. quantum-safe-py 0.3.1+ reads and writes it. |
 | 9 additional SLH-DSA parameter sets | FIPS 205 completeness (py's high-level API accepts three). |
 | Argon2id `deriveMasterKey` | py has no master-password concept. Matches Node WebCrypto Argon2id. |
 | `Lms.verify` | CNSA 2.0 code-signing verification. |
@@ -109,8 +109,9 @@ X-Wing, **not** RFC 10024's `X25519MLKEM768`, and **not** FIPS 204's native cont
 - py's ML-DSA signatures verify under plain FIPS 204 **only with an empty context and the prefixed message** (`len(ctx) ‖ ctx ‖ prefix ‖
   message`), which a generic verifier must be told to reconstruct (verified with noble in `differential.test.ts`).
 - Where other ecosystems must read your data, use the **NEW** standards options (`X-Wing`, `StandardJwt`).
-- **CNSA 2.0:** py reports `X25519+ML-KEM-1024` compliant. Per the NSA CNSA 2.0 FAQ, hybrid is optional and the classical half of a hybrid
-  must be CNSA 1.0 (ECDH P-384). TypeScript therefore reports that hybrid `partial` and treats pure `ML-KEM-1024` as the compliant choice.
+- **CNSA 2.0:** quantum-safe-py 0.3.0 reported `X25519+ML-KEM-1024` compliant. NSA's CNSA 2.0 FAQ (Dec 2024, Ver. 2.1) says hybrid products are
+  not required and should not be used on NSS mission systems except NSA-specified exceptions (it names IKEv2). Both libraries (quantum-safe-py
+  0.3.1+) therefore report every hybrid `partial` and treat pure `ML-KEM-1024` / `ML-DSA-87` as the compliant choice.
   Details and sources: the "CNSA 2.0 and standards alignment" page of the documentation site (`website/guide/standards.md`).
 
 ## 4. How parity is proven

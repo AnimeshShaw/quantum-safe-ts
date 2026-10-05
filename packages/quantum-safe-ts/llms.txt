@@ -28,8 +28,8 @@ const plain = easy.decrypt(secretKey, sealed);                   // Uint8Array
 Signing: `easy.generateSigningKeys()`, `easy.sign(secretKey, message, { context })`, `easy.verify(publicKey, signed, { context })` (returns the message; throws unless valid and the context matches). The easy layer keeps keys as strings in the JS heap; use the class API with `using` to keep secret keys in WASM memory.
 
 ## Choosing algorithms
-- Default hybrid KEM: `X25519+ML-KEM-768` (NIST category 3). For CNSA 2.0 use pure `ML-KEM-1024` (`cnsa2.kem()`; `Envelope.seal` then produces envelope v2 with HKDF-SHA-384). Hybrid is optional under CNSA 2.0, and `X25519+ML-KEM-1024` is NOT CNSA-conformant (the classical half of a CNSA 2.0 hybrid must be P-384, which is not implemented).
-- Default hybrid signature: `Ed25519+ML-DSA-65`. CNSA 2.0 needs `ML-DSA-87` (`new Sign('ML-DSA-87')`); `cnsa2.hybridSign()` (`Ed25519+ML-DSA-87`) has the right parameter set but is reported `partial` because Ed25519 is not a CNSA 1.0 algorithm.
+- Default hybrid KEM: `X25519+ML-KEM-768` (NIST category 3). For CNSA 2.0 use pure `ML-KEM-1024` (`cnsa2.kem()`; `Envelope.seal` then produces envelope v2 with HKDF-SHA-384). Hybrid is optional under CNSA 2.0, and `X25519+ML-KEM-1024` is NOT reported CNSA-conformant (NSA's CNSA 2.0 FAQ says hybrids are not required and not to be used on NSS mission systems except NSA-specified exceptions).
+- Default hybrid signature: `Ed25519+ML-DSA-65`. CNSA 2.0 needs `ML-DSA-87` (`new Sign('ML-DSA-87')`); `cnsa2.hybridSign()` (`Ed25519+ML-DSA-87`) has the right parameter set but is reported `partial` because a hybrid is outside what CNSA 2.0 prescribes.
 - Need other ecosystems to read your data? Use `new HybridKEM('X-Wing')` and `StandardJwt` (RFC 9964), not the quantum-safe-py-compatible constructions.
 - Need to interoperate with quantum-safe-py (Python)? Use the defaults; formats are byte-compatible both ways.
 

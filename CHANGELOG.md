@@ -6,7 +6,12 @@ as a new, explicitly identified algorithm suite.
 
 ## [Unreleased] (0.1.0, not yet published to npm)
 
+### Changed
+- **CNSA 2.0 wording corrected against the primary source.** The text said the classical half of a CNSA 2.0 hybrid "must be P-384". NSA's CNSA 2.0 FAQ (December 2024, Ver. 2.1, pp. 19-21) does not say that: it says hybrid products are not required and that a hybrid should not be used on NSS mission systems except for exceptions NSA specifically recommends (it names IKEv2, which keeps CNSA 1.0 key establishment fortified by ML-KEM-1024). The verdicts are unchanged (every hybrid is `partial`, pure `ML-KEM-1024` / `ML-DSA-87` are compliant); the explanations in `cnsa2` results, the MCP knowledge, the guides and the LLM docs now say what the FAQ says.
+- Documentation no longer says quantum-safe-py cannot read envelope v2, the `-v2` signatures or `StandardJwt` tokens: quantum-safe-py 0.3.1 (not yet released) reads and writes them, byte for byte. quantum-safe-py 0.3.0 still cannot. Private `AKP` JWKs (RFC 9964's `priv` is a seed) remain TypeScript-only, because liboqs cannot derive a key pair from a seed. The Python interop guide gains the settings that must match across the libraries (context, hedging mode, AAD).
+
 ### Added
+- Interop vectors for the formats quantum-safe-py 0.3.1 added: `tests/vectors/py_v2_vectors.json` (made by the real Python library, `scripts/generate_py_v2_vectors.py`; verified by `test/py-v2-interop.test.ts`) and `tests/vectors/ts_v2_vectors.json` (made by this package, `scripts/gen_ts_v2_vectors.mjs`; verified by quantum-safe-py's `tests/interop` and by `scripts/verify_ts_vectors.py`, which skips them on an older Python). Envelope v2, all eight `-v2` identifiers and the three `StandardJwt` levels verify in both directions.
 - **Rust core** (`quantum-safe-core`): hybrid KEMs `X25519+ML-KEM-512/768/1024` and `P-256+ML-KEM-512/768`, pure ML-KEM, **X-Wing**;
   ML-DSA-44/65/87, hybrid `Ed25519+ML-DSA-*` and `P-256+ML-DSA-44/65`, all 12 SLH-DSA parameter sets; AES-256-GCM envelopes (v1,
   quantum-safe-py compatible) and a CNSA 2.0 envelope (v2: pure ML-KEM-1024, HKDF-SHA-384); Argon2id; key serialization (CBOR, PEM,
@@ -29,7 +34,7 @@ as a new, explicitly identified algorithm suite.
 - **Assurance**: reproducible-build check (`scripts/repro-check.mjs`); CycloneDX SBOM and CBOM of the library
   (`scripts/generate-sboms.mjs`); pinned Rust toolchain.
 - **`quantum-safe-mcp`**: read-only, offline, path-confined MCP server for coding agents (`mcpName` and `server.json` for the MCP Registry).
-- **Signature format v2** (`ML-DSA-*-v2`, `Ed25519+ML-DSA-*-v2`, `P-256+ML-DSA-44/65-v2`): TypeScript-only, additive. No prefix and no unsigned length byte; the ML-DSA half is plain FIPS 204 with the native context `quantum-safe-sig-v2`; algorithm and context are inside the signed bytes of both halves; one fixed-length encoding (raw low-S P-256); keys carry the `-v2` tag. Verified independently with noble, Node WebCrypto and `node:crypto`.
+- **Signature format v2** (`ML-DSA-*-v2`, `Ed25519+ML-DSA-*-v2`, `P-256+ML-DSA-44/65-v2`): additive (quantum-safe-py 0.3.1 and later reads and writes it too). No prefix and no unsigned length byte; the ML-DSA half is plain FIPS 204 with the native context `quantum-safe-sig-v2`; algorithm and context are inside the signed bytes of both halves; one fixed-length encoding (raw low-S P-256); keys carry the `-v2` tag. Verified independently with noble, Node WebCrypto and `node:crypto`.
 - **Streaming encryption** (`sealStream`/`openStream`, `StreamSealer`/`StreamOpener`; format v3, TypeScript-only, experimental): chunked AES-256-GCM with the STREAM nonce layout, one KEM encapsulation per stream, header and AAD bound into every chunk; truncation, reordering, duplication and extension are detected. Tested against an independent sender and receiver built from noble and `node:crypto`; fuzz target `fuzz_stream`.
 - **Speed**: the WebAssembly is compiled with `opt-level = 3` (about 2.5 times faster ML-KEM and 1.7 times faster ML-DSA than the size-optimised build) at about 1.30 MB (421 KB gzipped) instead of 0.86 MB (292 KB).
 - **Evidence**: bidirectional parity with the real quantum-safe-py (58 checks + 70 WASM tests); 1,317 NIST ACVP cases; RFC 8554 vectors and
@@ -57,7 +62,7 @@ as a new, explicitly identified algorithm suite.
 
 ### Findings recorded while building
 - quantum-safe-py's hybrid combiner and ML-DSA context are custom constructions (not X-Wing/RFC 10024/FIPS 204 context), and its CNSA 2.0
-  helper reports `X25519+ML-KEM-1024` compliant although the NSA FAQ requires a CNSA 1.0 (P-384) classical half.
+  helper (0.3.0) reported `X25519+ML-KEM-1024` compliant, although NSA's CNSA 2.0 FAQ does not call any hybrid compliant (quantum-safe-py 0.3.1 now reports hybrids `partial`).
 - quantum-safe-py's `Upgrader` documents `backward_compat=True` (old classical senders can still use an upgraded key), but its code packs the key
   as `u16 length || classical || pqc`, which a classical-only sender cannot use; `UpgradeResult.notes` here says so.
 - The `quantum-safe-audit` command was renamed from `qs-audit` to `quantum-safe-audit` so it cannot shadow quantum-safe-py's tool on one PATH.
