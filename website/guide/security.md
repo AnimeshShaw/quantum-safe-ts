@@ -93,16 +93,44 @@ reliably scrubbed.
 Conformance evidence is not validation. The reviews done so far were internal and AI-assisted; none of them is an independent audit and none
 should be described as one.
 
+## Security history
+
+| Advisory | Affected | Fixed in | Summary |
+|---|---|---|---|
+| None for quantum-safe-ts | | | |
+
+The signature prefix forgery in quantum-safe-py 0.1.0 to 0.3.0
+([GHSA-wqv6-gm9x-69x8](https://github.com/AnimeshShaw/quantum-safe-py/security/advisories/GHSA-wqv6-gm9x-69x8), High, fixed in quantum-safe-py 0.3.1) does
+not affect this library. Every public TypeScript verification path for the default signature format (`verify`, `verifyBytes`, and the JWT verifier that
+calls it) pins the prefix length to the verifier's hedging mode before it checks the signature, and that check was in the code before any release. The
+Rust core's own `verify` is permissive by design; use the core only through the TypeScript layer. If you run quantum-safe-py next to this library, use
+quantum-safe-py 0.3.2 or later.
+
+**Reviews so far were internal.** AI-assisted blind reviews with no project context found issues that were fixed and are listed in the
+[changelog](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/CHANGELOG.md). **The library has had no independent third-party review and is not
+validated under FIPS 140-3, CMVP or CAVP.** The independent review of the `-v2`, envelope and streaming formats is on the
+[roadmap](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/ROADMAP.md) and gates 1.0.
+
 ## Reporting a vulnerability
 
-Report privately, not in a public issue. On the [repository](https://github.com/AnimeshShaw/quantum-safe-ts): **Security → Advisories → Report a
-vulnerability** (a GitHub Security Advisory). Include the affected version, a minimal reproduction with no real secrets, and the impact.
-You can expect an acknowledgement within 7 days; the aim is a fix or mitigation within 90 days of a confirmed report, with credit for
-reporters who want it. In scope: the Rust core, the WebAssembly bindings, the TypeScript package, the audit tool and MCP server, and the
-build and release workflows. Out of scope: vulnerabilities in third-party dependencies that are not reachable through this library (report
-those upstream).
+**Do not open a public issue.** Use GitHub's private reporting: on the [repository](https://github.com/AnimeshShaw/quantum-safe-ts) choose **Security,
+then Report a vulnerability** (a GitHub Security Advisory), or email **animesh15b [at] iimk.edu.in**. Include the affected version and package, a
+minimal reproduction with no real secrets, your runtime and operating system, and the impact.
+
+You can expect an acknowledgement within **48 hours** and a full response within **7 days**. If the report is confirmed, a patch is prepared and released
+before public disclosure, and a GitHub Security Advisory (with a CVE where one applies) is published with the fixed release. Please allow 90 days before
+publishing details; reporters who want credit get it.
+
+In scope: the Rust core, the WebAssembly bindings, the TypeScript package, the audit tool and MCP server, and the build and release workflows. Out of scope:
+vulnerabilities in third-party dependencies that are not reachable through this library (report those upstream).
 
 ## Supported versions
 
-While the project is pre-1.0, only the latest released minor version receives fixes. Pin an exact version in production and read the
-[changelog](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/CHANGELOG.md) before upgrading ([Upgrading](/guide/upgrading)).
+| Version | Supported |
+|---|---|
+| 0.1.x (once published to npm; the latest release) | Yes |
+| Anything older than the latest release | **No. Upgrade.** |
+
+Nothing has been published to npm yet, so there is no released version today. While the project is pre-1.0, only the latest release receives security
+fixes; the same applies to `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases. Pin an exact version in production and
+read the [changelog](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/CHANGELOG.md) before upgrading ([Upgrading](/guide/upgrading)).

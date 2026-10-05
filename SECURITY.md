@@ -14,13 +14,24 @@ as not reliably scrubbed.
 
 ## Reporting a vulnerability
 
-Please report privately, not in a public issue:
+**Please do not open a public GitHub issue for security vulnerabilities.**
 
-- Use GitHub's **"Report a vulnerability"** (Security → Advisories) on <https://github.com/AnimeshShaw/quantum-safe-ts>.
-- Include the affected version, a minimal reproduction (no real secrets), and the impact.
+Preferred: use GitHub's private reporting. On <https://github.com/AnimeshShaw/quantum-safe-ts> choose **Security, then Report a vulnerability**
+(Security → Advisories). Or email:
 
-You can expect an acknowledgement within 7 days. We aim to ship a fix or mitigation within 90 days of a confirmed report and will credit
-reporters who want credit.
+> **animesh15b [at] iimk.edu.in**
+
+Include in your report:
+
+- A description of the vulnerability and its potential impact
+- Steps to reproduce or a minimal proof of concept (no real secrets)
+- The version of `quantum-safe-ts` (and the package: library, audit tool, MCP server) you tested against
+- Your runtime (Node.js, Deno, Bun, browser, edge) and operating system
+
+You will receive an acknowledgement within **48 hours** and a full response within **7 days**. If the vulnerability is confirmed, a patch will be
+prepared and released before public disclosure, and a GitHub Security Advisory (with a CVE where one applies) will be published with the fixed
+release. We follow [coordinated disclosure](https://cheatsheetseries.owasp.org/cheatsheets/Vulnerability_Disclosure_Cheat_Sheet.html): we ask that you
+give us 90 days to patch before publishing details, and we credit reporters who want credit.
 
 ## Scope
 
@@ -29,7 +40,29 @@ workflows. Out of scope: vulnerabilities in third-party dependencies that are no
 
 ## Supported versions
 
-Only the latest released minor version receives fixes while the project is pre-1.0.
+| Version | Supported |
+|---|---|
+| 0.1.x (once published to npm; the latest release) | Yes |
+| Anything older than the latest release | **No. Upgrade.** |
+
+Nothing has been published to npm yet, so there is no released version today. Only the latest release receives security fixes while the project is
+pre-1.0. The same applies to `quantum-safe-audit`, `quantum-safe-mcp` and the `pqc-audit` and `pqc-mcp` aliases.
+
+## Published advisories
+
+None for quantum-safe-ts. The signature prefix forgery in quantum-safe-py 0.1.0 to 0.3.0
+([GHSA-wqv6-gm9x-69x8](https://github.com/AnimeshShaw/quantum-safe-py/security/advisories/GHSA-wqv6-gm9x-69x8), fixed in quantum-safe-py 0.3.1) does not affect
+this library: every public TypeScript verification path for the default signature format (`verify`, `verifyBytes`, and the JWT verifier that calls it)
+pins the prefix length to the verifier's hedging mode before it checks the signature, and that check was in the code before any release. Details are in the
+threat model below. If you use quantum-safe-py alongside this library, use quantum-safe-py 0.3.2 or later.
+
+## Security reviews
+
+- The reviews done so far were **internal** (AI-assisted blind reviews with no project context, plus the maintainer's own checks). They are not a human
+  audit, and their findings and fixes are listed in [CHANGELOG.md](CHANGELOG.md).
+- **The library has had no independent third-party review**, and it is **not validated under FIPS 140-3, CMVP or CAVP**. NIST ACVP test vectors are run against
+  the primitives as a correctness check; that is not a validation. The independent review of the signature, envelope and streaming formats is on the
+  [roadmap](ROADMAP.md) and gates 1.0.
 
 ## Threat model (summary)
 
