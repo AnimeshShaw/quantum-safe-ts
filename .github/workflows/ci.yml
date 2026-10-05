@@ -250,6 +250,8 @@ jobs:
           npm run build
       - name: Generate and validate the SBOM and CBOM
         run: node scripts/generate-sboms.mjs
+      - name: THIRD_PARTY_LICENSES.md files are up to date (the crates compiled into the WebAssembly)
+        run: node scripts/generate-third-party-licenses.mjs --check
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sbom
