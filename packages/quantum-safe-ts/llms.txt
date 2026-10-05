@@ -55,6 +55,11 @@ Migration: `Upgrader` (classical -> hybrid key), `MigrationStateManager` + `Memo
 ## Docs
 - Full reference for LLMs: https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/packages/quantum-safe-ts/llms-full.txt
 - Documentation site: https://animeshshaw.github.io/quantum-safe-ts/
+  - Getting started: https://animeshshaw.github.io/quantum-safe-ts/guide/getting-started ; recipes: https://animeshshaw.github.io/quantum-safe-ts/guide/quick-start ; choosing: https://animeshshaw.github.io/quantum-safe-ts/guide/choosing ; concepts: https://animeshshaw.github.io/quantum-safe-ts/guide/concepts
+  - Cookbook (service messaging, signed releases, audit log, JWT rotation, row-bound encryption, migration, Python interop): https://animeshshaw.github.io/quantum-safe-ts/guide/cookbook
+  - Features: https://animeshshaw.github.io/quantum-safe-ts/guide/kem , /guide/encryption , /guide/signatures , /guide/streaming , /guide/jwt , /guide/keys , /guide/migration , /guide/standards
+  - Python interop: https://animeshshaw.github.io/quantum-safe-ts/guide/python-interop ; errors: https://animeshshaw.github.io/quantum-safe-ts/guide/errors ; security model: https://animeshshaw.github.io/quantum-safe-ts/guide/security ; FAQ: https://animeshshaw.github.io/quantum-safe-ts/guide/faq
+  - Tools: https://animeshshaw.github.io/quantum-safe-ts/tools/audit , /tools/github-action , /tools/mcp
 - Compatibility with quantum-safe-py: https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/COMPATIBILITY.md
 - Security status and reporting: https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/SECURITY.md
 - Scan a codebase for classical crypto: `npx quantum-safe-audit scan .`

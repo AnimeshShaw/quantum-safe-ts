@@ -270,7 +270,64 @@ if (!Upgrader.checkNeedsUpgrade('classical_only')) throw new Error('needs upgrad
   Without `compareAndSet` the manager only serialises in-process (`manager.crossProcessSafe` is false).
 - quantum-safe-py's migration store uses a different layout (CBOR `<id>_current` / `<id>_history`). `exportToPyStore(manager)` and `importFromPyStore(entries, manager)` convert both ways.
 
-## 14. Links
+## 14. Choosing, patterns and the rest of the documentation (condensed)
+
+Decision table (full version: /guide/choosing on the documentation site):
+
+| You want | Use |
+|---|---|
+| Encrypt to a public key | `Envelope.seal` with a hybrid key (`HybridKEM`, default `X25519+ML-KEM-768`) |
+| CNSA 2.0 parameter sets | `cnsa2.kem()` (pure `ML-KEM-1024`, envelope v2) and `new Sign('ML-DSA-87')`; every hybrid is `partial` |
+| Data other (non-Python) ecosystems must decrypt | `X-Wing` |
+| Large or streamed data | `sealStream` / `openStream` (experimental) |
+| Sign for quantum-safe libraries | `HybridSign` + a `context`, verify with `expectedContext`; prefer `...-v2` when every verifier is quantum-safe-py 0.3.1+ or quantum-safe-ts (the default flips to `-v2` in the next minor release) |
+| Tokens only your services verify / any JOSE library verifies | `JWTSigner`/`JWTVerifier` / `StandardJwt` |
+| Move keys to post-quantum | `Upgrader` + `MigrationStateManager` |
+| Find classical crypto | `quantum-safe-audit` (alias `pqc-audit`), the GitHub Action, or the MCP server |
+
+Rules that prevent most mistakes: the verifier states what it expects (`expectedContext`, `expectedAad`), never read them from the message;
+always pass a context when signing; sign-then-encrypt (not encrypt-then-sign) for service-to-service messages; never use one key in both signature
+formats; derive keys from shared secrets with `deriveKey` and a distinct `info`; `free()` or `using` secret objects and `wipe()` exported copies.
+
+Handling errors from untrusted input:
+
+```ts test
+import { easy, QuantumSafeError } from 'quantum-safe-ts';
+
+const keys = easy.generateEncryptionKeys();
+function tryOpen(bytes: Uint8Array): string | undefined {
+  try {
+    return easy.decryptText(keys.secretKey, bytes, { aad: 'inbox-v1' });
+  } catch (e) {
+    if (QuantumSafeError.is(e) && (e.code === 'QS_DECRYPTION_FAILED' || e.code === 'QS_MALFORMED_CIPHERTEXT' || e.code === 'QS_KEY_PARSE_ERROR')) return undefined;
+    throw e; // anything else is a bug: let it surface
+  }
+}
+if (tryOpen(easy.encrypt(keys.publicKey, 'hi', { aad: 'inbox-v1' })) !== 'hi') throw new Error('round trip');
+if (tryOpen(new Uint8Array([1, 2, 3])) !== undefined) throw new Error('garbage must be refused');
+```
+
+Sign-then-encrypt between two services (full recipe with attacks: /guide/cookbook):
+
+```ts test
+import { Envelope, HybridKEM, HybridSign, SignedMessage, utf8 } from 'quantum-safe-ts';
+
+const signer = new HybridSign('Ed25519+ML-DSA-65-v2');
+using recipient = new HybridKEM().generateKeyPair();
+using sender = signer.generateKeyPair();
+const CONTEXT = utf8('orders-v1:A->B');
+const wire = Envelope.seal(signer.sign(utf8('shipped'), sender.secretKey, { context: CONTEXT }).toBytes(), recipient.publicKey, { aad: CONTEXT }).toBytes();
+const signed = SignedMessage.fromBytes(Envelope.open(wire, recipient.secretKey, { expectedAad: CONTEXT }));
+signer.verify(signed, sender.publicKey, { expectedContext: CONTEXT });
+if (new TextDecoder().decode(signed.message) !== 'shipped') throw new Error('round trip');
+```
+
+Other pages on the site: concepts (hybrid, context/AAD, hedging, the two signature formats, versions), cookbook (7 recipes), Python interop (what crosses,
+settings that must match, worked round trips), upgrading, FAQ and troubleshooting, glossary, the audit tool (rules QSJ001-QSJ900, SARIF, CBOM, SBOM,
+policy), the GitHub Action, and the MCP server (tools `audit_path`, `list_rules`, `explain_rule`, `recommend_suite`, `explain_error`; resource
+`quantum-safe-ts://llms.txt`; read-only, offline, path-confined to `QS_MCP_ROOT`).
+
+## 15. Links
 
 Repository: https://github.com/AnimeshShaw/quantum-safe-ts
 Documentation site: https://animeshshaw.github.io/quantum-safe-ts/ . Compatibility with quantum-safe-py: COMPATIBILITY.md. Security policy: SECURITY.md.

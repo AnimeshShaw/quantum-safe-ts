@@ -631,6 +631,21 @@ describe('documentation stays in sync with the code', () => {
     const llms = readFileSync(new URL('../llms.txt', import.meta.url), 'utf8');
     expect(llms).toContain('QS_DECRYPTION_FAILED');
   });
+  it("the MCP server's recommendations only name algorithms the library has", async () => {
+    const { recommend } = await import('../../quantum-safe-mcp/src/knowledge.js');
+    const known = new Set([...kemSuites(), ...sigSuites()].map((x) => x.name));
+    for (const useCase of ['encrypt-data', 'key-exchange', 'sign-data', 'jwt', 'file-or-vault-encryption'] as const) {
+      for (const cnsa of [false, true]) {
+        for (const interop of ['none', 'quantum-safe-py', 'other-ecosystems'] as const) {
+          const r = recommend(useCase, cnsa, interop);
+          expect(known.has(r.algorithm), `${useCase}/${cnsa}/${interop}: unknown algorithm ${r.algorithm}`).toBe(true);
+          for (const [, name] of r.code.matchAll(/new (?:HybridKEM|KEM|HybridSign|Sign)\('([^']+)'\)/g)) {
+            expect(known.has(name!), `${useCase}: snippet names unknown suite ${name}`).toBe(true);
+          }
+        }
+      }
+    }
+  });
   it('every public algorithm in the registry is documented in llms-full.txt', async () => {
     const { readFileSync, existsSync } = await import('node:fs');
     const path = new URL('../llms-full.txt', import.meta.url);

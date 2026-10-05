@@ -47,7 +47,10 @@ describe('documentation snippets run', () => {
         mkdirSync(out, { recursive: true });
         const path = join(out, `snippet-${d}-${i + 1}.ts`);
         // Run against the source entry (initialised by test/setup.ts) rather than the published name.
-        const rewritten = code.replace(/from 'quantum-safe-ts'/g, "from '../../src/core.js'");
+        const rewritten = code
+          .replace(/from 'quantum-safe-ts'/g, "from '../../src/core.js'")
+          .replace(/from 'quantum-safe-ts\/file-store'/g, "from '../../src/file-store.js'")
+          .replace(/from 'quantum-safe-audit'/g, "from '../../../quantum-safe-audit/src/index.js'");
         const lines = rewritten.split(NL);
         const imports = lines.filter((l) => l.startsWith('import ')).join(NL);
         const body = lines.filter((l) => !l.startsWith('import ')).join(NL);
@@ -59,5 +62,101 @@ describe('documentation snippets run', () => {
   });
   it('cleanup', () => {
     rmSync(out, { recursive: true, force: true });
+  });
+});
+
+/** Guards that keep the documentation honest as it grows. */
+describe('documentation completeness', () => {
+  const root = join(here, '..', '..', '..');
+  const siteFiles = documentFiles().filter((f) => f.includes(`${sep}website${sep}`));
+  const read = (f: string) => readFileSync(f, 'utf8').split(String.fromCharCode(13) + NL).join(NL);
+
+  it('every TypeScript code block on the site either runs (ts test) or says why not (ts no-run)', () => {
+    const offenders: string[] = [];
+    for (const file of siteFiles) {
+      for (const m of read(file).matchAll(/^```(ts|typescript|js|javascript|tsx)(?![A-Za-z0-9])([^\r\n]*)$/gm)) {
+        const info = m[2]!.trim();
+        if (info !== 'test' && info !== 'no-run') offenders.push(`${file}: \`\`\`${m[1]}${m[2]}`);
+      }
+    }
+    expect(offenders, 'untagged code blocks would never be executed; tag them `ts test` or `ts no-run`').toEqual([]);
+  });
+
+  it('there are only a few ts no-run blocks, and they are in the environment-specific pages', () => {
+    const noRun = siteFiles.map((f) => ({ f, n: (read(f).match(/^```ts no-run$/gm) ?? []).length })).filter((x) => x.n > 0);
+    expect(noRun.reduce((a, x) => a + x.n, 0)).toBeLessThanOrEqual(8);
+  });
+
+  it('the site has the pages the plan calls for, each of real size', () => {
+    const pages: Record<string, number> = {
+      'guide/getting-started.md': 60, 'guide/quick-start.md': 60, 'guide/choosing.md': 80, 'guide/cookbook.md': 150, 'guide/concepts.md': 80,
+      'guide/kem.md': 60, 'guide/encryption.md': 80, 'guide/signatures.md': 80, 'guide/streaming.md': 60, 'guide/jwt.md': 60, 'guide/keys.md': 70,
+      'guide/errors.md': 60, 'guide/migration.md': 100, 'guide/standards.md': 90, 'guide/python-interop.md': 80, 'guide/security.md': 70,
+      'guide/runtimes.md': 60, 'guide/upgrading.md': 50, 'guide/faq.md': 60, 'guide/glossary.md': 40,
+      'tools/audit.md': 80, 'tools/github-action.md': 50, 'tools/mcp.md': 80,
+    };
+    for (const [page, minLines] of Object.entries(pages)) {
+      const f = join(root, 'website', page);
+      expect(existsSync(f), `${page} is missing`).toBe(true);
+      expect(read(f).split(NL).length, `${page} is too thin`).toBeGreaterThanOrEqual(minLines);
+    }
+  });
+
+  it('every page is reachable from the sidebar', () => {
+    const config = read(join(root, 'website', '.vitepress', 'config.ts'));
+    for (const f of siteFiles) {
+      const rel = f.slice(join(root, 'website').length + 1).split(sep).join('/');
+      if (!rel.startsWith('guide/') && !rel.startsWith('tools/')) continue;
+      const link = '/' + rel.replace(/\.md$/, '');
+      expect(config, `${rel} is not in the sidebar`).toContain(`'${link}'`);
+    }
+  });
+
+  it('every internal link points at a page or anchor that exists', () => {
+    // The same slug rule VitePress uses: specials become '-', runs collapse, the ends are trimmed, a leading digit gets '_'.
+    const slug = (h: string) => {
+      const x = h.replace(/[\s~`!@#$%^&*()\-_+=[\]{}|\;:"'<>,.?/]+/g, '-').replace(/-{2,}/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+      return /^\d/.test(x) ? '_' + x : x;
+    };
+    const anchors = new Map<string, Set<string>>();
+    const pageOf = (f: string) => '/' + f.slice(join(root, 'website').length + 1).split(sep).join('/').replace(/\.md$/, '').replace(/\/index$/, '/');
+    for (const f of siteFiles) {
+      const set = new Set<string>();
+      let inFence = false;
+      for (const line of read(f).split(NL)) {
+        if (line.startsWith('```')) inFence = !inFence;
+        const h = !inFence && /^#{1,6} (.+)$/.exec(line);
+        if (h) set.add(slug(h[1]!));
+      }
+      anchors.set(pageOf(f), set);
+    }
+    const problems: string[] = [];
+    for (const f of siteFiles) {
+      for (const m of read(f).matchAll(/\]\((\/[^)\s]*)\)/g)) {
+        const [path, hash] = m[1]!.split('#') as [string, string | undefined];
+        if (path.startsWith('/api')) continue; // generated by TypeDoc at build time
+        const target = path === '/compare' || path === '/' ? path : path.replace(/\/$/, '');
+        if (!anchors.has(target)) problems.push(`${pageOf(f)} -> ${m[1]} (no such page)`);
+        else if (hash && !anchors.get(target)!.has(hash)) problems.push(`${pageOf(f)} -> ${m[1]} (no such heading)`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('the MCP page names every tool and the resource the server registers', () => {
+    const src = read(join(root, 'packages', 'quantum-safe-mcp', 'src', 'index.ts'));
+    const page = read(join(root, 'website', 'tools', 'mcp.md'));
+    const tools = [...src.matchAll(/registerTool\(\s*'([a-z_]+)'/g)].map((m) => m[1]!);
+    expect(tools.length).toBe(5);
+    for (const t of tools) expect(page, `mcp.md does not document ${t}`).toContain('`' + t + '`');
+    const resource = /registerResource\(\s*'[^']+',\s*'([^']+)'/.exec(src)![1]!;
+    expect(page).toContain(resource);
+  });
+
+  it('the error page lists every error code', () => {
+    const errors = read(join(here, '..', 'src', 'errors.ts'));
+    const page = read(join(root, 'website', 'guide', 'errors.md'));
+    const codes = [...new Set([...errors.matchAll(/'(QS_[A-Z_]+)'/g)].map((m) => m[1]!))];
+    for (const code of codes) expect(page, `errors.md does not list ${code}`).toContain(code);
   });
 });
