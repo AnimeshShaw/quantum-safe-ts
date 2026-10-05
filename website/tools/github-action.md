@@ -1,6 +1,6 @@
 # GitHub Action
 
-Run [`quantum-safe-audit`](/tools/audit) in CI, publish findings to GitHub code scanning, and fail the build at a severity you choose.
+Run [`quantum-safe-audit`](/tools/audit) in CI (listed on the [GitHub Marketplace](https://github.com/marketplace/actions/quantum-safe-audit)), publish findings to GitHub code scanning, and fail the build at a severity you choose.
 
 ```yaml
 name: Quantum-safe audit
