@@ -13,7 +13,7 @@ It is read-only and offline: it never writes files, never opens the network, and
 // .mcp.json (Claude Code) or your client's MCP settings
 {
   "mcpServers": {
-    "quantum-safe": { "command": "npx", "args": ["-y", "quantum-safe-mcp@0.1.1"] }
+    "quantum-safe": { "command": "npx", "args": ["-y", "quantum-safe-mcp@0.1.2"] }
   }
 }
 ```

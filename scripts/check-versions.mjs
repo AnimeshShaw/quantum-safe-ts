@@ -21,7 +21,7 @@ for (const f of ['.github/workflows/ci.yml', '.github/workflows/release.yml', '.
 }
 for (const pkg of ['quantum-safe-ts', 'quantum-safe-audit', 'quantum-safe-mcp', 'pqc-audit', 'pqc-mcp']) {
   const v = JSON.parse(read(`packages/${pkg}/package.json`)).version;
-  if (v !== '0.1.1') problems.push(`${pkg} is ${v}; update this script, CHANGELOG and action.yml together when versions move`);
+  if (v !== '0.1.2') problems.push(`${pkg} is ${v}; update this script, CHANGELOG and action.yml together when versions move`);
 }
 if (problems.length) {
   console.error(problems.join('\n'));

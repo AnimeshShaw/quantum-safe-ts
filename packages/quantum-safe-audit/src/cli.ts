@@ -9,7 +9,7 @@ import type { Severity } from './rules.js';
 import { loadPolicy, scanPaths } from './walk.js';
 import type { Policy } from './walk.js';
 
-const VERSION = '0.1.1';
+const VERSION = '0.1.2';
 
 const HELP = `quantum-safe-audit: find classical (quantum-vulnerable) cryptography in JavaScript/TypeScript projects
 

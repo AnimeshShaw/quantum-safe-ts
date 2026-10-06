@@ -58,7 +58,7 @@ function secScore(s: Severity): string {
 }
 
 /** SARIF 2.1.0 for GitHub Code Scanning and other consumers. */
-export function toSarif(report: ScanReport, toolVersion = '0.1.1'): string {
+export function toSarif(report: ScanReport, toolVersion = '0.1.2'): string {
   const used = new Set(report.findings.map((f) => f.ruleId));
   const rules = RULES.filter((r) => used.has(r.id)).map((r) => ({
     id: r.id,

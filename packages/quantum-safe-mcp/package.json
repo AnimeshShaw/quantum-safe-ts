@@ -1,6 +1,6 @@
 {
   "name": "quantum-safe-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "mcpName": "io.github.AnimeshShaw/quantum-safe-mcp",
   "description": "Model Context Protocol server: lets coding agents audit a JavaScript/TypeScript project for quantum-vulnerable cryptography, choose a post-quantum algorithm suite, and look up quantum-safe-ts errors.",
   "license": "Apache-2.0",

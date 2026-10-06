@@ -3,7 +3,7 @@
 `quantum-safe-ts` is the TypeScript/WASM sibling of
 [quantum-safe-py](https://github.com/AnimeshShaw/quantum-safe-py). The goal is **byte-for-byte wire compatibility** for every persisted or
 transmitted format, proven by shared fixtures, not assumed. This page is the source of truth for what is compatible, what is not, and why.
-Status reflects **quantum-safe-ts 0.1.1** and **quantum-safe-py 0.3.0** (original release), **0.3.1** (adds the formats marked below) and **0.3.2** (adds `Sign.sign_raw` and a standard `Sign.verify_raw`; the version to pair with), as of 2026-10-05.
+Status reflects **quantum-safe-ts 0.1.2** and **quantum-safe-py 0.3.0** (original release), **0.3.1** (adds the formats marked below) and **0.3.2** (adds `Sign.sign_raw` and a standard `Sign.verify_raw`; the version to pair with), as of 2026-10-05.
 
 ## Legend
 

@@ -41,7 +41,7 @@ inputs:
     default: 'false'
   version:
     description: 'quantum-safe-audit version to run from npm. Defaults to the version this action release was made with; pin your own exact version in production, or use latest at your own risk.'
-    default: '0.1.1'
+    default: '0.1.2'
   package-path:
     description: 'Run a locally built copy of the audit package instead of npm (for this repository CI and monorepos).'
     default: ''

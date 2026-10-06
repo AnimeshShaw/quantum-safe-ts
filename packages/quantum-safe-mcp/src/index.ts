@@ -63,7 +63,7 @@ export interface ServerOptions {
 
 export function createServer(options: ServerOptions = {}): McpServer {
   const root = options.root ?? process.env.QS_MCP_ROOT ?? process.cwd();
-  const server = new McpServer({ name: 'quantum-safe', version: options.version ?? '0.1.1' });
+  const server = new McpServer({ name: 'quantum-safe', version: options.version ?? '0.1.2' });
 
   server.registerTool(
     'audit_path',

@@ -13,7 +13,7 @@ identifiers never change: new capability arrives under a new, explicit identifie
 
 0.1.0 is the first release of `quantum-safe-audit`, `quantum-safe-ts`, `quantum-safe-mcp` and the short aliases `pqc-audit` and `pqc-mcp`, each
 published with npm provenance from a manually started workflow that waits for approval. The GitHub Action can be pinned as
-`AnimeshShaw/quantum-safe-ts@v0.1.1`.
+`AnimeshShaw/quantum-safe-ts@v0.1.2`.
 
 - Patch releases: documentation, bug fixes and dependency updates. A patch release never changes a wire format.
 - Switch npm publishing to trusted publishing (no stored token).

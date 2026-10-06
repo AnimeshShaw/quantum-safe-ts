@@ -14,18 +14,18 @@ The server speaks MCP over standard input and output (stdio). Every client below
 
 | Client | How |
 |---|---|
-| **Claude Code** | `claude mcp add quantum-safe -- npx -y quantum-safe-mcp@0.1.1`, or put the JSON below in `.mcp.json` at the project root |
+| **Claude Code** | `claude mcp add quantum-safe -- npx -y quantum-safe-mcp@0.1.2`, or put the JSON below in `.mcp.json` at the project root |
 | **Claude Desktop** | Add the JSON below under `mcpServers` in `claude_desktop_config.json` (Settings, Developer, Edit Config), then restart |
 | **Cursor** | Add it to `.cursor/mcp.json` in the project, or `~/.cursor/mcp.json` for all projects |
 | **VS Code** | In `.vscode/mcp.json`, under `servers` (not `mcpServers`), with `"type": "stdio"` |
-| **Other clients** | Any client that can launch a stdio MCP server: command `npx`, arguments `-y quantum-safe-mcp@0.1.1` |
+| **Other clients** | Any client that can launch a stdio MCP server: command `npx`, arguments `-y quantum-safe-mcp@0.1.2` |
 
 ```json
 {
   "mcpServers": {
     "quantum-safe": {
       "command": "npx",
-      "args": ["-y", "quantum-safe-mcp@0.1.1"],
+      "args": ["-y", "quantum-safe-mcp@0.1.2"],
       "env": { "QS_MCP_ROOT": "/path/to/the/project/to/audit" }
     }
   }

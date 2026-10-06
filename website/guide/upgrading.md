@@ -13,7 +13,7 @@ Until 1.0:
 - **API changes can happen in a minor version** (0.1 → 0.2), with a note in the [changelog](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/CHANGELOG.md)
   and, where practical, a deprecated alias for one release.
 - Only the latest minor version receives fixes ([security policy](/guide/security#supported-versions)).
-- **Pin an exact version** in production (`"quantum-safe-ts": "0.1.1"`, not `^0.1.1`) and read the changelog before moving.
+- **Pin an exact version** in production (`"quantum-safe-ts": "0.1.2"`, not `^0.1.2`) and read the changelog before moving.
 
 At 1.0 the API is frozen under semantic versioning, which is gated on an independent security review.
 

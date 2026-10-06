@@ -1,6 +1,6 @@
 {
   "name": "pqc-audit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Alias of quantum-safe-audit: find quantum-vulnerable cryptography in JavaScript and TypeScript projects (SARIF and CycloneDX CBOM output).",
   "license": "Apache-2.0",
   "author": "Animesh Shaw",
@@ -30,6 +30,6 @@
     "test": "node bin.js --help"
   },
   "dependencies": {
-    "quantum-safe-audit": "^0.1.1"
+    "quantum-safe-audit": "^0.1.2"
   }
 }

@@ -48,7 +48,7 @@ Both styles are in the [getting-started guide](https://animeshshaw.github.io/qua
 | [`quantum-safe-ts`](packages/quantum-safe-ts) | **The library.** Hybrid KEMs, envelopes, signatures, JWT, keys, Argon2id, migration helpers. | `npm install quantum-safe-ts` |
 | [`quantum-safe-audit`](packages/quantum-safe-audit) (alias: `pqc-audit`) | **A scanner** that finds classical (quantum-vulnerable) crypto in JS/TS projects; SARIF and CycloneDX CBOM output. Independent of the library. | `npx quantum-safe-audit scan .` |
 | [`quantum-safe-mcp`](packages/quantum-safe-mcp) (alias: `pqc-mcp`) | **An MCP server** that lets coding agents run the scanner and get algorithm guidance. Depends on the scanner. | `npx quantum-safe-mcp` |
-| [GitHub Action](https://github.com/marketplace/actions/quantum-safe-audit) ([source](action.yml)) | Runs the scanner in CI, uploads SARIF, gates on severity. | `uses: AnimeshShaw/quantum-safe-ts@v0.1.1` |
+| [GitHub Action](https://github.com/marketplace/actions/quantum-safe-audit) ([source](action.yml)) | Runs the scanner in CI, uploads SARIF, gates on severity. | `uses: AnimeshShaw/quantum-safe-ts@v0.1.2` |
 
 The Rust core lives in [`crates/`](crates), the WebAssembly bindings in [`bindings/wasm`](bindings/wasm).
 

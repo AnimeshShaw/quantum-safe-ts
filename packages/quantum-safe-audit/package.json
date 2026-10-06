@@ -1,6 +1,6 @@
 {
   "name": "quantum-safe-audit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Find classical (quantum-vulnerable) cryptography in JavaScript and TypeScript projects. SARIF and CycloneDX 1.6 CBOM output, CNSA 2.0 gap reporting, and migration hints to quantum-safe-ts.",
   "license": "Apache-2.0",
   "author": "Animesh Shaw",

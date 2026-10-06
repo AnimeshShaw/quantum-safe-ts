@@ -14,6 +14,6 @@ keywords:
   - hybrid key exchange
   - WebAssembly
   - TypeScript
-version: 0.1.1
+version: 0.1.2
 date-released: 2026-10-05
 doi: 10.5281/zenodo.23160434

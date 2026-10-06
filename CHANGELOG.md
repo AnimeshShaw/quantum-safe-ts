@@ -6,6 +6,10 @@ as a new, explicitly identified algorithm suite.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-06
+
+No code or wire-format change. Packages are now published with npm trusted publishing: the GitHub Actions workflow identity is the credential and there is no stored npm token; every release keeps its npm provenance statement.
+
 - `REVIEW_WANTED.md`: exactly which constructions need an independent cryptographic review, where they are, the claim to check and what a useful review is. Nothing in this library has been independently reviewed.
 
 - The benchmark and timing-leakage scripts (`bench/`) and the raw results of the last run (`results/`) are now in the repository, with a README that states what they do and do not show. The README previously said they were published and reproducible from the repository, but the files were not committed.
