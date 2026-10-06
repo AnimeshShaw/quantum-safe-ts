@@ -7,11 +7,12 @@ run-name: Release ${{ inputs.package }} (dry run ${{ inputs.dry_run }})
 #   1. `build` has NO secrets. It checks that CI passed for this exact commit, builds and tests, and packs ONE tarball.
 #   2. `publish` holds the token and runs only the final `npm publish <that tarball>`, after a human approves the `npm-publish` environment.
 # One-time setup by the maintainer: Settings > Environments > New environment `npm-publish`, add yourself as required reviewer and
-# restrict deployment branches to master; add the secret NPM_TOKEN to THAT environment (not to the repository).
+# restrict deployment branches to master. Publishing uses npm trusted publishing (configured per package on npmjs.com for this repository,
+# the workflow file release.yml and the environment npm-publish): there is no stored npm token.
 # Order: quantum-safe-audit -> quantum-safe-ts -> quantum-safe-mcp -> pqc-audit -> pqc-mcp (the MCP server and pqc-audit need quantum-safe-audit on npm first;
 # pqc-mcp needs quantum-safe-mcp on npm first).
-# IMPORTANT: create the `npm-publish` environment (with its reviewer and branch rule) BEFORE adding NPM_TOKEN anywhere and before pushing
-# this file: GitHub auto-creates an unprotected environment of that name on first use, and a repository-level secret would be used by it.
+# IMPORTANT: create the `npm-publish` environment (with its reviewer and branch rule) before pushing this file: GitHub auto-creates an
+# unprotected environment of that name on first use, and the trusted publisher on npm names this environment.
 
 on:
   workflow_dispatch:
@@ -137,11 +138,11 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish (npm trusted publishing: the workflow identity is the credential, no stored token)
         run: |
           test -n "$TARBALL" && test -n "$EXPECTED_SHA256"
+          # Trusted publishing needs npm 11.5.1 or newer.
+          npm --version | awk -F. '{ if ($1 < 11 || ($1 == 11 && $2 < 5) || ($1 == 11 && $2 == 5 && $3 < 1)) { print "npm too old for trusted publishing: " $0; exit 1 } }'
           echo "$EXPECTED_SHA256  $TARBALL" | sha256sum -c -   # the file that was built and tested is the file that is published
           if [ "$DRY_RUN" = "true" ]; then
             npm publish "./$TARBALL" --access public --provenance --ignore-scripts --dry-run
