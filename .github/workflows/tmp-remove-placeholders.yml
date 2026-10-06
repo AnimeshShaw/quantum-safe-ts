@@ -1,0 +1,27 @@
+name: Remove npm placeholders (temporary)
+
+# One-off: unpublishes the empty 0.0.0-stage placeholder npm created on three packages. Deleted again right after it runs.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  remove:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Unpublish the placeholder versions
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for p in quantum-safe-ts quantum-safe-audit quantum-safe-mcp; do
+            echo "== $p@0.0.0-stage"
+            npm unpublish "$p@0.0.0-stage" || echo "FAILED for $p"
+          done
