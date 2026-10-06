@@ -25,14 +25,40 @@ on:
         description: Dry run (npm publish --dry-run)
         type: boolean
         default: true
+      check_trust_only:
+        description: Only check that npm trusts this workflow for the package (no build, no publish)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
+  trust-check:
+    name: Check the npm trusted publisher (no publish)
+    if: github.ref == 'refs/heads/master' && inputs.check_trust_only
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PACKAGE: ${{ inputs.package }}
+    steps:
+      - name: Exchange the workflow identity for a short-lived npm token (proves the trusted publisher matches)
+        run: |
+          # npm only issues a token when a trusted publisher for this package matches this repository, workflow file and environment.
+          # The token is never printed or used; only the HTTP status and npm's error message (if any) are shown.
+          idtoken=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm:registry.npmjs.org" | jq -r .value)
+          test -n "$idtoken" && test "$idtoken" != "null"
+          echo "::add-mask::$idtoken"
+          code=$(curl -sS -o /tmp/exchange.json -w '%{http_code}' -X POST -H "Authorization: Bearer $idtoken" "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/$PACKAGE")
+          echo "npm answered HTTP $code for $PACKAGE"
+          if [ "$code" = "200" ]; then echo "TRUSTED: npm accepts this workflow for $PACKAGE"; else jq -r '.message // .error // "no message"' /tmp/exchange.json || true; exit 1; fi
+
   build:
     name: Build, test and pack (no secrets)
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' && !inputs.check_trust_only
     runs-on: ubuntu-latest
     permissions:
       contents: read
