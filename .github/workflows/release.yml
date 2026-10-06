@@ -54,7 +54,7 @@ jobs:
           echo "::add-mask::$idtoken"
           code=$(curl -sS -o /tmp/exchange.json -w '%{http_code}' -X POST -H "Authorization: Bearer $idtoken" "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/$PACKAGE")
           echo "npm answered HTTP $code for $PACKAGE"
-          if [ "$code" = "200" ]; then echo "TRUSTED: npm accepts this workflow for $PACKAGE"; else jq -r '.message // .error // "no message"' /tmp/exchange.json || true; exit 1; fi
+          if [ "$code" = "200" ] || [ "$code" = "201" ]; then echo "TRUSTED: npm accepts this workflow for $PACKAGE"; else jq -r '.message // .error // "no message"' /tmp/exchange.json || true; exit 1; fi
 
   build:
     name: Build, test and pack (no secrets)
