@@ -138,7 +138,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Publish (npm trusted publishing: the workflow identity is the credential, no stored token)
+      - name: Publish with npm trusted publishing (the workflow identity is the credential, no stored token)
         run: |
           test -n "$TARBALL" && test -n "$EXPECTED_SHA256"
           # Trusted publishing needs npm 11.5.1 or newer.
