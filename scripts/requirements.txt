@@ -7,4 +7,4 @@ quantum-safe-py==0.3.2
 # fixed-input "glue" vectors.
 liboqs-python==0.16.0
 cbor2==6.1.4
-cryptography==45.0.7
+cryptography==50.0.2

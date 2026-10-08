@@ -14,5 +14,9 @@
     "typedoc-vitepress-theme": "1.1.4",
     "typescript": "~5.9",
     "vitepress": "1.6.4"
+  },
+  "overrides": {
+    "vite": "^6.4.3",
+    "esbuild": "^0.25.0"
   }
 }
