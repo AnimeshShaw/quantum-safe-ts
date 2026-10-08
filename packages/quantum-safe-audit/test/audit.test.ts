@@ -93,6 +93,9 @@ describe('other file types', () => {
     expect(f[0]).toMatchObject({ ruleId: 'QSJ031', line: 4 });
     const svelte = ['<h1>hi</h1>', '<script>', "const k = require('node:crypto').generateKeyPairSync('ed25519');", '</script>'].join('\n');
     expect(scanSource('C.svelte', svelte)[0]).toMatchObject({ ruleId: 'QSJ012', line: 3 });
+    // The closing tag may carry whitespace or attributes; code after it must still be found, and the block before it must not be lost.
+    const odd = ['<script>', "require('node:crypto').createHash('md5');", '</script >', '<script>', "require('node:crypto').createHash('sha1');", '</SCRIPT foo>'].join('\n');
+    expect(scanSource('D.vue', odd).length).toBeGreaterThanOrEqual(2);
   });
   it('CNSA 2.0 mode reports SHA-256 only when requested', () => {
     const src = "require('node:crypto').createHash('sha256');";
@@ -144,6 +147,24 @@ describe('robustness', () => {
     expect(globToRegExp('src/*.ts').test('src/a.ts')).toBe(true);
     expect(globToRegExp('src/*.ts').test('src/x/a.ts')).toBe(false);
     expect(globToRegExp('a?c').test('abc')).toBe(true);
+  });
+  it('glob matching treats every other character literally', () => {
+    expect(globToRegExp('a.b').test('a.b')).toBe(true);
+    expect(globToRegExp('a.b').test('axb')).toBe(false);
+    expect(globToRegExp('(x)+[y]{1}|z$^').test('(x)+[y]{1}|z$^')).toBe(true);
+    expect(globToRegExp('a\\b').test('a\\b')).toBe(true);
+  });
+  it('glob matching: runs of the same wildcard are equivalent to one and cannot blow up', () => {
+    expect(globToRegExp('**/**/**/x.ts').test('a/b/c/x.ts')).toBe(true);
+    expect(globToRegExp('**/**/**/x.ts').test('x.ts')).toBe(true);
+    expect(globToRegExp('***').test('a/b/c')).toBe(true);
+    expect(globToRegExp('a/****/b').test('a/x/y/b')).toBe(true);
+    expect(globToRegExp('*/*/*').test('a/b/c')).toBe(true);
+    expect(globToRegExp('*/*/*').test('a/b/c/d')).toBe(false);
+    const hostile = globToRegExp('**/'.repeat(40) + 'x.ts');
+    const start = performance.now();
+    expect(hostile.test('a/'.repeat(5000) + 'y.ts')).toBe(false);
+    expect(performance.now() - start).toBeLessThan(500);
   });
 });
 
