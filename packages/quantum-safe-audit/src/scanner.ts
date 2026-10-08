@@ -185,7 +185,9 @@ function scriptKind(file: string): ts.ScriptKind {
 /** Extracts `<script>` blocks from single-file components so Vue/Svelte/Astro code is scanned too. */
 function extractScripts(text: string): Array<{ code: string; lineOffset: number; lang: 'ts' | 'js' }> {
   const out: Array<{ code: string; lineOffset: number; lang: 'ts' | 'js' }> = [];
-  const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+  // The closing tag may carry whitespace or attributes (`</script >`, `</SCRIPT foo>`); HTML parsers accept them, so the scanner must too
+  // or code placed after such a tag would be silently skipped.
+  const re = /<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi;
   for (let m = re.exec(text); m; m = re.exec(text)) {
     const before = text.slice(0, m.index + m[0].indexOf('>') + 1);
     out.push({ code: m[2] ?? '', lineOffset: before.split('\n').length - 1, lang: /lang\s*=\s*["']ts["']/.test(m[1] ?? '') ? 'ts' : 'js' });

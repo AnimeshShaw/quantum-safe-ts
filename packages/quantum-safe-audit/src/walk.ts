@@ -41,9 +41,23 @@ const DEFAULT_EXCLUDED_DIRS = new Set([
 const CODE_EXT = /\.(?:[cm]?[jt]sx?|vue|svelte|astro|html?|es6)$/i;
 const MAX_BYTES = 1_000_000;
 
-/** Converts a simple glob (`**`, `*`, `?`) to an anchored regular expression. */
+/** Escapes one character for use as a literal inside a regular expression. */
+function escapeRegExpChar(c: string): string {
+  return c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Converts a simple glob (`**`, `*`, `?`) to an anchored regular expression. Every other character is matched literally. Runs of the same
+ * wildcard (`**\/**\/**`, `***`) are collapsed to one, which matches exactly the same strings but keeps the expression from backtracking
+ * super-linearly when a policy file contains such a pattern.
+ */
 export function globToRegExp(glob: string): RegExp {
   let re = '';
+  let lastWildcard = '';
+  const wildcard = (token: string): void => {
+    if (token !== lastWildcard) re += token;
+    lastWildcard = token;
+  };
   for (let i = 0; i < glob.length; i++) {
     const c = glob[i]!;
     if (c === '*') {
@@ -51,19 +65,16 @@ export function globToRegExp(glob: string): RegExp {
         i++;
         if (glob[i + 1] === '/') {
           i++;
-          re += '(?:.*/)?';
+          wildcard('(?:.*/)?');
         } else {
-          re += '.*';
+          wildcard('.*');
         }
       } else {
-        re += '[^/]*';
+        wildcard('[^/]*');
       }
-    } else if (c === '?') {
-      re += '[^/]';
-    } else if ('\\^$.|+()[]{}'.includes(c)) {
-      re += `\\${c}`;
     } else {
-      re += c;
+      lastWildcard = '';
+      re += c === '?' ? '[^/]' : escapeRegExpChar(c);
     }
   }
   return new RegExp(`^${re}$`);
