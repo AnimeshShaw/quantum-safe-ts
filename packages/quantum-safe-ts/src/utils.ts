@@ -52,19 +52,26 @@ export function wipe(data: Uint8Array): void {
   data.fill(0);
 }
 
+/** Removes trailing `=` characters in linear time. (The regular expression `/=+$/` is quadratic on a long run of `=` that is not at the end, so it must not see untrusted input.) */
+function stripPadding(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 61) end--;
+  return end === s.length ? s : s.slice(0, end);
+}
+
 /** Base64url without padding. */
 export function toBase64Url(data: Uint8Array): string {
   let bin = '';
   for (const b of data) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return stripPadding(btoa(bin).replace(/\+/g, '-').replace(/\//g, '_'));
 }
 
 /** Decodes base64url (padding optional). */
 export function fromBase64Url(s: string): Uint8Array {
-  if (typeof s !== 'string' || /[^A-Za-z0-9_-]/.test(s.replace(/=+$/, ''))) {
+  if (typeof s !== 'string' || /[^A-Za-z0-9_-]/.test(stripPadding(s))) {
     throw new InvalidArgumentError('Invalid base64url string.');
   }
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '');
+  const b64 = stripPadding(s.replace(/-/g, '+').replace(/_/g, '/'));
   const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
