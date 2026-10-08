@@ -6,6 +6,16 @@ as a new, explicitly identified algorithm suite.
 
 ## [Unreleased]
 
+### Security
+
+- **Linear-time base64url padding removal.** `toBase64Url` / `fromBase64Url` stripped padding with `/=+$/`, which is quadratic on a long run of `=` followed by another character (about 22 s for 300,000 of them). Input from JWTs, key files and the network could be used to stall a process. Behaviour is otherwise unchanged; a test pins both the results and the timing. Reported by CodeQL (`js/polynomial-redos`).
+- **`qs-audit` no longer skips code after a closing script tag with attributes.** In Vue/Svelte/HTML files `</script >` or `</script foo>` was not recognised as the end of a block, so what followed was not scanned. It is now, and the closing-tag match is linear. Reported by CodeQL (`js/bad-tag-filter`).
+- **Exclude globs match in linear time.** `globToRegExp` collapses repeated wildcards and escapes every other character literally, so a hostile pattern in a policy file cannot cause catastrophic backtracking.
+
+### Dependencies
+
+- Patched `vite` (6.4.4) and `esbuild` (0.25.12 for the website, 0.28.2 for the packages) through `overrides`, closing the Dependabot alerts; `scripts/requirements.txt` pins `cryptography==50.0.2` for the interop scripts.
+
 ## [0.1.2] - 2026-10-06
 
 No code or wire-format change. Packages are now published with npm trusted publishing: the GitHub Actions workflow identity is the credential and there is no stored npm token; every release keeps its npm provenance statement.
