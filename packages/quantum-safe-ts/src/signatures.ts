@@ -3,6 +3,7 @@ import type { SignatureAlgorithm, SuiteInfo } from './algorithms.js';
 import { AlgorithmMismatchError, InvalidArgumentError, UnsupportedAlgorithmError, VerificationError } from './errors.js';
 import { KeyPair, PublicKey, SecretBytes, SecretKey } from './keys.js';
 import { call } from './runtime.js';
+import { warnOnce } from './warnings.js';
 import { StandardKeyPair, STANDARD_SEED_LENGTH, checkStandardAlgorithm } from './standard.js';
 import { bytes, equalBytes, fromHex, toHex } from './utils.js';
 
@@ -211,6 +212,13 @@ abstract class BaseSigner {
       throw new AlgorithmMismatchError(`Signed message algorithm '${signed.algorithm}' does not match '${this.algorithm}'.`);
     }
     this.#requirePrefix(signed.signature);
+    if (options.expectedContext === undefined && signed.context.length > 0) {
+      warnOnce(
+        'QS_CONTEXT_OMITTED',
+        'verify() was called without expectedContext but the message carries a non-empty context, so it is rejected: omitting ' +
+          "expectedContext means 'expect an empty context'. Pass the context you expect.",
+      );
+    }
     call((w) => w.sigVerify(signed.toCbor(), publicKey._wasm));
     if (!equalBytes(signed.context, bytes(options.expectedContext ?? new Uint8Array(), 'expectedContext'))) throw new VerificationError();
   }

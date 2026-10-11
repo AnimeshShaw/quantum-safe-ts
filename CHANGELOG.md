@@ -14,6 +14,7 @@ as a new, explicitly identified algorithm suite.
 
 ### Added
 
+- **Developer warnings for omitted `expectedContext` / `expectedAad`** (decision D4; matches quantum-safe-py 0.4.0). `verify()` without `expectedContext` already meant "expect an empty context"; a message that carries a context is still rejected with the opaque `VerificationError`, and now a `QS_CONTEXT_OMITTED` warning says why. `Envelope.open()` / `easy.decrypt()` without `expectedAad` still accept any AAD and now emit `QS_AAD_OMITTED` when the message carries one. Once per call site, never containing the value, through `process.emitWarning` (type `QuantumSafeWarning`) or `console.warn`; `warnings.silence()`, `warnings.unsilence()` and `warnings.onWarning()` control delivery. New guide: Context and AAD.
 - **`Sign.signRaw()` / `Sign.verifyRaw()`** (aliases `signStandard` / `verifyStandard`): standard FIPS 204 `ML-DSA.Sign` / `Verify` over your own bytes with a native context (at most 255 bytes), for ML-DSA-44, 65 and 87. Tested against quantum-safe-py's `Sign.sign_raw` / `verify_raw` in both directions. Keys are `StandardKeyPair` (a 32-byte seed and the FIPS 204 public key): `Sign.generateStandardKeyPair()`, `Sign.standardKeyPairFromSeed()`, `exportSeed()`, `free()`. A secret key that quantum-safe-py generated through liboqs is an expanded key from which no seed can be recovered, so TypeScript can verify its signatures but cannot sign with it; documented in the guides.
 
 ### Changed

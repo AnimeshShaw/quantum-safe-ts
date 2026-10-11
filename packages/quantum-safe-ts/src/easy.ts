@@ -116,10 +116,10 @@ export function sign(secretKey: string, message: Data, options: { context?: Data
 export function verify(publicKey: string, signed: Uint8Array, options: VerifyOptions = {}): Uint8Array {
   using pub = PublicKey.fromPem(publicKey);
   const sm = SignedMessage.fromCbor(signed);
-  const expectedContext = options.context === undefined ? new Uint8Array() : toBytes(options.context, 'context');
   const hedged = options.hedged ?? true;
   const signer = isHybrid(pub.algorithm) ? new HybridSign(pub.algorithm as 'Ed25519+ML-DSA-65', { hedged }) : new Sign(pub.algorithm as 'ML-DSA-65', { hedged });
-  signer.verify(sm, pub, { expectedContext });
+  // Omitted context means "expect none": the library then warns if the message carries one (QS_CONTEXT_OMITTED).
+  signer.verify(sm, pub, options.context === undefined ? {} : { expectedContext: toBytes(options.context, 'context') });
   return sm.message;
 }
 

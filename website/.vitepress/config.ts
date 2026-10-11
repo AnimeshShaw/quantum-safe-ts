@@ -41,6 +41,7 @@ export default defineConfig({
             { text: 'Key encapsulation and hybrids', link: '/guide/kem' },
             { text: 'Encryption (envelopes)', link: '/guide/encryption' },
             { text: 'Signatures', link: '/guide/signatures' },
+            { text: 'Context and AAD', link: '/guide/context-and-aad' },
             { text: 'Streaming encryption', link: '/guide/streaming' },
             { text: 'JWT', link: '/guide/jwt' },
             { text: 'Keys and passwords', link: '/guide/keys' },

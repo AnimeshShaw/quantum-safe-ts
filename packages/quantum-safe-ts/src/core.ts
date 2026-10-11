@@ -17,6 +17,8 @@ export type { Encapsulation } from './kem.js';
 export { Envelope, SealedMessage } from './envelope.js';
 export type { SealOptions, SealedInfo } from './envelope.js';
 export { Sign, HybridSign, SignedMessage } from './signatures.js';
+export { warnings } from './warnings.js';
+export type { QuantumSafeWarning, QuantumSafeWarningCode } from './warnings.js';
 export type { SignOptions, SignedInfo } from './signatures.js';
 export { StandardKeyPair, STANDARD_SEED_LENGTH } from './standard.js';
 export type { StandardAlgorithm } from './standard.js';

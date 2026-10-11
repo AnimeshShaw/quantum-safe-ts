@@ -1,3 +1,4 @@
+import { warnOnce } from './warnings.js';
 import { DecryptionAuthenticationError, InvalidArgumentError } from './errors.js';
 import { PublicKey, SecretKey } from './keys.js';
 import { call } from './runtime.js';
@@ -143,6 +144,13 @@ export const Envelope = {
     const msg = sealed instanceof SealedMessage ? sealed : SealedMessage.fromBytes(bytes(sealed, 'sealed'));
     if (options.expectedAad !== undefined && !equalBytes(msg.aad, bytes(options.expectedAad, 'expectedAad'))) {
       throw new DecryptionAuthenticationError('The message AAD does not equal the expected AAD.');
+    }
+    if (options.expectedAad === undefined && msg.aad.length > 0) {
+      warnOnce(
+        'QS_AAD_OMITTED',
+        'Envelope.open() was called without expectedAad for a message that carries AAD. The AAD travels inside the message and anyone with ' +
+          "the recipient's public key can set it, so pass the AAD you expect.",
+      );
     }
     return call((w) => w.envelopeOpen(msg.toBytes(), secretKey._wasm));
   },

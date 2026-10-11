@@ -26,8 +26,6 @@ The theme is "make the safe thing the only thing", the same as in Python.
 - **The default hybrid signature suite becomes `Ed25519+ML-DSA-65-v2`** (no prefix, native FIPS 204 context), in `HybridSign()` and the `easy`
   layer, at the same time as quantum-safe-py 0.4.0 flips its default. Signatures made with the new default will not verify on quantum-safe-py
   0.3.0 or earlier, so this is announced in 0.1.0; existing signatures and the old identifiers keep working when named explicitly.
-- **Decide whether `expectedContext` and `expectedAad` become required arguments**, as `context=` and `expected_aad=` become in Python 0.4.0.
-  Today they default to empty, which is safe but easy to leave out.
 - **Benchmarks and timing-leakage figures re-measured with raw samples published**, on more than one machine.
 
 ## Later (no release assigned)
