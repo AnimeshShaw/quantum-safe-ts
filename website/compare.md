@@ -29,7 +29,6 @@ migration tooling. Choose it for that layer, not for the primitives.
 | JWT | Yes, including RFC 9964 | No | No |
 | Typed errors with stable codes | Yes | Plain errors | `DOMException` |
 | Migration and audit tooling | Yes | No | No |
-| Speed | Several times faster than pure JavaScript for ML-KEM and ML-DSA; slower than native code | Baseline | Faster than ours for ML-KEM, async only, ML-KEM only |
 | Works in browsers, Deno, Bun, Workers | Yes | Yes | Only where implemented |
 
 **WebCrypto status, as of October 2026.** Node.js 24.7+ ships ML-KEM and ML-DSA (Stability 1.1, experimental); Node 26.10 adds hybrid KEMs; Cloudflare Workers has them behind a compatibility flag. Chrome has cleared an Intent to Ship; check the current state for your target browsers before relying on it.

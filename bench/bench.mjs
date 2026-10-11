@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Micro-benchmarks: quantum-safe-ts (WASM) vs @noble/post-quantum (pure JS) vs Node's native WebCrypto.
 //
 //   npm run build            (in packages/quantum-safe-ts)
 //   node bench/bench.mjs [--json out.json]
@@ -10,12 +9,9 @@
 import { createRequire } from 'node:module';
 import { cpus, platform, release } from 'node:os';
 import { writeFileSync } from 'node:fs';
-import { webcrypto } from 'node:crypto';
 
 const require = createRequire(import.meta.url);
 const q = require('../packages/quantum-safe-ts/dist/node.cjs');
-const { ml_kem768 } = await import('../packages/quantum-safe-ts/node_modules/@noble/post-quantum/ml-kem.js');
-const { ml_dsa65 } = await import('../packages/quantum-safe-ts/node_modules/@noble/post-quantum/ml-dsa.js');
 
 // --list prints the benchmark names; --only <exact name> runs one benchmark (bench/run-matrix.mjs runs each in its own process so that heap
 // and WASM-memory state left by earlier benchmarks cannot colour later ones).
@@ -78,32 +74,6 @@ const { ciphertext: pct, sharedSecret: pss } = pure.encapsulate(pp.publicKey);
 same(pure.decapsulate(pp.secretKey, pct).exportBytes(), pss.exportBytes(), 'ML-KEM-768');
 add(measure('quantum-safe-ts ML-KEM-768 decapsulate', () => pure.decapsulate(pp.secretKey, pct).free()));
 
-const nk = ml_kem768.keygen();
-add(measure('noble ML-KEM-768 keygen', () => ml_kem768.keygen()));
-add(measure('noble ML-KEM-768 encapsulate', () => ml_kem768.encapsulate(nk.publicKey)));
-const nenc = ml_kem768.encapsulate(nk.publicKey);
-same(ml_kem768.decapsulate(nenc.cipherText, nk.secretKey), nenc.sharedSecret, 'noble ML-KEM-768');
-add(measure('noble ML-KEM-768 decapsulate', () => ml_kem768.decapsulate(nenc.cipherText, nk.secretKey)));
-
-// Node native ML-KEM (OpenSSL) when available
-if (globalThis.SubtleCrypto?.supports?.('encapsulateBits', 'ML-KEM-768')) {
-  const subtle = webcrypto.subtle;
-  const kp = await subtle.generateKey({ name: 'ML-KEM-768' }, false, ['encapsulateBits', 'decapsulateBits']);
-  const asyncMeasure = async (name, fn) => {
-    if (!want(name)) return;
-    for (let i = 0; i < 20; i++) await fn();
-    const times = [];
-    const t0 = performance.now();
-    while (performance.now() - t0 < 1500 || times.length < 5) { const s = performance.now(); await fn(); times.push(performance.now() - s); }
-    times.sort((a, b) => a - b);
-    const median = times[Math.floor(times.length / 2)];
-    add({ name, opsPerSec: 1000 / median, medianMs: median, p10Ms: times[Math.floor(times.length * 0.1)], p90Ms: times[Math.floor(times.length * 0.9)], samples: times.length });
-  };
-  await asyncMeasure('node WebCrypto ML-KEM-768 encapsulateBits (async)', () => subtle.encapsulateBits({ name: 'ML-KEM-768' }, kp.publicKey));
-  const enc = await subtle.encapsulateBits({ name: 'ML-KEM-768' }, kp.publicKey);
-  same(new Uint8Array(await subtle.decapsulateBits({ name: 'ML-KEM-768' }, kp.privateKey, enc.ciphertext)), new Uint8Array(enc.sharedKey), 'WebCrypto ML-KEM-768');
-  await asyncMeasure('node WebCrypto ML-KEM-768 decapsulateBits (async)', () => subtle.decapsulateBits({ name: 'ML-KEM-768' }, kp.privateKey, enc.ciphertext));
-}
 
 // ---- Envelope ----
 const kb = new Uint8Array(1024).fill(7);
@@ -127,12 +97,6 @@ const hsp = hs.generateKeyPair();
 add(measure('quantum-safe-ts Ed25519+ML-DSA-65 sign', () => hs.sign(msg, hsp.secretKey)));
 const hsigned = hs.sign(msg, hsp.secretKey);
 add(measure('quantum-safe-ts Ed25519+ML-DSA-65 verify', () => hs.verify(hsigned, hsp.publicKey)));
-const dk = ml_dsa65.keygen();
-add(measure('noble ML-DSA-65 keygen', () => ml_dsa65.keygen()));
-add(measure('noble ML-DSA-65 sign (256 B)', () => ml_dsa65.sign(msg, dk.secretKey)));
-const dsig = ml_dsa65.sign(msg, dk.secretKey);
-if (ml_dsa65.verify(dsig, msg, dk.publicKey) !== true) throw new Error('benchmark setup error: noble ML-DSA-65 signature does not verify');
-add(measure('noble ML-DSA-65 verify', () => ml_dsa65.verify(dsig, msg, dk.publicKey)));
 
 // ---- X-Wing and JWT ----
 const xw = new q.HybridKEM('X-Wing');

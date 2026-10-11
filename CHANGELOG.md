@@ -12,6 +12,11 @@ as a new, explicitly identified algorithm suite.
 - **`qs-audit` no longer skips code after a closing script tag with attributes.** In Vue/Svelte/HTML files `</script >` or `</script foo>` was not recognised as the end of a block, so what followed was not scanned. It is now, and the closing-tag match is linear. Reported by CodeQL (`js/bad-tag-filter`).
 - **Exclude globs match in linear time.** `globToRegExp` collapses repeated wildcards and escapes every other character literally, so a hostile pattern in a policy file cannot cause catastrophic backtracking.
 
+### Documentation
+
+- The README footer, ROADMAP and CHANGELOG no longer carry the review-request material; `REVIEW_WANTED.md` is removed.
+- The benchmark harness times quantum-safe-ts only; the comparison runs and the Python baseline script are no longer part of the repository, and the comparison page no longer carries a speed row.
+
 ### Dependencies
 
 - Patched `vite` (6.4.4) and `esbuild` (0.25.12 for the website, 0.28.2 for the packages) through `overrides`, closing the Dependabot alerts; `scripts/requirements.txt` pins `cryptography==50.0.2` for the interop scripts.
@@ -19,8 +24,6 @@ as a new, explicitly identified algorithm suite.
 ## [0.1.2] - 2026-10-06
 
 No code or wire-format change. Packages are now published with npm trusted publishing: the GitHub Actions workflow identity is the credential and there is no stored npm token; every release keeps its npm provenance statement.
-
-- `REVIEW_WANTED.md`: exactly which constructions need an independent cryptographic review, where they are, the claim to check and what a useful review is. Nothing in this library has been independently reviewed.
 
 - The benchmark and timing-leakage scripts (`bench/`) and the raw results of the last run (`results/`) are now in the repository, with a README that states what they do and do not show. The README previously said they were published and reproducible from the repository, but the files were not committed.
 

@@ -10,10 +10,6 @@ node bench/leakage.mjs --iterations 4000 --rounds 3 --json results/timing_leakag
 node bench/run-matrix.mjs                    # repeats bench.mjs in fresh processes, aggregates the rounds into results/bench_matrix.json
 ```
 
-`py_baseline.py` measures liboqs (through liboqs-python) and quantum-safe-py on the same machine as a
-reference; it needs `pip install quantum-safe-py[liboqs]`. `bench.mjs` also times noble and Node's
-WebCrypto ML-KEM for comparison.
-
 ## What the numbers are, and are not
 
 - One machine, one Node version, Windows, pinned to one performance-core thread by `run-matrix.mjs`. The header of each results
