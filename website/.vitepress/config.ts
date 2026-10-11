@@ -43,6 +43,7 @@ export default defineConfig({
             { text: 'Signatures', link: '/guide/signatures' },
             { text: 'Context and AAD', link: '/guide/context-and-aad' },
             { text: 'COSE_Sign1', link: '/guide/cose' },
+            { text: 'LMS signing (Node.js)', link: '/guide/lms-signing' },
             { text: 'Streaming encryption', link: '/guide/streaming' },
             { text: 'JWT', link: '/guide/jwt' },
             { text: 'Keys and passwords', link: '/guide/keys' },

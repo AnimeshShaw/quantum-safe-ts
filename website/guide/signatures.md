@@ -60,7 +60,7 @@ helps them. Use `isValid` for a boolean, or `verifyBytes(message, signature, pub
 | `ML-DSA-44/65/87` | FIPS 204. `ML-DSA-87` is the CNSA 2.0 level. |
 | `SLH-DSA-SHAKE-*` and `SLH-DSA-SHA2-*` (`128/192/256`, `s`/`f`; 12 sets) | FIPS 205, hash-based. Large signatures, conservative assumptions, slower signing. `f` is faster to sign, `s` smaller. |
 | `<any ML-DSA or hybrid>-v2` | The cleaner format described below. |
-| LMS / HSS | **Verification only** (`Lms`), per RFC 8554. Signing needs durable state and is intentionally not provided. |
+| LMS / HSS | Verification everywhere (`Lms`), per RFC 8554; signing in Node.js with write-ahead durable state (`LmsSigner`, [LMS signing](/guide/lms-signing)). |
 
 ```ts test
 import { Sign, sigSuites, utf8 } from 'quantum-safe-ts';
@@ -188,8 +188,9 @@ if (easy.isValid(keys.publicKey, signed, { context: 'other' })) throw new Error(
 
 `Lms.verify(publicKey, message, signature)` verifies RFC 8554 signatures (SHA-256 parameter sets), checked against the RFC's own vectors and
 against signatures made by an independent implementation. `Lms.isValid` returns a boolean and `Lms.inspectPublicKey` reports the parameter
-set. **Signing is not provided**: a stateful scheme that reuses a one-time key is broken, and a library cannot guarantee durable state.
-Use the signer your HSM or tooling provides.
+set. **Signing** is provided in Node.js only, by `LmsSigner` from `quantum-safe-ts/lms-signer`: a stateful scheme that reuses a one-time key
+is broken, so the signer makes the index durable before a signature exists and refuses on any state problem. See
+[LMS signing](/guide/lms-signing).
 
 ## Common mistakes
 

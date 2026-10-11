@@ -34,7 +34,7 @@ export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Inte
   const cnsaCaveats = requireCnsa2
     ? [
         'CNSA 2.0 parameter sets are selected (pure ML-KEM-1024, ML-DSA-87); selecting parameters is necessary and not sufficient for compliance.',
-        'CNSA 2.0 software/firmware signing requires LMS or XMSS (SP 800-208); neither is implemented yet.',
+        'CNSA 2.0 software/firmware signing requires LMS or XMSS (SP 800-208); LMS is verified everywhere and signed in Node.js (LmsSigner from quantum-safe-ts/lms-signer); XMSS is not implemented.',
         'Pure ML-KEM-1024 envelopes (v2: HKDF-SHA-384 + AES-256-GCM) are read and written by quantum-safe-py too. X25519+ML-KEM-1024 hybrids are NOT CNSA 2.0 compliant: NSA\'s CNSA 2.0 FAQ says hybrids are not required and not to be used on NSS mission systems except NSA-specified exceptions.',
         'Run cnsa2.report() to see exactly which requirements are and are not met.',
       ]

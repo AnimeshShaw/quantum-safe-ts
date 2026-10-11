@@ -34,7 +34,7 @@ Status reflects **quantum-safe-ts 0.1.2** and **quantum-safe-py 0.3.0** (origina
 | 9 | `HybridSign` P-256 + ML-DSA-{44,65} | **DONE** | ECDSA-SHA256 DER; public key is raw `x‖y` |
 | 10 | SLH-DSA-SHAKE-128s/128f/256s (the three py exposes) | **DONE** | both directions |
 | 11 | `SignedMessage` CBOR, signature blob, `HybridSignature` CBOR, hedged prefix | **DONE** | |
-| 12 | LMS stateful signatures (RFC 8554) | **PARTIAL** | **Verification only** (`Lms.verify`): RFC 8554 Appendix F (2/2) and 13 pyhsslms-made signatures. No signing (stateful; unsafe without a durable state store), no XMSS, no SHAKE/192-bit variants. |
+| 12 | LMS stateful signatures (RFC 8554) | **PARTIAL** | `Lms.verify` (every runtime): RFC 8554 Appendix F (2/2) and 13 pyhsslms-made signatures. `LmsSigner` (Node.js only): one tree, height 5/10/15/20, w 1/2/4/8, write-ahead durable state; its signatures verify in `Lms.verify` and in pyhsslms. No XMSS, no multi-level HSS signing, no SHAKE/192-bit variants. |
 
 ### Keys and formats
 | # | Feature | Status | Evidence |

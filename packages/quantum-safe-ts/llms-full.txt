@@ -212,7 +212,7 @@ CNSA 2.0 mandates ML-KEM-1024, ML-DSA-87, AES-256, SHA-384/512, and LMS/XMSS (SP
 Selecting the parameter sets is necessary and not sufficient. Known gaps in this library, reported honestly by `cnsa2.report()`:
 (1) a hybrid is outside what CNSA 2.0 prescribes (NSA's FAQ: not required, not to be used on NSS mission systems except NSA-specified exceptions), so `X25519+ML-KEM-1024` is `partial`; hybrid
 is optional and pure ML-KEM-1024 is compliant; (2) the quantum-safe-py-compatible hybrid combiner and envelope v1 use HKDF-SHA-256 (below
-the SHA-384/512 requirement); pure ML-KEM-1024 envelopes (v2) use HKDF-SHA-384; (3) LMS/XMSS are not implemented.
+the SHA-384/512 requirement); pure ML-KEM-1024 envelopes (v2) use HKDF-SHA-384; (3) LMS is verified everywhere and signed in Node.js (LmsSigner, quantum-safe-ts/lms-signer); XMSS is not implemented.
 
 ## 10. Errors
 

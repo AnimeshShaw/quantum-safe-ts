@@ -75,6 +75,16 @@
         "default": "./dist/file-store.cjs"
       }
     },
+    "./lms-signer": {
+      "import": {
+        "types": "./dist/lms-signer.d.ts",
+        "default": "./dist/lms-signer.js"
+      },
+      "require": {
+        "types": "./dist/lms-signer.d.cts",
+        "default": "./dist/lms-signer.cjs"
+      }
+    },
     "./package.json": "./package.json",
     "./quantum_safe_wasm_bg.wasm": {
       "types": "./dist/wasm.d.ts",

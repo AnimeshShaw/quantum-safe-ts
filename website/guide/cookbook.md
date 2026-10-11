@@ -103,7 +103,7 @@ if (caught !== 2) throw new Error('both attacks must be caught');
 
 **Watch for.** Users must obtain the public key through a channel the attacker cannot also control: pin the fingerprint in your docs, your
 package metadata or a second site. Include a version and an expiry in the manifest so an old signed release cannot be replayed as the latest.
-For firmware that CNSA 2.0 covers you need LMS/XMSS signing, which this library does not provide.
+For firmware that CNSA 2.0 covers you need LMS or XMSS signing: [LMS signing](/guide/lms-signing) does that in Node.js, with durable state.
 
 ## 3. A tamper-evident signed audit log
 
