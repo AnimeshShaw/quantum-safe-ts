@@ -24,7 +24,8 @@ Use quantum-safe-py **0.3.2 or later** (`pip install "quantum-safe-py>=0.3.2"`).
 | Envelope v2 (CNSA profile: pure `ML-KEM-1024`, HKDF-SHA-384) | Yes, with quantum-safe-py 0.3.2+ |
 | Signature format `-v2` (all eight identifiers) | Yes, with quantum-safe-py 0.3.2+ |
 | `StandardJwt` (RFC 9964) tokens and public `AKP` JWKs | Yes, with quantum-safe-py 0.3.2+. Private JWKs (`priv` is a seed) are TypeScript only: liboqs cannot derive a Python key from a seed |
-| `X-Wing`, streaming encryption, LMS signing, nine SLH-DSA sets | TypeScript only |
+| `X-Wing` KEM, streaming encryption (format v3), all twelve SLH-DSA sets | Yes, with quantum-safe-py 0.4.0 |
+| LMS signing | TypeScript signs only in Node.js with durable state; Python signs through its optional extra |
 
 Python 0.3.0 fails closed on the identifiers it does not know (it never mis-verifies). The full table, the wire formats and the known quirks
 are in [COMPATIBILITY.md](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/COMPATIBILITY.md).

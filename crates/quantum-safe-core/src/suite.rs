@@ -1,6 +1,6 @@
 //! Algorithm registry for key encapsulation, mirroring
 //! `quantum_safe.kem.algorithms` in quantum-safe-py (names, sizes, NIST levels,
-//! approved hybrid combinations) plus the TypeScript-only `X-Wing` suite.
+//! approved hybrid combinations) plus the `X-Wing` suite (also in quantum-safe-py 0.4.0).
 //!
 //! Identifiers are **wire-visible** (they are bound into the envelope AAD and the
 //! hybrid combiner `info`), so they must never change meaning once released.

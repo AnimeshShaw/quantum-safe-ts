@@ -19,6 +19,7 @@ as a new, explicitly identified algorithm suite.
 
 ### Changed
 
+- **Streaming envelopes and X-Wing are no longer TypeScript-only**: quantum-safe-py 0.4.0 reads and writes the same bytes (`quantum_safe.protocols.stream`, `quantum_safe.kem.xwing`). Interop vectors are checked in both directions (`stream-py-interop.test.ts`, `xwing-py-interop.test.ts`; generators `scripts/gen_stream_vectors.mjs`, `scripts/generate_py_stream_vectors.py`). Documentation updated; no code or format change.
 - **The default hybrid signature suite is now `Ed25519+ML-DSA-65-v2`** (`DEFAULT_HYBRID_SIGNATURE`, `new HybridSign()`, the `easy` layer), in step with quantum-safe-py 0.4.0. Signatures from the new default verify on quantum-safe-py 0.3.1+ (and not on 0.3.0 or earlier). The original format `Ed25519+ML-DSA-65` is unchanged and still works when named (`ORIGINAL_HYBRID_SIGNATURE`); keys carry their format and a signer refuses a key of the other format. `new HybridSign(undefined, { hedged: false })` selects the original format because `-v2` is always hedged. `Sign` (single ML-DSA) keeps `ML-DSA-65`.
 - `cnsa2.CNSA2_HYBRID_CLASSICAL` lists only `X25519`, the same as quantum-safe-py; `P-384` was listed but never implemented. `cnsa2.hybridKem()` accepts only a listed partner (a type error in TypeScript, `UnsupportedAlgorithmError` at runtime).
 
