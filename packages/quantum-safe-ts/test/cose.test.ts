@@ -121,6 +121,45 @@ describe('sign1 / verify1', () => {
   });
 });
 
+describe('one reading per message', () => {
+  const kid = (b: number[]): Uint8Array => Uint8Array.from(b);
+
+  it('refuses a label that is in both header buckets, indefinite lengths, non-minimal lengths and duplicate labels', () => {
+    using pair = new Sign('ML-DSA-44').generateStandardKeyPair();
+    const good = cose.sign1(utf8('m'), pair, { kid: kid([1, 2, 3]) });
+    const info = cose.inspectSign1(good);
+    const prot = info.protectedHeader;
+    const enc = (parts: number[][]): Uint8Array => Uint8Array.from(parts.flat());
+    const bstr = (b: Uint8Array): number[] => (b.length < 24 ? [0x40 | b.length, ...b] : b.length < 256 ? [0x58, b.length, ...b] : [0x59, b.length >> 8, b.length & 0xff, ...b]);
+    const sig = good.slice(good.length - 2420);
+    // tag 18, array(4), protected, unprotected = {4: h'09'} (kid again), payload, signature
+    const kidTwice = enc([[0xd2, 0x84], bstr(prot), [0xa1, 0x04, 0x41, 0x09], bstr(utf8('m')), bstr(sig)]);
+    expect(() => cose.verify1(kidTwice, pair.publicKey)).toThrow();
+    // indefinite-length outer array
+    const indefinite = enc([[0xd2, 0x9f], bstr(prot), [0xa0], bstr(utf8('m')), bstr(sig), [0xff]]);
+    expect(() => cose.verify1(indefinite, pair.publicKey)).toThrow();
+    // non-minimal array length
+    const nonMinimal = enc([[0xd2, 0x98, 0x04], bstr(prot), [0xa0], bstr(utf8('m')), bstr(sig)]);
+    expect(() => cose.verify1(nonMinimal, pair.publicKey)).toThrow();
+    // duplicate label 1 in the protected header: {1: -48, 1: -49}
+    const dupProt = Uint8Array.from([0xa2, 0x01, 0x38, 0x2f, 0x01, 0x38, 0x30]);
+    const dup = enc([[0xd2, 0x84], bstr(dupProt), [0xa0], bstr(utf8('m')), bstr(sig)]);
+    expect(() => cose.verify1(dup, pair.publicKey)).toThrow();
+    // and the untouched message still verifies
+    expect(cose.verify1(good, pair.publicKey)).toEqual(utf8('m'));
+  });
+
+  it('refuses a COSE key with duplicate labels or trailing bytes', () => {
+    const pub = new Uint8Array(1312);
+    const key = cose.encodeKey('ML-DSA-44', pub);
+    expect(cose.decodeKey(key).algorithm).toBe('ML-DSA-44');
+    expect(() => cose.decodeKey(Uint8Array.from([...key, 0]))).toThrow();
+    // {1: 7, 1: 7, 3: -48, -1: pub}
+    const dup = Uint8Array.from([0xa4, 0x01, 0x07, 0x01, 0x07, 0x03, 0x38, 0x2f, 0x20, 0x59, 0x05, 0x20, ...pub]);
+    expect(() => cose.decodeKey(dup)).toThrow();
+  });
+});
+
 describe('COSE keys', () => {
   for (const v of RFC) {
     it(`${v.algorithm}: public key encodes to the RFC shape and decodes back`, () => {

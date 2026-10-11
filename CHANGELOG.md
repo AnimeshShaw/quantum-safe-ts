@@ -28,6 +28,8 @@ as a new, explicitly identified algorithm suite.
 
 - **`FileMigrationStore` keys are limited to 100 bytes (was 120).** The file name is the hex of the key plus the temporary-file and lock suffixes, so a key of 101 to 120 bytes could not be written on filesystems with a 255-character name limit; it failed late with an operating-system error. The limit is now explicit and the longest allowed key is tested through `set` and `compareAndSet`.
 
+- **`FileMigrationStore` stale-lock breaking re-checks what it moved**: a lock that replaced the stale one between the age check and the rename is put back instead of removed, so a live holder is not turned into a "lock lost" failure by a concurrent waiter. Writes were never unsafe (ownership is checked before every rename).
+
 ### Documentation
 
 - The README footer, ROADMAP and CHANGELOG no longer carry the review-request material; `REVIEW_WANTED.md` is removed.

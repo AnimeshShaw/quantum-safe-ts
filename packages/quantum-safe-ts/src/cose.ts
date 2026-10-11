@@ -262,6 +262,9 @@ function parseSign1(data: Uint8Array): ParsedSign1 {
   if (prot.length === 0) throw malformed('the protected header is empty: the algorithm must be protected');
   const header = decodeOne(prot);
   if (!(header instanceof CMap)) throw malformed('the protected header is not a map');
+  for (const [label] of header.entries) {
+    if (unprot.has(label as number | string)) throw malformed('a header label appears in both the protected and unprotected headers');
+  }
   if (header.has(2) || unprot.has(2)) throw new UnsupportedAlgorithmError('A COSE "crit" header is present and no critical headers are understood.');
   const id = header.get(1);
   if (id === undefined) throw malformed('the protected header carries no algorithm');

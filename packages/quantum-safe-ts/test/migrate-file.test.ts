@@ -108,6 +108,32 @@ describe('FileMigrationStore', () => {
   });
 });
 
+describe('stale-lock breaking re-checks what it moved', () => {
+  const load = async () => (await import(pathToFileURL(storeJs).href)) as typeof import('../src/file-store.js');
+  it('puts back a live lock that replaced the stale one between the age check and the rename', async () => {
+    const { breakIfStale } = await load();
+    const lock = join(root, 'race.lock');
+    mkdirSync(lock);
+    writeFileSync(join(lock, 'owner'), 'live-holder');
+    let calls = 0;
+    // First look says "stale" (the lock we meant to break), the second look at what was moved says "live" (someone replaced it).
+    await breakIfStale(lock, 60_000, async () => (++calls === 1 ? 10_000_000 : 0));
+    expect(existsSync(lock)).toBe(true);
+    expect(readFileSync(join(lock, 'owner'), 'utf8')).toBe('live-holder');
+    const leftovers = (await import('node:fs')).readdirSync(root).filter((n) => n.startsWith('race.lock.stale.'));
+    expect(leftovers).toEqual([]);
+  });
+
+  it('still removes a lock that is stale on both looks', async () => {
+    const { breakIfStale } = await load();
+    const lock = join(root, 'gone.lock');
+    mkdirSync(lock);
+    writeFileSync(join(lock, 'owner'), 'dead');
+    await breakIfStale(lock, 1_000, async () => 10_000_000);
+    expect(existsSync(lock)).toBe(false);
+  });
+});
+
 describe('FileMigrationStore lock safety', () => {
   const load = async () => (await import(pathToFileURL(storeJs).href)) as typeof import('../src/file-store.js');
 
