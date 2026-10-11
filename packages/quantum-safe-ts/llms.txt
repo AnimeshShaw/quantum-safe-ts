@@ -32,6 +32,7 @@ Signing: `easy.generateSigningKeys()`, `easy.sign(secretKey, message, { context 
 - Default hybrid signature: `Ed25519+ML-DSA-65`. CNSA 2.0 needs `ML-DSA-87` (`new Sign('ML-DSA-87')`); `cnsa2.hybridSign()` (`Ed25519+ML-DSA-87`) has the right parameter set but is reported `partial` because a hybrid is outside what CNSA 2.0 prescribes.
 - Need other ecosystems to read your data? Use `new HybridKEM('X-Wing')` and `StandardJwt` (RFC 9964), not the quantum-safe-py-compatible constructions.
 - Need to interoperate with quantum-safe-py (Python)? Use the defaults; formats are byte-compatible both ways.
+- Need a standard FIPS 204 ML-DSA signature over your own bytes that any other library can verify? `new Sign('ML-DSA-65')`, then `generateStandardKeyPair()` (a 32-byte seed), `signRaw(message, pair, { context })` and `verifyRaw(message, signature, publicKey, { context })`. Python: `Sign.sign_raw` / `verify_raw`. A liboqs-generated Python secret key can be verified against but not signed with here.
 
 ## Rules that prevent mistakes
 - Always `await init()` first outside Node. In Cloudflare Workers pass the precompiled module: `init({ wasm })`.

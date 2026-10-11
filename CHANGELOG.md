@@ -12,6 +12,10 @@ as a new, explicitly identified algorithm suite.
 - **`qs-audit` no longer skips code after a closing script tag with attributes.** In Vue/Svelte/HTML files `</script >` or `</script foo>` was not recognised as the end of a block, so what followed was not scanned. It is now, and the closing-tag match is linear. Reported by CodeQL (`js/bad-tag-filter`).
 - **Exclude globs match in linear time.** `globToRegExp` collapses repeated wildcards and escapes every other character literally, so a hostile pattern in a policy file cannot cause catastrophic backtracking.
 
+### Added
+
+- **`Sign.signRaw()` / `Sign.verifyRaw()`** (aliases `signStandard` / `verifyStandard`): standard FIPS 204 `ML-DSA.Sign` / `Verify` over your own bytes with a native context (at most 255 bytes), for ML-DSA-44, 65 and 87. Tested against quantum-safe-py's `Sign.sign_raw` / `verify_raw` in both directions. Keys are `StandardKeyPair` (a 32-byte seed and the FIPS 204 public key): `Sign.generateStandardKeyPair()`, `Sign.standardKeyPairFromSeed()`, `exportSeed()`, `free()`. A secret key that quantum-safe-py generated through liboqs is an expanded key from which no seed can be recovered, so TypeScript can verify its signatures but cannot sign with it; documented in the guides.
+
 ### Changed
 
 - `cnsa2.CNSA2_HYBRID_CLASSICAL` lists only `X25519`, the same as quantum-safe-py; `P-384` was listed but never implemented. `cnsa2.hybridKem()` accepts only a listed partner (a type error in TypeScript, `UnsupportedAlgorithmError` at runtime).

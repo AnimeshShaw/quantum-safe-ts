@@ -124,11 +124,33 @@ Compatible with quantum-safe-py is not the same as standard. Three different thi
 When the other side is not quantum-safe-py or quantum-safe-ts:
 
 - **JOSE and JWT:** use [`StandardJwt`](/guide/jwt) (RFC 9964). Any compliant JOSE library verifies it.
-- **A standard signature over arbitrary bytes:** the public TypeScript API does not expose this yet. The primitive exists in the core (it is what
-  `StandardJwt` uses, with an empty context) and is tested against quantum-safe-py 0.3.2 in both directions (its `Sign.sign_raw()` and
-  `Sign.verify_raw()` for ML-DSA-44, 65 and 87, with an empty, a short and a 255-byte context), but a public `signRaw` / `verifyRaw` is a
-  [roadmap](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/ROADMAP.md) item, not something to depend on today.
+- **A standard signature over arbitrary bytes:** `Sign.signRaw()` and `Sign.verifyRaw()` (aliases `signStandard` and `verifyStandard`), below.
 - **`-v2`** is for quantum-safe-py and quantum-safe-ts.
+
+## Standard FIPS 204 signatures
+
+`signRaw` signs your bytes exactly as given with FIPS 204's native context and returns the bare signature: no prefix, no wrapper, no metadata.
+Any FIPS 204 implementation verifies it from the message, context and public key; quantum-safe-py verifies it with `Sign.verify_raw()`.
+
+```ts test
+import { Sign, utf8 } from 'quantum-safe-ts';
+
+const signer = new Sign('ML-DSA-65');            // ML-DSA-44, ML-DSA-65 or ML-DSA-87
+using pair = signer.generateStandardKeyPair();   // a 32-byte seed and the FIPS 204 public key
+
+const sig = signer.signRaw(utf8('release 1.2.3'), pair, { context: utf8('myapp-release') });
+signer.verifyRaw(utf8('release 1.2.3'), sig, pair.publicKey, { context: utf8('myapp-release') }); // throws VerificationError if wrong
+```
+
+- The context is at most 255 bytes and defaults to empty. A signature verifies only under the context it was made with.
+- `verifyRaw` accepts the FIPS 204 public key as bytes or as a `PublicKey` of the same algorithm.
+- `standardKeyPairFromSeed(seed)` rebuilds a key pair from its 32-byte seed; `pair.exportSeed()` returns the seed (wipe your copy).
+
+::: danger Seed keys sign; expanded keys from quantum-safe-py only verify
+A secret key made by quantum-safe-py's liboqs backend is a 4,032-byte *expanded* key. No seed can be recovered from it, so quantum-safe-ts
+cannot sign with it. Every signature that key makes **verifies** here. For one key that signs in both libraries, use a seed key
+(`generateStandardKeyPair()`, or quantum-safe-py's `cryptography` backend in 0.4.0).
+:::
 
 ## Verifying bytes from elsewhere
 

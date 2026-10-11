@@ -96,7 +96,7 @@ interoperability: quantum-safe-py's hybrid combiner and signature context are it
 | Python and TypeScript services exchange data | The defaults, or `-v2` for new signatures |
 | Another ecosystem reads your KEM output | `HybridKEM('X-Wing')` |
 | A standard JOSE library verifies a token | `StandardJwt` (RFC 9964) |
-| A standard FIPS 204 signature over your own bytes | Python 0.3.2: `Sign.sign_raw()` / `verify_raw()`. TypeScript: not a public function yet ([roadmap](ROADMAP.md)); the primitive is tested against Python's in both directions |
+| A standard FIPS 204 signature over your own bytes | TypeScript: `Sign.signRaw()` / `verifyRaw()` (also `signStandard` / `verifyStandard`). Python: `Sign.sign_raw()` / `verify_raw()`. Tested against each other in both directions. TypeScript signs with seed keys; it verifies any Python signature |
 
 `-v2` signs a wrapped message under a native FIPS 204 context, so a standard library can verify it only by rebuilding that message; it is for
 quantum-safe-py and quantum-safe-ts, not a standard signature over your message.

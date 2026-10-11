@@ -142,6 +142,11 @@ if (!pure.isValid(pure.sign(utf8('x'), p2.secretKey), p2.publicKey)) throw new E
 - Verifier settings that are security checks: `verify(signed, publicKey, { expectedContext })` requires the context YOU signed with (default empty; the message's own context is never trusted), and the verifier's `hedged`
   must match the signer's: a hedged verifier (default) requires a 32-byte prefix, `{ hedged: false }` requires none. Without that pinning the prefix/message boundary in the unsigned signature blob could be moved to forge
   signatures on a suffix of a signed message. `easy.verify(publicKey, signed, { context, hedged })` does both.
+- Standard FIPS 204 signatures (interoperable with any ML-DSA implementation): `new Sign('ML-DSA-65')`, `signer.generateStandardKeyPair()` (a 32-byte
+  seed; `using` frees it), `signer.signRaw(message, pair, { context })` returns the bare signature, and `signer.verifyRaw(message, signature, publicKey, { context })`
+  throws `VerificationError` unless it verifies (`signStandard` / `verifyStandard` are aliases). The context is FIPS 204's native context, at most 255 bytes.
+  quantum-safe-py's `Sign.sign_raw` / `verify_raw` produce and accept the same bytes. A secret key that quantum-safe-py made through liboqs is an
+  expanded key: verify with its public key here, but signing needs a seed key.
 - Compatibility note: quantum-safe-py's "context" is a message prefix (`len(ctx) || ctx || prefix || message`) with an empty FIPS 204 context.
   A generic ML-DSA verifier will not accept these signatures unless it rebuilds that input.
 

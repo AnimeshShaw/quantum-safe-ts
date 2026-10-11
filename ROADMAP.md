@@ -28,10 +28,6 @@ The theme is "make the safe thing the only thing", the same as in Python.
   0.3.0 or earlier, so this is announced in 0.1.0; existing signatures and the old identifiers keep working when named explicitly.
 - **Decide whether `expectedContext` and `expectedAad` become required arguments**, as `context=` and `expected_aad=` become in Python 0.4.0.
   Today they default to empty, which is safe but easy to leave out.
-- **A public bare FIPS 204 sign and verify** (a `signRaw` / `verifyRaw` equivalent): a standard ML-DSA signature over your own bytes with a
-  native context, for other ecosystems. The primitive already exists in the core (it is what `StandardJwt` uses) and is tested against
-  quantum-safe-py 0.3.2's `Sign.sign_raw()` and `Sign.verify_raw()` for ML-DSA-44, 65 and 87 with empty, short and 255-byte contexts, in both
-  directions. What is missing is a public API and a decision on keys (the TypeScript core signs from a 32-byte seed; liboqs uses an expanded secret key).
 - **Benchmarks and timing-leakage figures re-measured with raw samples published**, on more than one machine.
 
 ## Later (no release assigned)
