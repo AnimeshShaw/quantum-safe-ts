@@ -39,10 +39,10 @@ export const CNSA2_HASHES = ['SHA-384', 'SHA-512'] as const;
 /** SP 800-208 stateful hash-based schemes required for software/firmware signing. */
 export const CNSA2_CODE_SIGNING = ['LMS', 'XMSS'] as const;
 /**
- * Classical partners once listed for CNSA 2.0 hybrids. Only `X25519` is implemented (here and in quantum-safe-py).
- * `P-384` is listed but not implemented, and a hybrid would still be reported `partial` (see the module comment).
+ * Classical partners {@link hybridKem} can build, the same list as quantum-safe-py's `CNSA2_HYBRID_CLASSICAL`. A
+ * hybrid is reported `partial` (see the module comment); {@link kem} is the compliant configuration.
  */
-export const CNSA2_HYBRID_CLASSICAL = ['X25519', 'P-384'] as const;
+export const CNSA2_HYBRID_CLASSICAL = ['X25519'] as const;
 
 /** Outcome of one checked requirement. */
 export type Finding = 'compliant' | 'non-compliant' | 'not-covered' | 'partial';
@@ -281,11 +281,13 @@ export function kem(): KEM {
  * A hybrid KEM pinned to ML-KEM-1024 (`X25519+ML-KEM-1024`). Reported as `partial` by {@link report}: hybrids are
  * outside what CNSA 2.0 prescribes. Kept for quantum-safe-py compatibility (it is what quantum-safe-py's
  * `cnsa2.hybrid_kem()` returns, and it reports it `partial` too). Use {@link kem} for a compliant configuration.
- * @throws {UnsupportedAlgorithmError} for `P-384`, which is not implemented here or in quantum-safe-py.
+ * @throws {UnsupportedAlgorithmError} for any partner outside {@link CNSA2_HYBRID_CLASSICAL}.
  */
-export function hybridKem(classical: 'X25519' | 'P-384' = 'X25519'): HybridKEM {
-  if (classical === 'P-384') {
-    throw new UnsupportedAlgorithmError('P-384 hybrids are not implemented (neither here nor in quantum-safe-py), and a hybrid would still be reported partial.');
+export function hybridKem(classical: (typeof CNSA2_HYBRID_CLASSICAL)[number] = 'X25519'): HybridKEM {
+  if (!(CNSA2_HYBRID_CLASSICAL as readonly string[]).includes(classical)) {
+    throw new UnsupportedAlgorithmError(
+      `classical partner '${String(classical)}' is not available for a CNSA 2.0 hybrid; choose from ${CNSA2_HYBRID_CLASSICAL.join(', ')}, or use kem().`,
+    );
   }
   return new HybridKEM('X25519+ML-KEM-1024');
 }

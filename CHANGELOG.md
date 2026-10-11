@@ -12,6 +12,10 @@ as a new, explicitly identified algorithm suite.
 - **`qs-audit` no longer skips code after a closing script tag with attributes.** In Vue/Svelte/HTML files `</script >` or `</script foo>` was not recognised as the end of a block, so what followed was not scanned. It is now, and the closing-tag match is linear. Reported by CodeQL (`js/bad-tag-filter`).
 - **Exclude globs match in linear time.** `globToRegExp` collapses repeated wildcards and escapes every other character literally, so a hostile pattern in a policy file cannot cause catastrophic backtracking.
 
+### Changed
+
+- `cnsa2.CNSA2_HYBRID_CLASSICAL` lists only `X25519`, the same as quantum-safe-py; `P-384` was listed but never implemented. `cnsa2.hybridKem()` accepts only a listed partner (a type error in TypeScript, `UnsupportedAlgorithmError` at runtime).
+
 ### Documentation
 
 - The README footer, ROADMAP and CHANGELOG no longer carry the review-request material; `REVIEW_WANTED.md` is removed.

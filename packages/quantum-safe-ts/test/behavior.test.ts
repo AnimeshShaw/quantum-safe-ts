@@ -466,8 +466,15 @@ describe('CNSA 2.0 profile', () => {
     expect(cnsa2.kem().algorithm).toBe('ML-KEM-1024');
     expect(cnsa2.hybridKem().algorithm).toBe('X25519+ML-KEM-1024');
     expect(cnsa2.hybridSign().algorithm).toBe('Ed25519+ML-DSA-87');
-    expect(() => cnsa2.hybridKem('P-384')).toThrow(UnsupportedAlgorithmError);
+    expect(() => cnsa2.hybridKem('P-384' as never)).toThrow(UnsupportedAlgorithmError);
     expect(cnsa2.describe()).toContain('NOT give you');
+  });
+  it('lists only the classical partner that is implemented, as quantum-safe-py does', () => {
+    expect([...cnsa2.CNSA2_HYBRID_CLASSICAL]).toEqual(['X25519']);
+    // Any partner outside the list is refused with a typed error, not silently replaced by X25519.
+    for (const other of ['P-384', 'P-256', 'X448', '']) {
+      expect(() => cnsa2.hybridKem(other as never), other).toThrow(UnsupportedAlgorithmError);
+    }
   });
 });
 
