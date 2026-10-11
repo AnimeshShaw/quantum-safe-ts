@@ -37,7 +37,7 @@ The theme is "make the safe thing the only thing", the same as in Python.
 - **XMSS** next to LMS verification. LMS or XMSS signing only behind a documented durable-state interface (it may never ship: stateful signing is
   easy to misuse).
 - **FN-DSA** after FIPS 206 is final and **HQC** after its standard is final, never presented as standard earlier.
-- **COSE serialization** for RFC 9964 and standards-based X.509 for ML-DSA and ML-KEM.
+- **Standards-based X.509** for ML-DSA and ML-KEM.
 - **React Native** (Hermes WebAssembly) with a device or simulator fixture; **per-feature WebAssembly builds** (KEM only, signatures only) to cut
   the size.
 - **`StandardJwt` private keys that Python can sign with.** RFC 9964 stores a seed; liboqs cannot turn a seed back into a key pair yet.

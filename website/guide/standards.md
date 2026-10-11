@@ -130,7 +130,7 @@ HKDF-SHA-256 for byte-compatibility), and everything outside this library (proto
 
 | Specification | Status |
 |---|---|
-| RFC 9964, ML-DSA for JOSE | Implemented as `StandardJwt`, verified against `@noble/post-quantum` and Node WebCrypto. COSE serialisation is not implemented. |
+| RFC 9964, ML-DSA for JOSE and COSE | JOSE: `StandardJwt`, verified against `@noble/post-quantum` and Node WebCrypto. COSE: `cose.sign1` / `verify1` and AKP COSE keys, checked against RFC 9964 Appendix A (all three levels). |
 | RFC 10024, TLS 1.3 hybrids | Delegated to the platform. This library does not implement TLS. |
 | X-Wing (`draft-connolly-cfrg-xwing-kem`) | Implemented, interoperable with noble's `ml_kem768_x25519`. |
 | JOSE KEM drafts, composite signatures, LAMPS X.509/CMS, HPKE-PQ | Not implemented. |

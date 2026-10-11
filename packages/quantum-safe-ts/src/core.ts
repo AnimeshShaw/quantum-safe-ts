@@ -41,6 +41,7 @@ export type {
   StandardVerifyOptions,
 } from './jwt.js';
 export * as cnsa2 from './cnsa2.js';
+export * as cose from './cose.js';
 export * as easy from './easy.js';
 export type { EasyKeyPair } from './easy.js';
 export { toHex, fromHex, utf8, wipe, equalBytes, toBase64Url, fromBase64Url } from './utils.js';
