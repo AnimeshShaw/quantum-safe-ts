@@ -31,7 +31,7 @@ negotiate X25519MLKEM768, RFC 10024).
 
 KEM suites (`kemSuites()`): `X25519+ML-KEM-512`, `X25519+ML-KEM-768` (default), `X25519+ML-KEM-1024`, `P-256+ML-KEM-512`,
 `P-256+ML-KEM-768`, `X-Wing`, and pure `ML-KEM-512`, `ML-KEM-768`, `ML-KEM-1024`.
-Signature suites (`sigSuites()`): `Ed25519+ML-DSA-44`, `Ed25519+ML-DSA-65` (default hybrid), `Ed25519+ML-DSA-87`,
+Signature suites (`sigSuites()`): `Ed25519+ML-DSA-44`, `Ed25519+ML-DSA-65` (original format), `Ed25519+ML-DSA-87`,
 `P-256+ML-DSA-44`, `P-256+ML-DSA-65`, `ML-DSA-44`, `ML-DSA-65`, `ML-DSA-87`, and SLH-DSA (FIPS 205): `SLH-DSA-SHAKE-128s`,
 `SLH-DSA-SHAKE-128f`, `SLH-DSA-SHAKE-192s`, `SLH-DSA-SHAKE-192f`, `SLH-DSA-SHAKE-256s`, `SLH-DSA-SHAKE-256f`,
 `SLH-DSA-SHA2-128s`, `SLH-DSA-SHA2-128f`, `SLH-DSA-SHA2-192s`, `SLH-DSA-SHA2-192f`, `SLH-DSA-SHA2-256s`, `SLH-DSA-SHA2-256f`.
@@ -55,7 +55,7 @@ const keys = easy.generateEncryptionKeys(); // { publicKey, secretKey, algorithm
 const sealed = easy.encrypt(keys.publicKey, 'hello', { aad: 'ctx' }); // Uint8Array (CBOR SealedMessage)
 if (new TextDecoder().decode(easy.decrypt(keys.secretKey, sealed)) !== 'hello') throw new Error('round trip');
 
-const signer = easy.generateSigningKeys(); // default Ed25519+ML-DSA-65
+const signer = easy.generateSigningKeys(); // default Ed25519+ML-DSA-65-v2
 const signed = easy.sign(signer.secretKey, 'doc', { context: 'docs-v1' }); // Uint8Array (CBOR SignedMessage)
 if (new TextDecoder().decode(easy.verify(signer.publicKey, signed, { context: 'docs-v1' })) !== 'doc') throw new Error('verify');
 ```

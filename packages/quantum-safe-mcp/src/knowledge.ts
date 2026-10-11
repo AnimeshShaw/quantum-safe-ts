@@ -174,6 +174,6 @@ export function findError(query: string): ErrorInfo | undefined {
 
 export const LLMS_TXT = `quantum-safe-ts: hybrid post-quantum cryptography for TypeScript/JavaScript (Rust core compiled to WASM).
 Install: npm install quantum-safe-ts. Outside Node.js call await init() first.
-Defaults: X25519+ML-KEM-768 (HybridKEM), Ed25519+ML-DSA-65 (HybridSign). CNSA 2.0 needs pure ML-KEM-1024 (cnsa2.kem(); Envelope v2 uses HKDF-SHA-384) and ML-DSA-87 (new Sign('ML-DSA-87')); hybrids are reported partial.
+Defaults: X25519+ML-KEM-768 (HybridKEM), Ed25519+ML-DSA-65-v2 (HybridSign). CNSA 2.0 needs pure ML-KEM-1024 (cnsa2.kem(); Envelope v2 uses HKDF-SHA-384) and ML-DSA-87 (new Sign('ML-DSA-87')); hybrids are reported partial.
 Envelope.seal(plaintext, publicKey, {aad}) / Envelope.open(sealed, secretKey). StandardJwt for RFC 9964 tokens. deriveMasterKey for Argon2id.
 Docs: https://github.com/AnimeshShaw/quantum-safe-ts`;

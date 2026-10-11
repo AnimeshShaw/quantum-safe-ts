@@ -5,6 +5,7 @@ export * from './errors.js';
 export {
   DEFAULT_KEM,
   DEFAULT_HYBRID_SIGNATURE,
+  ORIGINAL_HYBRID_SIGNATURE,
   DEFAULT_SIGNATURE,
   kemSuites,
   sigSuites,

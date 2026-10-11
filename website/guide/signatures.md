@@ -56,7 +56,7 @@ helps them. Use `isValid` for a boolean, or `verifyBytes(message, signature, pub
 
 | Name | Notes |
 |---|---|
-| `Ed25519+ML-DSA-44/65/87`, `P-256+ML-DSA-44/65` | Hybrid. Default `Ed25519+ML-DSA-65` (NIST category 3). Byte-compatible with quantum-safe-py. |
+| `Ed25519+ML-DSA-44/65/87`, `P-256+ML-DSA-44/65` | Hybrid. Default `Ed25519+ML-DSA-65-v2` (NIST category 3). Byte-compatible with quantum-safe-py. |
 | `ML-DSA-44/65/87` | FIPS 204. `ML-DSA-87` is the CNSA 2.0 level. |
 | `SLH-DSA-SHAKE-*` and `SLH-DSA-SHA2-*` (`128/192/256`, `s`/`f`; 12 sets) | FIPS 205, hash-based. Large signatures, conservative assumptions, slower signing. `f` is faster to sign, `s` smaller. |
 | `<any ML-DSA or hybrid>-v2` | The cleaner format described below. |
@@ -107,9 +107,8 @@ if (signed.signature.length !== 64 + 3309) throw new Error('hybrid v2 blob is 64
 quantum-safe-py 0.3.2 or later reads and writes v2 (all eight identifiers are verified in both directions); 0.3.0 cannot read it and fails
 closed on the identifier (the format first appeared in 0.3.1). There is no SLH-DSA v2. `JWTSigner` / `JWTVerifier` accept v2 keys too.
 
-**Which to use:** the default stays `Ed25519+ML-DSA-65` for now so existing Python deployments keep verifying, and is planned to flip to
-`-v2` in the next minor release. Choose `-v2` explicitly when every verifier you control is quantum-safe-py 0.3.2+ or quantum-safe-ts
-([Choosing what to use](/guide/choosing#default-format-or-v2)).
+**Which to use:** `-v2` is the default hybrid from 0.2.0. Name the original `Ed25519+ML-DSA-65` when a verifier older than quantum-safe-py
+0.3.2 is involved ([Choosing what to use](/guide/choosing#original-format-or-v2)).
 
 ## Standard ML-DSA for other ecosystems
 
@@ -177,7 +176,7 @@ try {
 ```ts test
 import { easy } from 'quantum-safe-ts';
 
-const keys = easy.generateSigningKeys('Ed25519+ML-DSA-65-v2');          // PEM strings; default is Ed25519+ML-DSA-65
+const keys = easy.generateSigningKeys();                                // PEM strings; default is Ed25519+ML-DSA-65-v2
 const signed = easy.sign(keys.secretKey, 'hello', { context: 'docs-v1' }); // Uint8Array (CBOR SignedMessage)
 if (easy.verifyText(keys.publicKey, signed, { context: 'docs-v1' }) !== 'hello') throw new Error('verify');
 if (easy.isValid(keys.publicKey, signed, { context: 'other' })) throw new Error('a different context must not verify');

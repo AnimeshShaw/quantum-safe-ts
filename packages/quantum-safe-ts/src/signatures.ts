@@ -1,4 +1,4 @@
-import { DEFAULT_HYBRID_SIGNATURE, DEFAULT_SIGNATURE, sigSuites } from './algorithms.js';
+import { DEFAULT_HYBRID_SIGNATURE, DEFAULT_SIGNATURE, ORIGINAL_HYBRID_SIGNATURE, sigSuites } from './algorithms.js';
 import type { SignatureAlgorithm, SuiteInfo } from './algorithms.js';
 import { AlgorithmMismatchError, InvalidArgumentError, UnsupportedAlgorithmError, VerificationError } from './errors.js';
 import { KeyPair, PublicKey, SecretBytes, SecretKey } from './keys.js';
@@ -374,10 +374,12 @@ export class Sign extends BaseSigner {
  * ```
  */
 export class HybridSign extends BaseSigner {
-  constructor(
-    algorithm: Extract<SignatureAlgorithm, `${string}+${string}`> = DEFAULT_HYBRID_SIGNATURE,
-    options: { hedged?: boolean } = {},
-  ) {
-    super(algorithm, true, options.hedged ?? true);
+  /**
+   * @param algorithm Default `Ed25519+ML-DSA-65-v2`. With `hedged: false` and no algorithm the original format `Ed25519+ML-DSA-65` is used,
+   * because `-v2` is always hedged inside ML-DSA and has no unhedged mode.
+   */
+  constructor(algorithm?: Extract<SignatureAlgorithm, `${string}+${string}`>, options: { hedged?: boolean } = {}) {
+    const hedged = options.hedged ?? true;
+    super(algorithm ?? (hedged ? DEFAULT_HYBRID_SIGNATURE : ORIGINAL_HYBRID_SIGNATURE), true, hedged);
   }
 }

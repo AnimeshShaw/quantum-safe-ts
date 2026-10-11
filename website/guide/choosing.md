@@ -12,7 +12,7 @@ use something. It is the answer the maintainers would give you in person.
 | Encrypt data that other ecosystems (not Python) must decrypt | `X-Wing` | The default hybrid (it is its own construction: only Python and this library read it) |
 | Encrypt a large file or an upload | `sealStream` / `openStream` | `Envelope.seal` on a multi-gigabyte buffer |
 | Sign data that only quantum-safe libraries verify | `HybridSign` with a `context` | A signature without a context |
-| Sign data that other ecosystems must verify | `Sign('ML-DSA-65-v2')` or `HybridSign('Ed25519+ML-DSA-65-v2')` | The default format (a generic ML-DSA library cannot verify it) |
+| Sign data that other ecosystems must verify | `Sign.signRaw()` (a standard FIPS 204 signature) | `Sign.sign()` and `HybridSign` signatures (a generic ML-DSA library cannot verify them) |
 | Issue tokens your own services verify | `JWTSigner` / `JWTVerifier` | Hand-built tokens |
 | Issue tokens that other JOSE libraries must verify | `StandardJwt` (RFC 9964) | `JWTSigner` (only quantum-safe libraries verify it) |
 | Move existing keys to post-quantum safely | `Upgrader` plus `MigrationStateManager` | Swapping every key atomically in one deploy |
@@ -30,8 +30,8 @@ function encryptionKeys(cnsa2Profile: boolean) {
 }
 
 function signer(everyVerifierIsPy031OrTs: boolean) {
-  // -v2 when every verifier can read it; the default format when an older Python verifier is involved.
-  return everyVerifierIsPy031OrTs ? new HybridSign('Ed25519+ML-DSA-65-v2') : new HybridSign();
+  // -v2 (the default) when every verifier can read it; the original format when an older Python verifier is involved.
+  return everyVerifierIsPy031OrTs ? new HybridSign() : new HybridSign('Ed25519+ML-DSA-65');
 }
 
 for (const profile of [false, true]) {
@@ -113,9 +113,9 @@ if (sizes['ML-DSA-65-v2'] !== 3309 || sizes['Ed25519+ML-DSA-65-v2'] !== 3309 + 6
 if (sizes['ML-DSA-65'] !== 3309 + 33) throw new Error('unexpected default-format size');
 ```
 
-### Default format or `-v2`?
+### Original format or `-v2`?
 
-| | Default (v1) | `-v2` |
+| | Original (v1) | `-v2` (the default) |
 |---|---|---|
 | Who can verify | quantum-safe-py (all versions) and quantum-safe-ts | quantum-safe-py **0.3.2 or later** and quantum-safe-ts. A standard FIPS 204 library can verify it only by rebuilding the wrapped message `M2` and passing the context `quantum-safe-sig-v2`. |
 | Structure | Hedging prefix and an unsigned length byte, wrapped in CBOR | No prefix; one fixed-length blob |
@@ -123,10 +123,10 @@ if (sizes['ML-DSA-65'] !== 3309 + 33) throw new Error('unexpected default-format
 | What is signed | Context yes; the algorithm no | Algorithm and context, for both halves |
 | Available for | Every ML-DSA suite, the hybrids, SLH-DSA | ML-DSA-44/65/87 and the Ed25519 / P-256 hybrids (no SLH-DSA) |
 
-**Recommendation.** For new signatures where every verifier you control is quantum-safe-py 0.3.2+ or quantum-safe-ts, use `-v2`. Keep the
-default while an older Python verifier is in the loop. **The default of `easy.generateSigningKeys` and `HybridSign()` stays
-`Ed25519+ML-DSA-65` for now, so that existing Python deployments keep verifying; it is planned to flip to `-v2` in the next minor release.**
-Choosing `-v2` explicitly today is safe and is the clean choice.
+**Recommendation.** `-v2` is the default of `easy.generateSigningKeys` and `HybridSign()` from 0.2.0, so the defaults are right for new signatures
+wherever every verifier you control is quantum-safe-py 0.3.2+ or quantum-safe-ts. Name the original format (`new HybridSign('Ed25519+ML-DSA-65')`)
+while an older Python verifier is in the loop. `new HybridSign(undefined, { hedged: false })` selects the original format, because `-v2` is
+always hedged.
 
 ::: warning
 Never use the same key material in both formats. The ML-DSA halves are separated by FIPS 204's context, but the classical halves are not.

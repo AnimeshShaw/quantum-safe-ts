@@ -342,10 +342,10 @@ describe('signatures for every fast suite', () => {
     const ok = other.publicKey.toBytes();
     const classicalLen = (pk[0]! << 8) | pk[1]!;
     const mixed = new Uint8Array([...pk.slice(0, 2 + classicalLen), ...ok.slice(2 + classicalLen)]); // our Ed25519 + their ML-DSA
-    using mixedKey = PublicKey.fromBytes('Ed25519+ML-DSA-65', mixed);
+    using mixedKey = PublicKey.fromBytes(signer.algorithm, mixed);
     expect(signer.isValid(sm, mixedKey)).toBe(false);
     const mixed2 = new Uint8Array([...ok.slice(0, 2 + classicalLen), ...pk.slice(2 + classicalLen)]); // their Ed25519 + our ML-DSA
-    using mixedKey2 = PublicKey.fromBytes('Ed25519+ML-DSA-65', mixed2);
+    using mixedKey2 = PublicKey.fromBytes(signer.algorithm, mixed2);
     expect(signer.isValid(sm, mixedKey2)).toBe(false);
     expect(signer.isValid(sm, pair.publicKey)).toBe(true);
   });

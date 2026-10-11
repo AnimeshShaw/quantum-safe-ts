@@ -79,8 +79,13 @@ export interface SuiteInfo {
 
 /** Default hybrid KEM (quantum-safe-py default). NIST category 3; below CNSA 2.0's ML-KEM-1024. */
 export const DEFAULT_KEM = 'X25519+ML-KEM-768' as const satisfies KemAlgorithm;
-/** Default hybrid signature (quantum-safe-py default). */
-export const DEFAULT_HYBRID_SIGNATURE = 'Ed25519+ML-DSA-65' as const satisfies SignatureAlgorithm;
+/**
+ * Default hybrid signature (quantum-safe-py's default too): the `-v2` format (no hedging prefix, FIPS 204 native context). The original
+ * format is `Ed25519+ML-DSA-65`; name it to keep using it.
+ */
+export const DEFAULT_HYBRID_SIGNATURE = 'Ed25519+ML-DSA-65-v2' as const satisfies SignatureAlgorithm;
+/** The original (prefix) format of the default hybrid suite: used when `hedged: false` is requested without naming a suite. */
+export const ORIGINAL_HYBRID_SIGNATURE = 'Ed25519+ML-DSA-65' as const satisfies SignatureAlgorithm;
 /** Default pure signature. */
 export const DEFAULT_SIGNATURE = 'ML-DSA-65' as const satisfies SignatureAlgorithm;
 

@@ -56,7 +56,7 @@ The Rust core lives in [`crates/`](crates), the WebAssembly bindings in [`bindin
 
 | Capability | API | Algorithms |
 |---|---|---|
-| One-call encryption and signing | `easy` | defaults `X25519+ML-KEM-768`, `Ed25519+ML-DSA-65` |
+| One-call encryption and signing | `easy` | defaults `X25519+ML-KEM-768`, `Ed25519+ML-DSA-65-v2` |
 | Key encapsulation | `HybridKEM`, `KEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `X-Wing`, pure `ML-KEM-512/768/1024` |
 | Streaming encryption of large data (TypeScript-only) | `sealStream`, `openStream` | any hybrid KEM or `ML-KEM-1024`, chunked AES-256-GCM (STREAM) |
 | Public-key encryption (anonymous: no sender authentication) | `Envelope`, `SealedMessage` | any hybrid KEM + AES-256-GCM; CNSA 2.0 profile with pure `ML-KEM-1024` + HKDF-SHA-384 (envelope v2; quantum-safe-py 0.3.2+ reads and writes it too) |
@@ -93,7 +93,7 @@ interoperability: quantum-safe-py's hybrid combiner and signature context are it
 
 | You need | Use |
 |---|---|
-| Python and TypeScript services exchange data | The defaults, or `-v2` for new signatures |
+| Python and TypeScript services exchange data | The defaults (quantum-safe-py 0.4.0 and quantum-safe-ts 0.2.0 share the `-v2` default) |
 | Another ecosystem reads your KEM output | `HybridKEM('X-Wing')` |
 | A standard JOSE library verifies a token | `StandardJwt` (RFC 9964) |
 | A standard FIPS 204 signature over your own bytes | TypeScript: `Sign.signRaw()` / `verifyRaw()` (also `signStandard` / `verifyStandard`). Python: `Sign.sign_raw()` / `verify_raw()`. Tested against each other in both directions. TypeScript signs with seed keys; it verifies any Python signature |
@@ -103,9 +103,8 @@ quantum-safe-py and quantum-safe-ts, not a standard signature over your message.
 
 ## Status and roadmap
 
-The next minor release moves the default hybrid signature to
-`Ed25519+ML-DSA-65-v2`, in step with quantum-safe-py 0.4.0. The roadmap lists what is now, next and later, what would make it 1.0, and what this
-library will not become: [ROADMAP.md](ROADMAP.md).
+The default hybrid signature is `Ed25519+ML-DSA-65-v2`, in step with quantum-safe-py 0.4.0. The roadmap lists what is now, next and later, what
+would make it 1.0, and what this library will not become: [ROADMAP.md](ROADMAP.md).
 
 ## Where it runs
 

@@ -21,7 +21,6 @@ At 1.0 the API is frozen under semantic versioning, which is gated on an indepen
 
 | Planned | What to do now |
 |---|---|
-| The default signature suite of `easy` and `HybridSign()` moves from `Ed25519+ML-DSA-65` to `Ed25519+ML-DSA-65-v2` in a later minor release | Choose explicitly: `new HybridSign('Ed25519+ML-DSA-65-v2')` if every verifier is quantum-safe-py 0.3.2+ or quantum-safe-ts; `new HybridSign('Ed25519+ML-DSA-65')` to keep the current format. Explicit choices never change. |
 | Argument order and naming of some calls may be made consistent before 1.0 (for example `sign(message, key)` versus `decapsulate(key, ciphertext)`), with deprecated aliases | Keep your calls in one place (a small wrapper) so a change is a one-line edit |
 | The ESM and CommonJS builds may be reduced to ESM only | Import the library one way throughout; use `QuantumSafeError.is(e)` rather than `instanceof` |
 | `Jwt*` and `JWT*` naming, subpath imports for migration/JWT/LMS | Same: wrap and keep imports central |
