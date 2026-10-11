@@ -165,7 +165,12 @@ describe('FileMigrationStore lock safety', () => {
     const { FileMigrationStore } = await load();
     const dir = join(root, 'private');
     const s = new FileMigrationStore(dir);
-    await expect(s.set('x'.repeat(500), 'v')).rejects.toThrow(/at most 120 bytes/);
+    await expect(s.set('x'.repeat(500), 'v')).rejects.toThrow(/at most 100 bytes/);
+    // The longest allowed key must actually work: its hex file name plus the temp-file and lock suffixes has to fit the 255-character limit.
+    const longest = 'x'.repeat(100);
+    await s.set(longest, 'v');
+    expect(await s.get(longest)).toBe('v');
+    expect(await s.compareAndSet(longest, 'v', 'w')).toBe(true);
     await s.set('k', 'v');
     if (process.platform !== 'win32') {
       const fs = await import('node:fs');

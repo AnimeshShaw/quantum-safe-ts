@@ -26,7 +26,8 @@ export interface FileMigrationStoreOptions {
   lockTimeoutMs?: number;
 }
 
-const MAX_KEY_BYTES = 120;
+// Hex doubles the length, and the temporary-file and lock suffixes are added to the file name, which must stay under 255 characters.
+const MAX_KEY_BYTES = 100;
 // Lowercase hex, not base64url: file names that differ only by case would be the SAME file on case-insensitive filesystems (Windows, macOS default).
 const enc = (key: string): string => Buffer.from(key, 'utf8').toString('hex');
 const dec = (name: string): string => Buffer.from(name, 'hex').toString('utf8');
