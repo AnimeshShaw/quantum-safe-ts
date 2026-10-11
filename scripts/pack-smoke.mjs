@@ -46,6 +46,35 @@ const tarballs = { ts: pack('quantum-safe-ts'), audit: pack('quantum-safe-audit'
   check('quantum-safe-ts: ESM import, round trip and file-store subpath', out.startsWith('esm ok function function'), out);
   out = run('node', ['cjs.cjs'], dir);
   check('quantum-safe-ts: CommonJS require, round trip and file-store subpath', out.startsWith('cjs ok function'), out);
+  // The Node-only LMS signer subpath, from the installed tarball: ESM and CJS, sign and verify.
+  const lmsEsm = [
+    "import { mkdtempSync } from 'node:fs';",
+    "import { tmpdir } from 'node:os';",
+    "import { join } from 'node:path';",
+    "import { Lms } from 'quantum-safe-ts';",
+    "import { LmsSigner } from 'quantum-safe-ts/lms-signer';",
+    "const s = LmsSigner.create({ directory: join(mkdtempSync(join(tmpdir(), 'lms-')), 'k'), height: 5, winternitz: 8 });",
+    "const m = new TextEncoder().encode('lms');",
+    "console.log(Lms.isValid(s.publicKey, m, s.sign(m)) ? 'lms ok' : 'lms bad', s.remaining);",
+    '',
+  ].join('\n');
+  const lmsCjs = [
+    "const { mkdtempSync } = require('node:fs');",
+    "const { tmpdir } = require('node:os');",
+    "const { join } = require('node:path');",
+    "const { Lms } = require('quantum-safe-ts');",
+    "const { LmsSigner } = require('quantum-safe-ts/lms-signer');",
+    "const s = LmsSigner.create({ directory: join(mkdtempSync(join(tmpdir(), 'lms-')), 'k'), height: 5, winternitz: 8 });",
+    "const m = new TextEncoder().encode('lms');",
+    "console.log(Lms.isValid(s.publicKey, m, s.sign(m)) ? 'lms ok' : 'lms bad', s.remaining);",
+    '',
+  ].join('\n');
+  writeFileSync(join(dir, 'lms.mjs'), lmsEsm);
+  writeFileSync(join(dir, 'lms.cjs'), lmsCjs);
+  out = run('node', ['lms.mjs'], dir);
+  check('quantum-safe-ts: lms-signer subpath (ESM): sign and verify', out.startsWith('lms ok 31'), out);
+  out = run('node', ['lms.cjs'], dir);
+  check('quantum-safe-ts: lms-signer subpath (CommonJS): sign and verify', out.startsWith('lms ok 31'), out);
   const files = readdirSync(join(dir, 'node_modules', 'quantum-safe-ts'));
   for (const f of ['README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.md', 'llms.txt', 'llms-full.txt', 'dist']) check(`quantum-safe-ts tarball contains ${f}`, files.includes(f));
 }
