@@ -55,6 +55,7 @@ export default defineConfig({
             { text: 'Cookbook', link: '/guide/cookbook' },
             { text: 'Migrating to post-quantum', link: '/guide/migration' },
             { text: 'Interop with quantum-safe-py', link: '/guide/python-interop' },
+            { text: 'Differences from quantum-safe-py', link: '/guide/differences' },
             { text: 'CNSA 2.0 and standards', link: '/guide/standards' },
           ],
         },

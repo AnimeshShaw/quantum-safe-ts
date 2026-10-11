@@ -28,6 +28,8 @@ Use quantum-safe-py **0.3.2 or later** (`pip install "quantum-safe-py>=0.3.2"`).
 | `X-Wing` KEM, streaming encryption (format v3), all twelve SLH-DSA sets | Yes, with quantum-safe-py 0.4.0 |
 | LMS signing | TypeScript signs only in Node.js with durable state; Python signs through its optional extra |
 
+What each library has that the other does not, and why, is in [Differences from quantum-safe-py](/guide/differences).
+
 Python 0.3.0 fails closed on the identifiers it does not know (it never mis-verifies). The full table, the wire formats and the known quirks
 are in [COMPATIBILITY.md](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/COMPATIBILITY.md).
 
