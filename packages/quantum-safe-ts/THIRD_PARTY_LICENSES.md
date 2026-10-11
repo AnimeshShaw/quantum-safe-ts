@@ -14,7 +14,7 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | aes | 0.9.3 | MIT OR Apache-2.0 | https://github.com/RustCrypto/block-ciphers |
 | argon2 | 0.6.0 | MIT OR Apache-2.0 | https://github.com/RustCrypto/password-hashes |
 | base16ct | 1.0.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/formats |
-| base64 | 0.22.1 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
+| base64 | 0.23.1 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
 | base64ct | 1.8.3 | Apache-2.0 OR MIT | https://github.com/RustCrypto/formats |
 | blake2 | 0.11.0 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | block-buffer | 0.10.4 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |
@@ -120,7 +120,7 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | zerocopy | 0.7.35 | BSD-2-Clause OR Apache-2.0 OR MIT | https://github.com/google/zerocopy |
 | zerocopy | 0.8.59 | BSD-2-Clause OR Apache-2.0 OR MIT | https://github.com/google/zerocopy |
 | zeroize_derive | 1.5.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
-| zeroize | 1.9.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
+| zeroize | 1.9.1 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
 | zmij | 1.0.23 | MIT | https://github.com/dtolnay/zmij |
 
 ## License and notice texts
@@ -514,7 +514,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-APACHE
 
-Shipped by: base64 0.22.1, bumpalo 3.20.3, cfg-if 1.0.5, ff 0.14.0, group 0.14.0, js-sys 0.3.106, num-traits 0.2.19, once_cell 1.21.4, wasm-bindgen-macro-support 0.2.129, wasm-bindgen-macro 0.2.129, wasm-bindgen-shared 0.2.129, wasm-bindgen 0.2.129
+Shipped by: base64 0.23.1, bumpalo 3.20.3, cfg-if 1.0.5, ff 0.14.0, group 0.14.0, js-sys 0.3.106, num-traits 0.2.19, once_cell 1.21.4, wasm-bindgen-macro-support 0.2.129, wasm-bindgen-macro 0.2.129, wasm-bindgen-shared 0.2.129, wasm-bindgen 0.2.129
 
 ```text
                               Apache License
@@ -724,12 +724,12 @@ limitations under the License.
 
 ### LICENSE-MIT
 
-Shipped by: base64 0.22.1
+Shipped by: base64 0.23.1
 
 ```text
 The MIT License (MIT)
 
-Copyright (c) 2015 Alice Maz
+Copyright (c) 2025 Alice Maz, Marshall Pierce
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1280,7 +1280,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-APACHE
 
-Shipped by: cmov 0.5.4, ctutils 0.4.2, serdect 0.4.3, zeroize_derive 1.5.0, zeroize 1.9.0
+Shipped by: cmov 0.5.4, ctutils 0.4.2, serdect 0.4.3, zeroize_derive 1.5.0, zeroize 1.9.1
 
 ```text
 
@@ -3271,7 +3271,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-MIT
 
-Shipped by: keccak 0.2.2, zeroize 1.9.0
+Shipped by: keccak 0.2.2, zeroize 1.9.1
 
 ```text
 Copyright (c) 2018-2026 The RustCrypto Project Developers
