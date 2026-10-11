@@ -23,7 +23,8 @@ Use quantum-safe-py **0.3.2 or later** (`pip install "quantum-safe-py>=0.3.2"`).
 | Migration `Upgrader` output and migration store layout | Yes (through converters for the store) |
 | Envelope v2 (CNSA profile: pure `ML-KEM-1024`, HKDF-SHA-384) | Yes, with quantum-safe-py 0.3.2+ |
 | Signature format `-v2` (all eight identifiers) | Yes, with quantum-safe-py 0.3.2+ |
-| `StandardJwt` (RFC 9964) tokens and public `AKP` JWKs | Yes, with quantum-safe-py 0.3.2+. Private JWKs (`priv` is a seed) are TypeScript only: liboqs cannot derive a Python key from a seed |
+| `StandardJwt` (RFC 9964) tokens and public `AKP` JWKs | Yes, with quantum-safe-py 0.3.2+ |
+| Private `AKP` JWKs and private COSE keys (`priv` is the 32-byte seed) | Yes, with quantum-safe-py 0.4.0 and its `cryptography` backend (`pip install 'quantum-safe-py[pyca]'`): a seed made in either library signs in the other |
 | `X-Wing` KEM, streaming encryption (format v3), all twelve SLH-DSA sets | Yes, with quantum-safe-py 0.4.0 |
 | LMS signing | TypeScript signs only in Node.js with durable state; Python signs through its optional extra |
 
@@ -178,4 +179,4 @@ eight `-v2` identifiers, `StandardJwt` tokens) and `tests/vectors/ts_v2_vectors.
 | `DecryptionAuthenticationError` on an envelope | Different AAD, wrong key, or modified bytes | Same AAD on both ends |
 | Envelope v2 cannot be opened by Python | Python is 0.3.0 | Upgrade, or use a hybrid key |
 | `KeyParseError` on a key from Python | A secret key presented as public, or a damaged PEM | Export the right half; copy the PEM whole |
-| A private JWK from Python | Not supported across languages | Use PEM/CBOR keys, or `StandardJwt` public JWKs and tokens |
+| A private JWK or COSE key from Python cannot sign here | It came from Python's liboqs backend (an expanded key, no seed) | Make it with `StandardJwt.generate_private_jwk()` (needs `quantum-safe-py[pyca]`), or generate the key here and give Python the seed |
