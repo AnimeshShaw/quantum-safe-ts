@@ -94,7 +94,7 @@ Only if systems that are not quantum-safe-py or quantum-safe-ts must decrypt you
 
 **Why not use WebCrypto's ML-KEM/ML-DSA?**
 If you only need a primitive and your runtimes all have it, you probably should: it is smaller and native. This library adds formats, key
-handling, typed errors, JWT, migration tools and Python interop, and runs where WebCrypto does not have the algorithms yet ([Which library?](/compare)).
+handling, typed errors, JWT, migration tools and Python interop, and runs where WebCrypto does not have the algorithms yet ([What it adds](/compare)).
 
 ## Security and compliance
 

@@ -20,7 +20,7 @@ export default defineConfig({
       { text: 'Cookbook', link: '/guide/cookbook' },
       { text: 'API', link: '/api/' },
       { text: 'Tools', link: '/tools/audit' },
-      { text: 'Choose a library', link: '/compare' },
+      { text: 'What it adds', link: '/compare' },
       { text: 'Roadmap', link: 'https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/ROADMAP.md' },
     ],
     sidebar: {

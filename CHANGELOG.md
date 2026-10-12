@@ -35,6 +35,7 @@ as a new, explicitly identified algorithm suite.
 ### Documentation
 
 - The README footer, ROADMAP and CHANGELOG no longer carry the review-request material; `REVIEW_WANTED.md` is removed.
+- The README is a short front page (what it provides, install, one example, packages, links); the detail is on the documentation site. The "Which library should I use?" page is now "What quantum-safe-ts adds".
 - The benchmark harness times quantum-safe-ts only; the comparison runs and the Python baseline script are no longer part of the repository, and the comparison page no longer carries a speed row.
 
 ### Dependencies
