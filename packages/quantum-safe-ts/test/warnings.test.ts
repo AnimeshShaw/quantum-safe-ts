@@ -147,3 +147,41 @@ describe('envelopes: omitted expectedAad', () => {
     expect(seen.map((w) => w.code)).toEqual(['QS_AAD_OMITTED']);
   });
 });
+
+describe('signatures: hedged: false with a -v2 suite', () => {
+  it('still works exactly as hedged: true, and says the option has no effect', () => {
+    const signer = new Sign('ML-DSA-65-v2', { hedged: false });
+    using pair = signer.generateKeyPair();
+    const sm = signer.sign(utf8('hello'), pair.secretKey);
+    signer.verify(sm, pair.publicKey);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.code).toBe('QS_HEDGED_IGNORED');
+    expect(seen[0]!.message).toMatch(/no effect on ML-DSA-65-v2/);
+    // a default (hedged) signer verifies what the unhedged-flag one signed: nothing differs on the wire
+    new Sign('ML-DSA-65-v2').verify(sm, pair.publicKey);
+  });
+
+  it('applies to the hybrid -v2 suites, once per call site', () => {
+    const make = () => new HybridSign('Ed25519+ML-DSA-65-v2', { hedged: false });
+    make();
+    make(); // the same call site again: not repeated
+    expect(seen.filter((w) => w.code === 'QS_HEDGED_IGNORED')).toHaveLength(1);
+    new HybridSign('Ed25519+ML-DSA-44-v2', { hedged: false }); // a different call site
+    expect(seen.filter((w) => w.code === 'QS_HEDGED_IGNORED')).toHaveLength(2);
+  });
+
+  it('is silent for the original formats and for the defaults', () => {
+    new Sign('ML-DSA-65', { hedged: false });
+    new HybridSign('Ed25519+ML-DSA-65', { hedged: false });
+    new HybridSign(undefined, { hedged: false }); // selects the original format
+    new HybridSign();
+    new Sign('ML-DSA-65-v2');
+    expect(seen).toHaveLength(0);
+  });
+
+  it('can be silenced', () => {
+    warnings.silence('QS_HEDGED_IGNORED');
+    new Sign('ML-DSA-44-v2', { hedged: false });
+    expect(seen).toHaveLength(0);
+  });
+});

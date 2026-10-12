@@ -27,6 +27,7 @@ formats that cross are in [Interop with quantum-safe-py](/guide/python-interop).
 |---|---|---|---|
 | Standard ML-DSA secret key | A 32-byte seed (`StandardKeyPair`) | liboqs: 4,032-byte expanded key. With the optional `cryptography` backend: the 32-byte seed | FIPS 204 defines the seed as the key; the RustCrypto implementation works from it. liboqs does not take a seed. |
 | Signing with the other library's key | Signs with seed keys; verifies everything | Signs with either; verifies everything | An expanded key has no recoverable seed. For one key that signs in both, use a seed key (`Sign.generateStandardKeyPair()` or Python's `generate_seed_keypair()`). |
+| `hedged: false` with a `-v2` suite | Accepted and ignored, with a `QS_HEDGED_IGNORED` warning; an error at the next breaking release | `ValueError` | The `-v2` formats have no unhedged mode. TypeScript kept its documented 0.1.x behaviour so that nothing breaks in between. |
 | Zeroization | Rust `zeroize` plus explicit `free()` / `using`; copies in the JavaScript heap cannot be wiped | `ctypes.memset` of secret buffers | Different memory models. |
 
 ## Runtimes and packaging

@@ -45,7 +45,8 @@ helps them. Use `isValid` for a boolean, or `verifyBytes(message, signature, pub
 - A **hybrid** signature carries a classical and a post-quantum signature, and **both** must verify. Both halves are always evaluated before
   the result is combined, so a failure does not reveal which half failed.
 - **Hedged signing** (extra randomness) is the default, as in quantum-safe-py. With the default format (v1), a verifier must be in the same
-  hedging mode as the signer (`new Sign(algo, { hedged: false })`). The [`-v2` format](#format-v2--v2) has no such setting.
+  hedging mode as the signer (`new Sign(algo, { hedged: false })`). The [`-v2` format](#format-v2--v2) has no such setting: `hedged: false` with a `-v2` suite is ignored and emits a `QS_HEDGED_IGNORED` warning
+  (quantum-safe-py raises `ValueError`; see [Context and AAD](/guide/context-and-aad#a-third-advisory-hedged-false-with-a-v2-suite)).
 - `SignedMessage` is self-contained: `message`, `signature`, `algorithm`, `context`, `signerFingerprint`, `signedAt`. The fingerprint and
   timestamp are metadata and are **not** covered by the signature. Do not use them for security decisions.
 - Sign a **digest** of large artifacts, not the whole file.

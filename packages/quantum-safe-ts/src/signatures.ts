@@ -150,6 +150,15 @@ abstract class BaseSigner {
     this.info = lookup(algorithm, hybrid);
     this.algorithm = this.info.name as SignatureAlgorithm;
     this.hedged = hedged;
+    if (!hedged && this.algorithm.endsWith('-v2')) {
+      // Kept lenient so existing code keeps working; said out loud so nobody believes they got deterministic signatures.
+      warnOnce(
+        'QS_HEDGED_IGNORED',
+        `hedged: false has no effect on ${this.algorithm}: the -v2 formats have no prefix and always hedge inside ML-DSA, so signatures are ` +
+          'made and verified exactly as with hedged: true. Remove the option, or name the original format (for example Ed25519+ML-DSA-65) if ' +
+          'you need unhedged signatures. quantum-safe-py raises ValueError for this combination.',
+      );
+    }
   }
 
   /** The blob is `len(prefix) || prefix || payload`; the length must match this verifier's hedging mode (see {@link hedged}). */

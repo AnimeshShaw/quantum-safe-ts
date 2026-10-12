@@ -69,6 +69,17 @@ const plain = Envelope.open(sealed, recipient.secretKey, { expectedAad: utf8('te
 if (new TextDecoder().decode(plain) !== 'card on file') throw new Error('unexpected');
 ```
 
+## A third advisory: `hedged: false` with a `-v2` suite
+
+`new Sign('ML-DSA-65-v2', { hedged: false })` (and the hybrid `-v2` suites) is accepted, and signatures come out exactly as with
+`hedged: true`: the `-v2` formats have no prefix and always hedge inside ML-DSA, so there is no unhedged mode to select. The option has no
+effect, and a `QS_HEDGED_IGNORED` warning says so, so that nobody believes they obtained deterministic signatures. To remove the warning,
+drop the option. If you need unhedged signatures, name the original format (`Sign('ML-DSA-65', { hedged: false })` or
+`HybridSign('Ed25519+ML-DSA-65', { hedged: false })`); `new HybridSign(undefined, { hedged: false })` already selects it.
+
+quantum-safe-py raises `ValueError` for this combination. TypeScript stays lenient so that existing code keeps working; the combination is
+planned to become an error at the next breaking release.
+
 ## Controlling the warnings
 
 Each warning is emitted once per call site, through Node's `process.emitWarning` (type `QuantumSafeWarning`, with the code) or `console.warn`

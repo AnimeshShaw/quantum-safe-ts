@@ -4,11 +4,14 @@
  * quantum-safe-ts throws typed errors for failures and keeps those errors opaque on purpose. A *warning* is different: it is for the
  * developer, says what to change, never contains a secret or a context/AAD value, and does not alter the result of the call.
  *
- * Two exist:
+ * Three exist:
  * - `QS_CONTEXT_OMITTED`: `verify()` was called without `expectedContext` for a message that carries a non-empty context. Omitting it means
  *   "expect an empty context", so the message is rejected; the warning says why.
  * - `QS_AAD_OMITTED`: `Envelope.open()` (or `easy.decrypt`) was called without `expectedAad` for a message that carries AAD. The message was
  *   opened, but the opener did not check what the AAD was bound to.
+ * - `QS_HEDGED_IGNORED`: a signer was built with `hedged: false` and a `-v2` suite. The `-v2` formats have no prefix and always hedge inside
+ *   ML-DSA, so the option has no effect; signatures are made and verified exactly as with `hedged: true`. quantum-safe-py raises
+ *   `ValueError` for the same combination.
  *
  * Each warning is emitted once per call site. By default it goes to Node's `process.emitWarning` (type `QuantumSafeWarning`) or to
  * `console.warn` where `process` does not exist. Silence a code with {@link warnings.silence}, or take over delivery with
@@ -16,7 +19,7 @@
  */
 
 /** The warning codes the library can emit. */
-export type QuantumSafeWarningCode = 'QS_CONTEXT_OMITTED' | 'QS_AAD_OMITTED';
+export type QuantumSafeWarningCode = 'QS_CONTEXT_OMITTED' | 'QS_AAD_OMITTED' | 'QS_HEDGED_IGNORED';
 
 /** One advisory. */
 export interface QuantumSafeWarning {
