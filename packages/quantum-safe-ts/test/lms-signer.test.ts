@@ -12,12 +12,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { InvalidArgumentError, Lms, SigningError, UnsupportedAlgorithmError, VerificationError } from '../src/index.js';
 import { LmsSigner, assertNodeRuntime } from '../src/lms-signer.js';
+import type { LmsKeyProtection } from '../src/lms-signer.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = fs.mkdtempSync(join(tmpdir(), 'qs-lms-signer-'));
 let counter = 0;
 const fresh = (): string => join(root, `key-${counter++}`);
 const msg = (s: string): Uint8Array => new TextEncoder().encode(s);
+const PLAIN = { unprotected: true } as const;
 const indexOf = (sig: Uint8Array): number => new DataView(sig.buffer, sig.byteOffset).getUint32(4, false);
 
 afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -26,7 +28,7 @@ afterEach(() => vi.restoreAllMocks());
 describe('signatures verify', () => {
   for (const w of [1, 2, 4, 8] as const) {
     it(`height 5, w = ${w}: every signature verifies and a different message does not`, () => {
-      const signer = LmsSigner.create({ directory: fresh(), height: 5, winternitz: w });
+      const signer = LmsSigner.create({ protection: PLAIN, directory: fresh(), height: 5, winternitz: w });
       const pk = signer.publicKey;
       expect(Lms.inspectPublicKey(pk)).toMatchObject({ levels: 1, treeHeight: 5, winternitz: w });
       expect(signer.parameterSet).toBe(`LMS_SHA256_M32_H5/LMOTS_SHA256_N32_W${w}`);
@@ -41,7 +43,7 @@ describe('signatures verify', () => {
   }
 
   it('a flipped bit anywhere in a signature is rejected', () => {
-    const signer = LmsSigner.create({ directory: fresh(), height: 5, winternitz: 8 });
+    const signer = LmsSigner.create({ protection: PLAIN, directory: fresh(), height: 5, winternitz: 8 });
     const m = msg('flip');
     const sig = signer.sign(m);
     for (const at of [0, 5, 20, 100, sig.length - 40, sig.length - 1]) {
@@ -59,7 +61,7 @@ describe('signatures verify', () => {
   });
 
   it('height 10 with w = 4 signs and verifies', () => {
-    const signer = LmsSigner.create({ directory: fresh(), height: 10, winternitz: 4 });
+    const signer = LmsSigner.create({ protection: PLAIN, directory: fresh(), height: 10, winternitz: 4 });
     expect(signer.capacity).toBe(1024);
     const m = msg('height ten');
     expect(Lms.isValid(signer.publicKey, m, signer.sign(m))).toBe(true);
@@ -69,7 +71,7 @@ describe('signatures verify', () => {
 describe('state', () => {
   it('counts down, survives reopening and never reuses an index', () => {
     const dir = fresh();
-    const a = LmsSigner.create({ directory: dir, height: 5, winternitz: 2 });
+    const a = LmsSigner.create({ protection: PLAIN, directory: dir, height: 5, winternitz: 2 });
     const seen = new Set<number>();
     seen.add(indexOf(a.sign(msg('1'))));
     seen.add(indexOf(a.sign(msg('2'))));
@@ -85,7 +87,7 @@ describe('state', () => {
   });
 
   it('refuses to sign once every one-time key is used, and says so', () => {
-    const signer = LmsSigner.create({ directory: fresh(), height: 5, winternitz: 2 });
+    const signer = LmsSigner.create({ protection: PLAIN, directory: fresh(), height: 5, winternitz: 2 });
     const used = new Set<number>();
     for (let i = 0; i < 32; i++) used.add(indexOf(signer.sign(msg(`m${i}`))));
     expect(used.size).toBe(32);
@@ -97,28 +99,28 @@ describe('state', () => {
   it('files are private to the owner (POSIX)', () => {
     if (process.platform === 'win32') return;
     const dir = fresh();
-    LmsSigner.create({ directory: dir, height: 5, winternitz: 2 });
+    LmsSigner.create({ protection: PLAIN, directory: dir, height: 5, winternitz: 2 });
     expect(fs.statSync(join(dir, 'key.json')).mode & 0o777).toBe(0o600);
     expect(fs.statSync(join(dir, 'tree.bin')).mode & 0o777).toBe(0o600);
   });
 
   it('refuses to overwrite an existing key', () => {
     const dir = fresh();
-    LmsSigner.create({ directory: dir, height: 5, winternitz: 2 });
-    expect(() => LmsSigner.create({ directory: dir, height: 5, winternitz: 2 })).toThrow(/already exists/);
+    LmsSigner.create({ protection: PLAIN, directory: dir, height: 5, winternitz: 2 });
+    expect(() => LmsSigner.create({ protection: PLAIN, directory: dir, height: 5, winternitz: 2 })).toThrow(/already exists/);
   });
 
   it('rejects unsupported or invalid parameters', () => {
-    expect(() => LmsSigner.create({ directory: fresh(), height: 25 as never })).toThrow(UnsupportedAlgorithmError);
-    expect(() => LmsSigner.create({ directory: fresh(), height: 7 as never })).toThrow(InvalidArgumentError);
-    expect(() => LmsSigner.create({ directory: fresh(), height: 5, winternitz: 3 as never })).toThrow(InvalidArgumentError);
-    expect(() => LmsSigner.create({ directory: '' })).toThrow(InvalidArgumentError);
+    expect(() => LmsSigner.create({ protection: PLAIN, directory: fresh(), height: 25 as never })).toThrow(UnsupportedAlgorithmError);
+    expect(() => LmsSigner.create({ protection: PLAIN, directory: fresh(), height: 7 as never })).toThrow(InvalidArgumentError);
+    expect(() => LmsSigner.create({ protection: PLAIN, directory: fresh(), height: 5, winternitz: 3 as never })).toThrow(InvalidArgumentError);
+    expect(() => LmsSigner.create({ protection: PLAIN, directory: '' })).toThrow(InvalidArgumentError);
   });
 });
 
 describe('write-ahead: the index is durable before a signature exists', () => {
   it('a failed state write signs nothing and consumes nothing', () => {
-    const signer = LmsSigner.create({ directory: fresh(), height: 5, winternitz: 2 });
+    const signer = LmsSigner.create({ protection: PLAIN, directory: fresh(), height: 5, winternitz: 2 });
     vi.spyOn(fs, 'renameSync').mockImplementation(() => {
       throw new Error('disk full');
     });
@@ -129,7 +131,7 @@ describe('write-ahead: the index is durable before a signature exists', () => {
   });
 
   it('a failure after the reservation has already used the index, and releases no signature', () => {
-    const signer = LmsSigner.create({ directory: fresh(), height: 5, winternitz: 2 });
+    const signer = LmsSigner.create({ protection: PLAIN, directory: fresh(), height: 5, winternitz: 2 });
     vi.spyOn(crypto, 'randomBytes').mockImplementationOnce(() => {
       throw new Error('entropy source failed');
     });
@@ -141,7 +143,7 @@ describe('write-ahead: the index is durable before a signature exists', () => {
 
   it('refuses while the lock is held, then signs once it is gone', () => {
     const dir = fresh();
-    const signer = LmsSigner.create({ directory: dir, height: 5, winternitz: 2, lockTimeoutMs: 150 });
+    const signer = LmsSigner.create({ protection: PLAIN, directory: dir, height: 5, winternitz: 2, lockTimeoutMs: 150 });
     fs.writeFileSync(join(dir, 'key.json.lock'), 'someone else');
     expect(() => signer.sign(msg('x'))).toThrow(/locked/);
     expect(signer.remaining).toBe(32);
@@ -154,7 +156,7 @@ describe('write-ahead: the index is durable before a signature exists', () => {
 describe('damaged state is refused', () => {
   const make = (): string => {
     const dir = fresh();
-    LmsSigner.create({ directory: dir, height: 5, winternitz: 2 });
+    LmsSigner.create({ protection: PLAIN, directory: dir, height: 5, winternitz: 2 });
     return dir;
   };
 
@@ -195,10 +197,12 @@ describe('damaged state is refused', () => {
   });
 
   it('a disposed signer', () => {
-    const signer = LmsSigner.create({ directory: fresh(), height: 5, winternitz: 2 });
+    const dir = fresh();
+    const signer = LmsSigner.create({ protection: PLAIN, directory: dir, height: 5, winternitz: 2 });
     signer.dispose();
     expect(() => signer.sign(msg('x'))).toThrow(/disposed/);
-    expect(signer.remaining).toBe(32); // nothing was consumed
+    expect(() => signer.remaining).toThrow(/disposed/);
+    expect(LmsSigner.open(dir).remaining).toBe(32); // nothing was consumed
   });
 });
 
@@ -224,8 +228,8 @@ describe('concurrent processes', () => {
     fs.writeFileSync(
       script,
       `import { LmsSigner } from ${JSON.stringify(new URL(`file://${dist.replace(/\\\\/g, '/')}`).href)};
-const [, , dir, n, tag] = process.argv;
-const s = LmsSigner.open(dir, { lockTimeoutMs: 20000 });
+const [, , dir, n, tag, keyHex] = process.argv;
+const s = LmsSigner.open(dir, { lockTimeoutMs: 20000, ...(keyHex ? { key: Buffer.from(keyHex, 'hex') } : {}) });
 const out = [];
 for (let i = 0; i < Number(n); i++) {
   const m = new TextEncoder().encode(tag + ':' + i);
@@ -236,9 +240,9 @@ console.log(JSON.stringify(out));
     );
   });
 
-  const run = (dir: string, n: number, tag: string): Promise<{ m: string; sig: string }[]> =>
+  const run = (dir: string, n: number, tag: string, keyHex = ''): Promise<{ m: string; sig: string }[]> =>
     new Promise((resolve, reject) => {
-      const p = spawn(process.execPath, [script, dir, String(n), tag], { stdio: ['ignore', 'pipe', 'pipe'] });
+      const p = spawn(process.execPath, [script, dir, String(n), tag, keyHex], { stdio: ['ignore', 'pipe', 'pipe'] });
       let out = '';
       let err = '';
       p.stdout.on('data', (d) => (out += d));
@@ -248,7 +252,7 @@ console.log(JSON.stringify(out));
 
   it.skipIf(!built)('four processes sign 8 messages each with a 32-leaf key and never share an index', async () => {
     const dir = fresh();
-    const pk = LmsSigner.create({ directory: dir, height: 5, winternitz: 2 }).publicKey;
+    const pk = LmsSigner.create({ protection: PLAIN, directory: dir, height: 5, winternitz: 2 }).publicKey;
     const all = (await Promise.all(['a', 'b', 'c', 'd'].map((t) => run(dir, 8, t)))).flat();
     expect(all).toHaveLength(32);
     const indices = all.map(({ sig }) => indexOf(Uint8Array.from(Buffer.from(sig, 'hex'))));
@@ -258,4 +262,112 @@ console.log(JSON.stringify(out));
     }
     expect(LmsSigner.open(dir).remaining).toBe(0);
   }, 120_000);
+
+  it.skipIf(!built)('a key sealed under a supplied key is shared by processes that hold the key, and no more', async () => {
+    const dir = fresh();
+    const key = crypto.randomBytes(32);
+    const pk = LmsSigner.create({ directory: dir, height: 5, winternitz: 2, protection: { key } }).publicKey;
+    const all = (await Promise.all(['a', 'b'].map((t) => run(dir, 6, t, key.toString('hex'))))).flat();
+    const indices = all.map(({ sig }) => indexOf(Uint8Array.from(Buffer.from(sig, 'hex'))));
+    expect(new Set(indices).size).toBe(12);
+    for (const { m, sig } of all) {
+      expect(Lms.isValid(pk, Uint8Array.from(Buffer.from(m, 'hex')), Uint8Array.from(Buffer.from(sig, 'hex')))).toBe(true);
+    }
+    await expect(run(dir, 1, 'no-key')).rejects.toThrow(/sealed under a 32-byte key/);
+  }, 120_000);
+});
+
+describe('protection: the seed is encrypted at rest', () => {
+  const readKeyFile = (dir: string): Record<string, unknown> => JSON.parse(fs.readFileSync(join(dir, 'key.json'), 'utf8'));
+  const writeKeyFile = (dir: string, obj: Record<string, unknown>): void => fs.writeFileSync(join(dir, 'key.json'), JSON.stringify(obj));
+  const pass = { passphrase: 'correct horse battery staple', scryptLog2N: 14 } as const;
+
+  it('requires an explicit choice', () => {
+    expect(() => LmsSigner.create({ directory: fresh(), height: 5 } as never)).toThrow(/protection is required/);
+    expect(() => LmsSigner.create({ directory: fresh(), height: 5, protection: {} as never })).toThrow(/protection is required/);
+    expect(() =>
+      LmsSigner.create({ directory: fresh(), height: 5, protection: { passphrase: 'x', unprotected: true } as never }),
+    ).toThrow(/protection is required/);
+    expect(() => LmsSigner.create({ directory: fresh(), height: 5, protection: { key: new Uint8Array(16) } })).toThrow(/32 bytes/);
+    expect(() => LmsSigner.create({ directory: fresh(), height: 5, protection: { passphrase: 'x', scryptLog2N: 3 } })).toThrow(/scryptLog2N/);
+  });
+
+  it('a passphrase key stores no plain seed, opens only with the passphrase, and signs', () => {
+    const dir = fresh();
+    const a = LmsSigner.create({ directory: dir, height: 5, winternitz: 2, protection: pass });
+    const file = readKeyFile(dir);
+    expect(file.protection).toBe('passphrase');
+    expect('seed' in file).toBe(false);
+    expect(file.sealed).toBeTruthy();
+    expect(file.kdf).toMatchObject({ name: 'scrypt', log2N: 14, r: 8, p: 1 });
+    expect(() => LmsSigner.open(dir)).toThrow(/sealed under a passphrase/);
+    expect(() => LmsSigner.open(dir, { passphrase: 'wrong' })).toThrow(/unsealed/);
+    const b = LmsSigner.open(dir, { passphrase: pass.passphrase });
+    const m = msg('sealed key');
+    expect(Lms.isValid(a.publicKey, m, b.sign(m))).toBe(true);
+    expect(indexOf(a.sign(m))).toBe(1);
+  });
+
+  it('a passphrase is compared after Unicode normalisation (NFC)', () => {
+    const dir = fresh();
+    const decomposed = `caf${String.fromCharCode(0x65, 0x301)}`;
+    const composed = `caf${String.fromCharCode(0xe9)}`;
+    LmsSigner.create({ directory: dir, height: 5, winternitz: 2, protection: { passphrase: decomposed, scryptLog2N: 14 } });
+    expect(LmsSigner.open(dir, { passphrase: composed }).remaining).toBe(32);
+  });
+
+  it('a supplied key: right key signs, wrong key and no key are refused', () => {
+    const dir = fresh();
+    const key = new Uint8Array(crypto.randomBytes(32));
+    LmsSigner.create({ directory: dir, height: 5, winternitz: 2, protection: { key } });
+    expect(readKeyFile(dir).protection).toBe('key');
+    expect(LmsSigner.open(dir, { key }).remaining).toBe(32);
+    expect(() => LmsSigner.open(dir, { key: new Uint8Array(crypto.randomBytes(32)) })).toThrow(/unsealed/);
+    expect(() => LmsSigner.open(dir)).toThrow(/32-byte key/);
+    expect(() => LmsSigner.open(dir, { key: new Uint8Array(8) })).toThrow(/32-byte key/);
+  });
+
+  it('the caller key is not wiped by the signer', () => {
+    const key = new Uint8Array(crypto.randomBytes(32));
+    const copy = key.slice();
+    const s = LmsSigner.create({ directory: fresh(), height: 5, winternitz: 2, protection: { key } });
+    s.dispose();
+    expect(key).toEqual(copy);
+  });
+
+  it('a counter edited without the key is refused, by a running signer and on open', () => {
+    const cases: Array<{ protection: LmsKeyProtection; creds: { passphrase?: string; key?: Uint8Array } }> = [
+      { protection: pass, creds: { passphrase: pass.passphrase } },
+      { protection: { key: new Uint8Array(32).fill(7) }, creds: { key: new Uint8Array(32).fill(7) } },
+      { protection: PLAIN, creds: {} },
+    ];
+    for (const { protection, creds } of cases) {
+      const dir = fresh();
+      const signer = LmsSigner.create({ directory: dir, height: 5, winternitz: 2, protection });
+      signer.sign(msg('one'));
+      writeKeyFile(dir, { ...readKeyFile(dir), next: 0 }); // an attempt to rewind by hand
+      expect(() => signer.sign(msg('two'))).toThrow(/authentication code/);
+      expect(() => signer.remaining).toThrow(/authentication code/);
+      expect(() => LmsSigner.open(dir, creds)).toThrow(/authentication code/);
+    }
+  });
+
+  it('a sealed seed moved to another key file is refused (it is bound to its header)', () => {
+    const a = fresh();
+    const b = fresh();
+    LmsSigner.create({ directory: a, height: 5, winternitz: 2, protection: pass });
+    LmsSigner.create({ directory: b, height: 5, winternitz: 2, protection: pass });
+    writeKeyFile(b, { ...readKeyFile(b), sealed: readKeyFile(a).sealed, kdf: readKeyFile(a).kdf });
+    expect(() => LmsSigner.open(b, { passphrase: pass.passphrase })).toThrow(/unsealed/);
+  });
+
+  it('a hostile key file cannot demand an unbounded scrypt cost, and an old development format is refused', () => {
+    const dir = fresh();
+    LmsSigner.create({ directory: dir, height: 5, winternitz: 2, protection: pass });
+    const file = readKeyFile(dir) as { kdf: Record<string, unknown> };
+    writeKeyFile(dir, { ...file, kdf: { ...file.kdf, log2N: 40 } });
+    expect(() => LmsSigner.open(dir, { passphrase: pass.passphrase })).toThrow(/damaged or from an unknown format/);
+    writeKeyFile(dir, { ...readKeyFile(dir), version: 1 });
+    expect(() => LmsSigner.open(dir, { passphrase: pass.passphrase })).toThrow(/unknown format/);
+  });
 });

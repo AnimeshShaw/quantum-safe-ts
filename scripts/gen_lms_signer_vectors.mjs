@@ -4,6 +4,7 @@
 //
 // Run from the repository root after `npm run build` in packages/quantum-safe-ts:
 //   node scripts/gen_lms_signer_vectors.mjs
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,7 +17,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'qs-lms-vec-'));
 const out = { generated_by: 'quantum-safe-ts LmsSigner', vectors: [] };
 try {
   for (const [height, winternitz, count] of [[5, 1, 2], [5, 2, 2], [5, 4, 2], [5, 8, 2], [10, 4, 2]]) {
-    const signer = LmsSigner.create({ directory: path.join(tmp, `h${height}w${winternitz}`), height, winternitz });
+    const signer = LmsSigner.create({ directory: path.join(tmp, `h${height}w${winternitz}`), height, winternitz, protection: { key: crypto.randomBytes(32) } });
     const cases = [];
     for (let i = 0; i < count; i++) {
       const message = enc.encode(`quantum-safe-ts LMS signer vector ${height}/${winternitz}/${i}`);

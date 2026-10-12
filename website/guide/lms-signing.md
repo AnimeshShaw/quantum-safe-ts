@@ -12,8 +12,14 @@ import { Lms } from 'quantum-safe-ts';
 import { LmsSigner } from 'quantum-safe-ts/lms-signer';
 
 // Once, at key-ceremony time. The directory holds the key; keep it on a local disk and back it up only as described below.
+// The seed is encrypted at rest: say how (a passphrase here; a 32-byte key from your KMS is the other choice).
 const directory = join(mkdtempSync(join(tmpdir(), 'lms-')), 'release-key');
-const signer = LmsSigner.create({ directory, height: 5, winternitz: 8 });
+const signer = LmsSigner.create({
+  directory,
+  height: 5,
+  winternitz: 8,
+  protection: { passphrase: 'a long passphrase from your secrets manager', scryptLog2N: 14 },
+});
 const publicKey = signer.publicKey; // 60 bytes: publish it (it is not secret)
 
 // Every release.
@@ -25,8 +31,31 @@ Lms.verify(publicKey, firmware, signature);
 if (signer.remaining !== 31) throw new Error('one signature should have been consumed');
 ```
 
-Later, open the same key by directory: `LmsSigner.open(directory)`. Several processes on one host may sign with the same directory; each takes
-the key's lock to reserve an index, and they never receive the same one.
+Later, open the same key by directory and give it what it was sealed under:
+`LmsSigner.open(directory, { passphrase })` or `LmsSigner.open(directory, { key })`. Several processes on one host may sign with the same
+directory; each takes the key's lock to reserve an index, and they never receive the same one.
+
+## Protecting the key
+
+The signing seed is the secret: anyone who has it can make signatures that verify under your public key. `LmsSigner.create` therefore asks you
+to say how the seed is stored (there is no default):
+
+| `protection` | The seed on disk | Use it when |
+|---|---|---|
+| `{ passphrase }` | Encrypted with AES-256-GCM under a key derived from the passphrase with scrypt (default cost 2^17, 128 MiB; salt and cost are stored; `scryptLog2N` lowers it for tests, from 14 to 22) | A person or a secrets manager supplies the passphrase at signing time |
+| `{ key }` | Encrypted with AES-256-GCM under the 32-byte key you supply | The key comes from a KMS, an HSM-wrapped secret, or the environment of a build runner |
+| `{ unprotected: true }` | In clear | The directory itself is protected (an encrypted volume, an ephemeral runner) |
+
+What this gives you, and what it does not:
+
+- A copy of the key directory taken **without** the passphrase or key (a backup, a leaked volume snapshot, a stray `cp -r`) cannot sign.
+- The sealed seed is bound to the key's public parameters (an authenticated header), so it cannot be moved into another key file.
+- The counter carries an HMAC keyed from the seed. A state file edited without the key is refused, by a running signer and on open. This
+  catches accidents and tampering; it cannot catch **replacing the state file with an older valid copy** of itself, because an older copy
+  was valid when it was written. Do not restore the directory from a backup while the key is in use.
+- It does not protect a process that is running with the passphrase or key: that process can sign. Keep the signing host small, and keep the
+  passphrase or key out of the directory and out of source control.
+- For SP 800-208, which expects LMS key generation and signing inside a validated module, use a hardware module for the signing key.
 
 ## What it does, in order
 
@@ -59,12 +88,11 @@ in a worker thread or a separate process, once. Signing is quick (milliseconds) 
   reuse indices that were already used. Back up the public key and the signed artefacts; to move a key, move the directory and stop using the old
   copy.
 - Keep the directory on a **local** filesystem. Network filesystems may not give the atomic rename this relies on.
-- The directory is created with mode 0700 and the files with 0600. The seed is in `key.json`; anyone who can read it can sign.
+- The directory is created with mode 0700 and the files with 0600. With `{ unprotected: true }` the seed is in `key.json` and anyone who can
+  read it can sign; with `{ passphrase }` or `{ key }` it is encrypted there.
 - If a signer stops while holding the lock, the next signer refuses with a message that names `key.json.lock`. Remove it only when you are sure
   no signer is running.
-- The key is generated here from the operating system's random source. SP 800-208 expects key generation and signing inside a validated
-  cryptographic module; where that is required, use a hardware module for the signing key and keep this for the cases it fits (build pipelines,
-  internal tools).
+- The key is generated here from the operating system's random source, for the cases it fits (build pipelines, internal tools).
 
 ## Other runtimes
 

@@ -13,11 +13,16 @@
  * lock held by someone else) makes the signer refuse; it does not guess. Before a signature is returned it is checked against the public
  * key's root, so a fault during computation does not produce a bad signature.
  *
+ * The seed is **encrypted at rest** (AES-256-GCM) under a key you supply or derive from a passphrase (scrypt), and the counter carries an
+ * HMAC keyed from the seed, so a file edited without the key is refused. Plain storage is possible only by saying so
+ * (`{ unprotected: true }`). Encryption protects a copy of the directory taken without the key; it does not protect a process that is running
+ * with the key.
+ *
  * Scope, stated plainly: one LMS tree (an HSS key with one level), SHA-256 with 32-byte hashes, height 5, 10, 15 or 20, Winternitz 1, 2, 4
  * or 8. The key is generated here from the operating system's random source and kept in a directory on a **local** filesystem (mode
  * 0600 in a 0700 directory); it is not generated inside a hardware module, and the directory must not be restored from a backup while
- * the key is in use (that would reuse indices). Network filesystems may not provide the atomic rename this relies on. The signer refuses
- * to load in browsers and Workers.
+ * the key is in use (an older, valid state file rewinds the counter and would reuse indices; nothing local can detect that). Network
+ * filesystems may not provide the atomic rename this relies on. The signer refuses to load in browsers and Workers.
  *
  * Key generation computes every leaf of the tree, so it takes time that grows with the tree: seconds for height 10 and w = 8, much longer
  * for height 15 and above (run it in a worker thread or a separate process).
@@ -32,9 +37,23 @@ export type LmsSignerHeight = 5 | 10 | 15 | 20;
 /** Winternitz parameter: larger is slower and gives shorter signatures. */
 export type LmsSignerWinternitz = 1 | 2 | 4 | 8;
 
+/**
+ * How the signing seed is kept in `key.json`.
+ * - `{ passphrase }`: the seed is encrypted under a key derived with scrypt (default cost 2^17, 128 MiB). The salt and cost are stored.
+ * - `{ key }`: the seed is encrypted under a 32-byte key you supply (from a KMS, a secrets manager or the environment).
+ * - `{ unprotected: true }`: the seed is stored in clear. Only for keys whose directory is itself protected (an encrypted volume, an
+ *   ephemeral build runner).
+ */
+export type LmsKeyProtection =
+  | { passphrase: string | Uint8Array; scryptLog2N?: number }
+  | { key: Uint8Array }
+  | { unprotected: true };
+
 export interface LmsSignerCreateOptions {
   /** Directory that will hold the key (`key.json`, `tree.bin`). Created if missing; must not already hold a key. */
   directory: string;
+  /** Required: how the seed is stored. There is no default, so nobody ends up with a plain seed by accident. */
+  protection: LmsKeyProtection;
   /** Default 10 (1,024 signatures). */
   height?: LmsSignerHeight;
   /** Default 8. */
@@ -44,6 +63,10 @@ export interface LmsSignerCreateOptions {
 }
 
 export interface LmsSignerOpenOptions {
+  /** The passphrase, for a key created with `{ passphrase }`. */
+  passphrase?: string | Uint8Array;
+  /** The 32-byte key, for a key created with `{ key }`. */
+  key?: Uint8Array;
   /** How long `sign` waits for the key's lock before refusing, in milliseconds. Default 5,000. */
   lockTimeoutMs?: number;
 }
@@ -220,16 +243,85 @@ function lmsRoot(i16: Uint8Array, height: number, w: number, message: Uint8Array
 // Durable state
 // ---------------------------------------------------------------------------------------------------------------------------------
 
+type Protection = 'none' | 'passphrase' | 'key';
+
 interface KeyFile {
   format: string;
   version: number;
   height: number;
   winternitz: number;
   I: string;
-  seed: string;
-  next: number;
   publicKey: string;
   treeSha256: string;
+  protection: Protection;
+  /** protection 'none': the seed in hex. */
+  seed?: string;
+  /** protection 'passphrase' or 'key': AES-256-GCM of the seed (ciphertext || tag), bound to the header. */
+  sealed?: { nonce: string; ciphertext: string };
+  /** protection 'passphrase': the scrypt parameters. */
+  kdf?: { name: 'scrypt'; salt: string; log2N: number; r: number; p: number };
+  next: number;
+  /** HMAC-SHA256 over the header and `next`, keyed from the seed. */
+  mac: string;
+}
+
+const KDF_R = 8;
+const KDF_P = 1;
+const KDF_DEFAULT_LOG2N = 17;
+const KDF_MIN_LOG2N = 14;
+const KDF_MAX_LOG2N = 22;
+const KDF_MAXMEM = 512 * 1024 * 1024;
+const NO_SALT = new Uint8Array(0);
+const utf8 = (s: string): Uint8Array => new Uint8Array(Buffer.from(s, 'utf8'));
+
+/** The fields that never change after creation, as the authenticated header (also the AES-GCM associated data). */
+function headerBytes(k: KeyFile): Uint8Array {
+  return utf8(JSON.stringify([k.format, k.version, k.height, k.winternitz, k.I, k.publicKey, k.treeSha256, k.protection, k.kdf ?? null]));
+}
+
+const hkdf = (ikm: Uint8Array, info: string): Uint8Array => new Uint8Array(crypto.hkdfSync('sha256', ikm, NO_SALT, info, 32));
+
+function stateMac(macKey: Uint8Array, k: KeyFile, next: number): string {
+  return crypto.createHmac('sha256', macKey).update(headerBytes(k)).update(utf8(`:${next}`)).digest('hex');
+}
+
+function sealSeed(master: Uint8Array, k: KeyFile, seed: Uint8Array): { nonce: string; ciphertext: string } {
+  const nonce = new Uint8Array(crypto.randomBytes(12));
+  const cipher = crypto.createCipheriv('aes-256-gcm', hkdf(master, 'qs-lms-seed-v1'), nonce);
+  cipher.setAAD(headerBytes(k));
+  const ct = concat(new Uint8Array(cipher.update(seed)), new Uint8Array(cipher.final()), new Uint8Array(cipher.getAuthTag()));
+  return { nonce: hex(nonce), ciphertext: hex(ct) };
+}
+
+function unsealSeed(master: Uint8Array, k: KeyFile): Uint8Array {
+  const wrong = 'The key could not be unsealed: the passphrase or key is wrong, or the key file was modified.';
+  try {
+    const nonce = fromHex(k.sealed!.nonce, 12, 'nonce');
+    const all = fromHex(k.sealed!.ciphertext, N + 16, 'sealed seed');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', hkdf(master, 'qs-lms-seed-v1'), nonce);
+    decipher.setAAD(headerBytes(k));
+    decipher.setAuthTag(all.subarray(N));
+    return concat(new Uint8Array(decipher.update(all.subarray(0, N))), new Uint8Array(decipher.final()));
+  } catch {
+    throw new SigningError(wrong);
+  }
+}
+
+function deriveMaster(k: KeyFile, creds: { passphrase?: string | Uint8Array; key?: Uint8Array }): Uint8Array {
+  if (k.protection === 'key') {
+    if (!(creds.key instanceof Uint8Array) || creds.key.length !== 32) {
+      throw new InvalidArgumentError('This key is sealed under a 32-byte key: pass { key } (a 32-byte Uint8Array) to open().');
+    }
+    return creds.key;
+  }
+  if (creds.passphrase === undefined || creds.passphrase.length === 0) {
+    throw new InvalidArgumentError('This key is sealed under a passphrase: pass { passphrase } to open().');
+  }
+  const kdf = k.kdf!;
+  const pass = typeof creds.passphrase === 'string' ? utf8(creds.passphrase.normalize('NFC')) : creds.passphrase;
+  return new Uint8Array(
+    crypto.scryptSync(pass, fromHex(kdf.salt, 16, 'salt'), 32, { N: 2 ** kdf.log2N, r: kdf.r, p: kdf.p, maxmem: KDF_MAXMEM }),
+  );
 }
 
 const sleepSync = (ms: number): void => {
@@ -271,6 +363,7 @@ export class LmsSigner {
   readonly #w: number;
   readonly #i: Uint8Array;
   readonly #seed: Uint8Array;
+  readonly #macKey: Uint8Array;
   readonly #tree: Uint8Array;
   readonly #publicKey: Uint8Array;
   readonly #lockTimeout: number;
@@ -289,6 +382,7 @@ export class LmsSigner {
     this.#height = key.height;
     this.#w = key.winternitz;
     this.#seed = seed;
+    this.#macKey = hkdf(seed, 'qs-lms-state-v1');
     this.#i = i16;
     this.#tree = tree;
     this.#publicKey = publicKey;
@@ -307,6 +401,18 @@ export class LmsSigner {
     }
     if (!(height in LMS_TYPE)) throw new InvalidArgumentError('height must be 5, 10, 15 or 20');
     if (!(w in OTS_TYPE)) throw new InvalidArgumentError('winternitz must be 1, 2, 4 or 8');
+    const prot = options.protection as Record<string, unknown> | undefined;
+    const hasPass = prot !== undefined && (typeof prot.passphrase === 'string' || prot.passphrase instanceof Uint8Array) && (prot.passphrase as string | Uint8Array).length > 0;
+    const hasKey = prot !== undefined && prot.key instanceof Uint8Array;
+    const plain = prot !== undefined && prot.unprotected === true;
+    if ([hasPass, hasKey, plain].filter(Boolean).length !== 1) {
+      throw new InvalidArgumentError('protection is required: { passphrase }, { key } (32 bytes) or { unprotected: true }.');
+    }
+    if (hasKey && (prot!.key as Uint8Array).length !== 32) throw new InvalidArgumentError('protection.key must be 32 bytes.');
+    const log2N = hasPass ? ((prot!.scryptLog2N as number | undefined) ?? KDF_DEFAULT_LOG2N) : 0;
+    if (hasPass && (!Number.isInteger(log2N) || log2N < KDF_MIN_LOG2N || log2N > KDF_MAX_LOG2N)) {
+      throw new InvalidArgumentError(`protection.scryptLog2N must be an integer from ${KDF_MIN_LOG2N} to ${KDF_MAX_LOG2N}.`);
+    }
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
     if (fs.existsSync(join(directory, 'key.json')) || fs.existsSync(join(directory, 'tree.bin'))) {
       throw new SigningError('A signing key already exists in this directory; refusing to overwrite it.');
@@ -318,15 +424,25 @@ export class LmsSigner {
     const publicKey = concat(u32(1), u32(LMS_TYPE[height] as number), u32(OTS_TYPE[w] as number), i16, root);
     const key: KeyFile = {
       format: FORMAT,
-      version: 1,
+      version: 2,
       height,
       winternitz: w,
       I: hex(i16),
-      seed: hex(seed),
-      next: 0,
       publicKey: hex(publicKey),
       treeSha256: hex(sha(tree)),
+      protection: plain ? 'none' : hasKey ? 'key' : 'passphrase',
+      next: 0,
+      mac: '',
     };
+    if (hasPass) key.kdf = { name: 'scrypt', salt: hex(new Uint8Array(crypto.randomBytes(16))), log2N, r: KDF_R, p: KDF_P };
+    if (plain) {
+      key.seed = hex(seed);
+    } else {
+      const master = deriveMaster(key, { passphrase: prot!.passphrase as string | Uint8Array | undefined, key: prot!.key as Uint8Array | undefined });
+      key.sealed = sealSeed(master, key, seed);
+      if (hasPass) master.fill(0);
+    }
+    key.mac = stateMac(hkdf(seed, 'qs-lms-state-v1'), key, 0);
     // The tree first: a key file without its tree is refused on open; a tree without a key file is simply unused.
     writeFileDurable(join(directory, 'tree.bin'), tree, 0o600);
     writeFileDurable(join(directory, 'key.json'), JSON.stringify(key), 0o600);
@@ -338,7 +454,17 @@ export class LmsSigner {
     assertNodeRuntime();
     if (typeof directory !== 'string' || directory === '') throw new InvalidArgumentError('directory must be a non-empty string');
     const key = LmsSigner.#readKey(directory);
-    const seed = fromHex(key.seed, N, 'seed');
+    let seed: Uint8Array;
+    if (key.protection === 'none') {
+      seed = fromHex(key.seed!, N, 'seed');
+    } else {
+      const master = deriveMaster(key, { passphrase: options.passphrase, key: options.key });
+      seed = unsealSeed(master, key);
+      if (key.protection === 'passphrase') master.fill(0);
+    }
+    if (!same(new Uint8Array(Buffer.from(key.mac, 'hex')), new Uint8Array(Buffer.from(stateMac(hkdf(seed, 'qs-lms-state-v1'), key, key.next), 'hex')))) {
+      throw new SigningError('The LMS key state was modified outside the signer (its authentication code does not match); refusing to sign.');
+    }
     const i16 = fromHex(key.I, 16, 'identifier');
     const publicKey = fromHex(key.publicKey, 60, 'public key');
     let tree: Uint8Array;
@@ -367,12 +493,29 @@ export class LmsSigner {
       key !== null &&
       typeof key === 'object' &&
       key.format === FORMAT &&
-      key.version === 1 &&
+      key.version === 2 &&
       key.height in LMS_TYPE &&
       key.winternitz in OTS_TYPE &&
+      typeof key.I === 'string' &&
+      typeof key.publicKey === 'string' &&
+      typeof key.treeSha256 === 'string' &&
+      typeof key.mac === 'string' &&
       Number.isInteger(key.next) &&
       key.next >= 0 &&
-      key.next <= 1 << key.height;
+      key.next <= 1 << key.height &&
+      (key.protection === 'none'
+        ? typeof key.seed === 'string'
+        : (key.protection === 'key' || key.protection === 'passphrase') &&
+          typeof key.sealed?.nonce === 'string' &&
+          typeof key.sealed?.ciphertext === 'string' &&
+          (key.protection === 'key' ||
+            (key.kdf?.name === 'scrypt' &&
+              typeof key.kdf.salt === 'string' &&
+              Number.isInteger(key.kdf.log2N) &&
+              key.kdf.log2N >= KDF_MIN_LOG2N &&
+              key.kdf.log2N <= KDF_MAX_LOG2N &&
+              key.kdf.r === KDF_R &&
+              key.kdf.p === KDF_P)));
     if (!ok) throw new SigningError('The LMS key state is damaged or from an unknown format; refusing to sign.');
     return key;
   }
@@ -394,7 +537,20 @@ export class LmsSigner {
 
   /** Signatures still available, read from the durable state. */
   get remaining(): number {
-    return this.capacity - LmsSigner.#readKey(this.#dir).next;
+    if (this.#disposed) throw new SigningError('This LmsSigner was disposed; open the key again.');
+    return this.capacity - this.#readVerified().next;
+  }
+
+  /** The state file, checked: same key as this object, and its authentication code matches. */
+  #readVerified(): KeyFile {
+    const key = LmsSigner.#readKey(this.#dir);
+    if (key.publicKey !== hex(this.#publicKey) || key.I !== hex(this.#i)) {
+      throw new SigningError('The LMS key state belongs to a different key; refusing to sign.');
+    }
+    if (!same(new Uint8Array(Buffer.from(key.mac, 'hex')), new Uint8Array(Buffer.from(stateMac(this.#macKey, key, key.next), 'hex')))) {
+      throw new SigningError('The LMS key state was modified outside the signer (its authentication code does not match); refusing to sign.');
+    }
+    return key;
   }
 
   /** Reserves the next index durably and returns it. */
@@ -420,17 +576,16 @@ export class LmsSigner {
     try {
       fs.closeSync(fd);
       fd = undefined;
-      const key = LmsSigner.#readKey(this.#dir);
-      // The file must still describe the key this object holds.
-      if (key.publicKey !== hex(this.#publicKey) || key.I !== hex(this.#i)) {
-        throw new SigningError('The LMS key state belongs to a different key; refusing to sign.');
-      }
+      // The file must still describe the key this object holds, and must not have been edited without the key.
+      const key = this.#readVerified();
       if (key.next >= 1 << this.#height) {
         throw new SigningError('This LMS key has used all of its one-time keys; it cannot sign again. Generate a new key.');
       }
       const reserved = key.next;
       try {
-        writeFileDurable(keyFile, JSON.stringify({ ...key, next: reserved + 1 }), 0o600);
+        const updated: KeyFile = { ...key, next: reserved + 1 };
+        updated.mac = stateMac(this.#macKey, updated, updated.next);
+        writeFileDurable(keyFile, JSON.stringify(updated), 0o600);
       } catch (e) {
         try {
           fs.unlinkSync(`${keyFile}.tmp`);
@@ -473,5 +628,6 @@ export class LmsSigner {
   dispose(): void {
     this.#disposed = true;
     this.#seed.fill(0);
+    this.#macKey.fill(0);
   }
 }
