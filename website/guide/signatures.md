@@ -193,6 +193,17 @@ set. **Signing** is provided in Node.js only, by `LmsSigner` from `quantum-safe-
 is broken, so the signer makes the index durable before a signature exists and refuses on any state problem. See
 [LMS signing](/guide/lms-signing).
 
+## Which default makes which format
+
+| Call | Format |
+|---|---|
+| `new HybridSign()` | `Ed25519+ML-DSA-65-v2` (the clean format, no prefix) |
+| `new Sign()` | `ML-DSA-65` in the original format. `ML-DSA-65` is also the name the standards formats (JOSE, COSE) use for the algorithm, so the bare name keeps its meaning; ask for `new Sign('ML-DSA-65-v2')` for the clean format |
+| `new HybridSign('Ed25519+ML-DSA-65')` | The original hybrid format, by name |
+| `new Sign().signRaw(...)` | A bare FIPS 204 signature with a native context, for other ML-DSA implementations |
+
+quantum-safe-py makes the same choices, so the same call gives the same format in both libraries.
+
 ## Common mistakes
 
 | Mistake | What happens | Fix |
