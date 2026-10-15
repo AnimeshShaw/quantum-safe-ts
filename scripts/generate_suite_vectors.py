@@ -136,7 +136,10 @@ def add_sig(signer, kp, label, hedged):
     msg = f"py signed {label}".encode()
     ctx = b"vector-ctx"
     sm = signer.sign(msg, kp.secret, context=ctx)
-    signer.verify(sm, kp.public, context=ctx)
+    try:
+        signer.verify(sm, kp.public, context=ctx)
+    except TypeError:  # quantum-safe-py before 0.3.1 has no context argument on verify
+        signer.verify(sm, kp.public)
     sig_vectors.append(
         {
             "algorithm": kp.public.algorithm,
