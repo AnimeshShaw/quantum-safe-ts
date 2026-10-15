@@ -1,6 +1,6 @@
 [package]
 name = "quantum-safe-core"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "Pure-Rust hybrid post-quantum crypto core for quantum-safe-ts"

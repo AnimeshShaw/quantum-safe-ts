@@ -771,7 +771,7 @@ dependencies = [
 
 [[package]]
 name = "quantum-safe-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -798,7 +798,7 @@ dependencies = [
 
 [[package]]
 name = "quantum-safe-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "js-sys",
  "quantum-safe-core",
