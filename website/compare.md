@@ -31,4 +31,4 @@ and its bytes are the same as [quantum-safe-py](/guide/python-interop)'s.
 - Implemented: ML-KEM, ML-DSA, SLH-DSA, X-Wing, hybrids, LMS (verification everywhere, signing in Node.js).
 - Not implemented: Falcon / FN-DSA and HQC (their standards are in preparation), XMSS, multi-level HSS signing, TLS (platforms negotiate
   `X25519MLKEM768` themselves, RFC 10024).
-- Runtime: the WebAssembly is about 410 KiB gzipped. The [runtimes page](/guide/runtimes) lists every tested environment and bundler.
+- Runtime: the WebAssembly is about 455 KiB gzipped. The [runtimes page](/guide/runtimes) lists every tested environment and bundler.

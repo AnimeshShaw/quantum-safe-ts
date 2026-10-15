@@ -7,7 +7,7 @@ You are not on Node.js (browser, Deno, Bun, Worker) and have not awaited `init()
 precompiled module: `await init({ wasm })` ([Runtimes](/guide/runtimes)).
 
 **My bundle got much bigger.**
-The default entry embeds the WebAssembly (about 600 KiB gzipped of JavaScript). Use `quantum-safe-ts/slim` and serve the `.wasm` yourself
+The default entry embeds the WebAssembly (about 680 KiB gzipped of JavaScript). Use `quantum-safe-ts/slim` and serve the `.wasm` yourself
 ([Runtimes](/guide/runtimes#size)).
 
 **`using` is a syntax error.**

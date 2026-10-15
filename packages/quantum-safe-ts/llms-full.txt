@@ -25,7 +25,7 @@ negotiate X25519MLKEM768, RFC 10024).
 - Cloudflare Workers forbid compiling WASM from bytes: `import wasm from 'quantum-safe-ts/quantum_safe_wasm_bg.wasm'; await init({ wasm });`
 - Chrome MV3 extensions: the extension CSP must include `'wasm-unsafe-eval'`.
 - Calling any API before initialisation throws `NotInitializedError`.
-- Bundle size: the default entry embeds the WebAssembly (about 600 KiB gzipped). `quantum-safe-ts/slim` has the same API and no embedded WebAssembly: `await init({ wasm: fetch(url) })` with `quantum-safe-ts/wasm` as the file.
+- Bundle size: the default entry embeds the WebAssembly (about 680 KiB gzipped). `quantum-safe-ts/slim` has the same API and no embedded WebAssembly: `await init({ wasm: fetch(url) })` with `quantum-safe-ts/wasm` as the file.
 
 ## 3. Algorithms (names are wire-visible identifiers; never change them)
 

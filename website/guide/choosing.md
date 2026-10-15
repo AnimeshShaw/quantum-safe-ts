@@ -158,7 +158,7 @@ with `compareAndSet` whenever more than one process shares it ([Migration](/guid
 
 - **You need XMSS, multi-level HSS signing, or LMS signing outside Node.js.** LMS signing of a single tree is provided in Node.js
   ([LMS signing](/guide/lms-signing)); verification works everywhere. For hardware-module key custody, use the module's own signer.
-- **You need to run on constrained or embedded devices.** The WebAssembly is about 410 KiB gzipped. Use liboqs, mlkem-native or a vendor SDK
+- **You need to run on constrained or embedded devices.** The WebAssembly is about 455 KiB gzipped. Use liboqs, mlkem-native or a vendor SDK
   there.
 - **You only need a primitive** and the platform already has it (recent Node.js and some browsers expose ML-KEM and ML-DSA in WebCrypto). A
   smaller dependency is better; see [What quantum-safe-ts adds](/compare).
