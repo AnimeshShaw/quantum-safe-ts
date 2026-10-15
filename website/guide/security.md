@@ -83,6 +83,15 @@ reliably scrubbed.
 | Packed-tarball fixtures in 12 real toolchains | `tests/fixtures/` |
 | Reproducible-build check | `scripts/repro-check.mjs` |
 
+## Release artifact record
+
+Each release has a small JSON record of what was built: the SHA-256 and size of every npm tarball, the package versions, the git commit and
+tag, the SHA-256 of the WebAssembly module and of `Cargo.lock`, and the pinned Rust toolchain. It is produced by
+`node scripts/artifact-record.mjs <directory with the tarballs> --out artifact-record-<version>.json` and attached to the GitHub release;
+Zenodo archives the release and gives it a DOI (the concept DOI in the README always resolves to the latest release). Compare a download with
+`sha256sum`, and rebuild the WebAssembly with `node scripts/repro-check.mjs`, which builds it twice from different paths with the pinned
+toolchain and compares the hashes. Published npm packages also carry provenance from the release workflow.
+
 ## Security history
 
 | Advisory | Affected | Fixed in | Summary |
