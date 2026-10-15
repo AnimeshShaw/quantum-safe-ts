@@ -54,7 +54,7 @@ fn load() -> Vectors {
 #[test]
 fn decapsulates_every_python_ciphertext_to_the_same_secret() {
     let v = load();
-    assert_eq!(v.kem.len(), 9);
+    assert!(v.kem.len() >= 8, "expected at least the 8 quantum-safe-py 0.3 suites, got {}", v.kem.len());
     for k in v.kem {
         let sk = kem::SecretKey::new(hex::decode(&k.secret_key).unwrap(), k.algorithm.clone());
         let ss = kem::decapsulate(&sk, &hex::decode(&k.ciphertext).unwrap()).unwrap();

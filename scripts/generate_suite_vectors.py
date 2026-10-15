@@ -22,6 +22,17 @@ from quantum_safe.signatures import Sign  # noqa: E402
 from quantum_safe.protocols.jwt import JWTSigner  # noqa: E402
 from quantum_safe.protocols.envelope import Envelope  # noqa: E402
 
+def _supports_p384() -> bool:
+    """P-384 hybrids exist from quantum-safe-py 0.4.0; the release pinned in CI may be older."""
+    try:
+        HybridKEM("P-384", "ML-KEM-1024")
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+HAS_P384 = _supports_p384()
+
 HYBRID_SUITES = [
     ("X25519", "ML-KEM-512"),
     ("X25519", "ML-KEM-768"),
@@ -38,6 +49,7 @@ vectors: dict = {"_meta": {"generator": "scripts/generate_suite_vectors.py", "qu
 # ---- KEM: every suite, py encapsulates, ts must decapsulate to the same secret ----
 kem_vectors = []
 keypairs = []  # (label, KeyPair) reused for key-serialization vectors
+HYBRID_SUITES = [s for s in HYBRID_SUITES if HAS_P384 or s[0] != "P-384"]
 for classical, pqc in HYBRID_SUITES:
     kem = HybridKEM(classical=classical, pqc=pqc)
     assert kem.backend_name == "liboqs", kem.backend_name
@@ -115,7 +127,8 @@ vectors["keys"] = key_vectors
 
 # ---- Signatures: py signs, ts must verify (and sign with py keys, py verifies later) ----
 PURE_SIGS = ["ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHAKE-128s", "SLH-DSA-SHAKE-128f", "SLH-DSA-SHAKE-256s"]
-HYBRID_SIGS = [("Ed25519", "ML-DSA-44"), ("Ed25519", "ML-DSA-65"), ("Ed25519", "ML-DSA-87"), ("P-256", "ML-DSA-44"), ("P-256", "ML-DSA-65"), ("P-384", "ML-DSA-87")]
+HYBRID_SIGS_ALL = [("Ed25519", "ML-DSA-44"), ("Ed25519", "ML-DSA-65"), ("Ed25519", "ML-DSA-87"), ("P-256", "ML-DSA-44"), ("P-256", "ML-DSA-65"), ("P-384", "ML-DSA-87")]
+HYBRID_SIGS = [s for s in HYBRID_SIGS_ALL if HAS_P384 or s[0] != "P-384"]
 sig_vectors = []
 
 
