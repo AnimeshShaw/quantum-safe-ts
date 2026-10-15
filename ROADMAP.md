@@ -9,21 +9,28 @@ While the version starts with `0.`, a **minor** release (0.1 to 0.2) is where br
 earlier in the documentation and the changelog. A patch release (0.1.0 to 0.1.1) does not break correct code. The wire formats of released
 identifiers never change: new capability arrives under a new, explicit identifier.
 
-## Now: 0.1.x (patch releases after the first release)
-
-0.1.0 is the first release of `quantum-safe-audit`, `quantum-safe-ts`, `quantum-safe-mcp` and the short aliases `pqc-audit` and `pqc-mcp`, each
-published with npm provenance from a manually started workflow that waits for approval. The GitHub Action can be pinned as
-`AnimeshShaw/quantum-safe-ts@v0.1.2`.
-
-- Patch releases: documentation, bug fixes and dependency updates. A patch release never changes a wire format.
-- Switch npm publishing to trusted publishing (no stored token).
-- Listings for coding agents (the MCP Registry and Context7) once the packages have settled.
-
-## Next: 0.2.0 (the breaking release, in step with quantum-safe-py 0.4.0)
+## Now: 0.2.0 (the minor release, in step with quantum-safe-py 0.4.0)
 
 The theme is "make the safe thing the only thing", the same as in Python.
 
-- **Benchmarks and timing-leakage figures re-measured with raw samples published**, on more than one machine.
+- **Defaults.** The default hybrid signature suite is `Ed25519+ML-DSA-65-v2`; the original format keeps
+  working when named. An omitted `expectedContext` means "expect an empty context" and an omitted
+  `expectedAad` accepts any AAD, each with a once-per-call-site warning. `hedged: false` with a `-v2`
+  suite is accepted and warns (`QS_HEDGED_IGNORED`).
+- **Same bytes as Python.** `signRaw` / `verifyRaw` with seed keys, X-Wing, streaming envelopes,
+  COSE_Sign1 and private JWKs for ML-DSA (RFC 9964), all twelve SLH-DSA parameter sets, checked against
+  quantum-safe-py 0.4.0 in both directions.
+- **`LmsSigner`** for Node.js: LMS signing with write-ahead durable state and the seed encrypted at rest.
+- **A benchmark protocol** with the same JSON files as Python (one warm-up run and fifteen timed runs,
+  raw samples, bootstrap interval over runs).
+
+## Next
+
+- **Benchmarks and timing-leakage figures re-measured**, with raw samples published, on more than one
+  machine ([#12](https://github.com/AnimeshShaw/quantum-safe-ts/issues/12)).
+- **Envelope and key re-wrap**, shared with Python, then a resumable bulk driver and a verification report.
+- **React Native**: the feasibility checks are written down; the spike needs a device or emulator.
+- Listings for coding agents (the MCP Registry and Context7) once the packages have settled.
 
 ## Later (no release assigned)
 
@@ -34,13 +41,10 @@ The theme is "make the safe thing the only thing", the same as in Python.
   and ML-KEM only. It needs a second implementation kept byte-identical and an async story.
 - **P-384 hybrids** (`P-384+ML-KEM-1024`, `P-384+ML-DSA-87`). Only worth building for someone who needs the TLS `SecP384r1MLKEM1024` group;
   NSA's CNSA 2.0 FAQ does not make any hybrid compliant, so they would still report `partial`.
-- **XMSS** next to LMS verification. LMS or XMSS signing only behind a documented durable-state interface (it may never ship: stateful signing is
-  easy to misuse).
+- **XMSS** next to LMS, and **multi-level HSS signing**, only behind the same durable-state interface as `LmsSigner`.
 - **FN-DSA** after FIPS 206 is final and **HQC** after its standard is final, never presented as standard earlier.
 - **Standards-based X.509** for ML-DSA and ML-KEM.
-- **React Native** (Hermes WebAssembly) with a device or simulator fixture; **per-feature WebAssembly builds** (KEM only, signatures only) to cut
-  the size.
-- **`StandardJwt` private keys that Python can sign with.** RFC 9964 stores a seed; liboqs cannot turn a seed back into a key pair yet.
+- **Per-feature WebAssembly builds** (KEM only, signatures only) to cut the size.
 - **Per-framework example repositories**, and an **independent measurement of the scanner's accuracy** on third-party code (the committed corpus
   was written by the authors; it is a regression guard, not an accuracy claim).
 
@@ -48,7 +52,7 @@ The theme is "make the safe thing the only thing", the same as in Python.
 
 1.0 means the API and formats are stable and will not break without a major version. It will not be called 1.0 before:
 
-1. the 0.2.0 breaking changes have shipped and settled for at least one release cycle;
+1. the 0.2.0 changes have shipped and settled for at least one release cycle;
 2. the benchmarks and timing figures are re-measured and reproducible from published data;
 3. the documentation and quantum-safe-py are in step, with the interop vectors passing in both directions on every release.
 
