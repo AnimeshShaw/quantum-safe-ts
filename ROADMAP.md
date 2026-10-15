@@ -21,6 +21,9 @@ The theme is "make the safe thing the only thing", the same as in Python.
   COSE_Sign1 and private JWKs for ML-DSA (RFC 9964), all twelve SLH-DSA parameter sets, checked against
   quantum-safe-py 0.4.0 in both directions.
 - **`LmsSigner`** for Node.js: LMS signing with write-ahead durable state and the seed encrypted at rest.
+- **P-384 hybrids** (`P-384+ML-KEM-1024`, `P-384+ML-DSA-87`, and the `-v2` form) for estates that hold CNSA 1.0 keys, shared with Python.
+- **Envelope re-wrap** (`Envelope.rewrap`, `rewrapDirectory` from `quantum-safe-ts/rewrap`): move stored envelopes to a new key, resumable and
+  verified, with a JSON and CycloneDX report, shared with Python.
 - **A benchmark protocol** with the same JSON files as Python (one warm-up run and fifteen timed runs,
   raw samples, bootstrap interval over runs).
 
@@ -28,8 +31,6 @@ The theme is "make the safe thing the only thing", the same as in Python.
 
 - **Benchmarks and timing-leakage figures re-measured**, with raw samples published, on more than one
   machine ([#12](https://github.com/AnimeshShaw/quantum-safe-ts/issues/12)).
-- **Envelope and key re-wrap**, shared with Python, then a resumable bulk driver and a verification report.
-- **React Native**: the feasibility checks are written down; the spike needs a device or emulator.
 - Listings for coding agents (the MCP Registry and Context7) once the packages have settled.
 
 ## Later (no release assigned)
@@ -39,8 +40,6 @@ The theme is "make the safe thing the only thing", the same as in Python.
 - **ESM only, or a shared registry**: the dual ESM and CommonJS builds create two copies of each class when both are loaded in one process.
 - **A native-accelerated provider for Node**: Node's WebCrypto ML-KEM is faster than the WebAssembly for the bare primitive but asynchronous
   and ML-KEM only. It needs a second implementation kept byte-identical and an async story.
-- **P-384 hybrids** (`P-384+ML-KEM-1024`, `P-384+ML-DSA-87`). Only worth building for someone who needs the TLS `SecP384r1MLKEM1024` group;
-  NSA's CNSA 2.0 FAQ does not make any hybrid compliant, so they would still report `partial`.
 - **XMSS** next to LMS, and **multi-level HSS signing**, only behind the same durable-state interface as `LmsSigner`.
 - **FN-DSA** after FIPS 206 is final and **HQC** after its standard is final, never presented as standard earlier.
 - **Standards-based X.509** for ML-DSA and ML-KEM.

@@ -50,12 +50,12 @@ describe('registry', () => {
   it('lists the expected suites', () => {
     expect(kemSuites().map((s) => s.name).sort()).toEqual(
       [
-        'ML-KEM-1024', 'ML-KEM-512', 'ML-KEM-768', 'P-256+ML-KEM-512', 'P-256+ML-KEM-768',
+        'ML-KEM-1024', 'ML-KEM-512', 'ML-KEM-768', 'P-256+ML-KEM-512', 'P-256+ML-KEM-768', 'P-384+ML-KEM-1024',
         'X-Wing', 'X25519+ML-KEM-1024', 'X25519+ML-KEM-512', 'X25519+ML-KEM-768',
       ].sort(),
     );
-    expect(sigSuites().filter((s) => s.format !== 'v2')).toHaveLength(20); // the quantum-safe-py-compatible suites
-    expect(sigSuites().filter((s) => s.format === 'v2')).toHaveLength(8); // the -v2 signature format
+    expect(sigSuites().filter((s) => s.format !== 'v2')).toHaveLength(21); // the quantum-safe-py suites (with the P-384 hybrid)
+    expect(sigSuites().filter((s) => s.format === 'v2')).toHaveLength(9); // the -v2 signature format
     expect(isInitialized()).toBe(true);
     expect(coreVersion()).toMatch(/^\d+\.\d+\.\d+/);
   });
@@ -466,13 +466,14 @@ describe('CNSA 2.0 profile', () => {
     expect(cnsa2.kem().algorithm).toBe('ML-KEM-1024');
     expect(cnsa2.hybridKem().algorithm).toBe('X25519+ML-KEM-1024');
     expect(cnsa2.hybridSign().algorithm).toBe('Ed25519+ML-DSA-87');
-    expect(() => cnsa2.hybridKem('P-384' as never)).toThrow(UnsupportedAlgorithmError);
-    expect(cnsa2.describe()).toContain('NOT give you');
+    expect(cnsa2.hybridKem('P-384').algorithm).toBe('P-384+ML-KEM-1024');
+    expect(cnsa2.hybridSign({ classical: 'P-384' }).algorithm).toBe('P-384+ML-DSA-87');
+    expect(cnsa2.describe()).toContain('Beyond parameter selection');
   });
-  it('lists only the classical partner that is implemented, as quantum-safe-py does', () => {
-    expect([...cnsa2.CNSA2_HYBRID_CLASSICAL]).toEqual(['X25519']);
+  it('lists only the classical partners that are implemented, as quantum-safe-py does', () => {
+    expect([...cnsa2.CNSA2_HYBRID_CLASSICAL]).toEqual(['X25519', 'P-384']);
     // Any partner outside the list is refused with a typed error, not silently replaced by X25519.
-    for (const other of ['P-384', 'P-256', 'X448', '']) {
+    for (const other of ['P-256', 'X448', '']) {
       expect(() => cnsa2.hybridKem(other as never), other).toThrow(UnsupportedAlgorithmError);
     }
   });

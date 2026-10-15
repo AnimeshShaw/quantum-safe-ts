@@ -7,6 +7,7 @@ export type KemAlgorithm =
   | 'X25519+ML-KEM-1024'
   | 'P-256+ML-KEM-512'
   | 'P-256+ML-KEM-768'
+  | 'P-384+ML-KEM-1024'
   | 'X-Wing'
   | 'ML-KEM-512'
   | 'ML-KEM-768'
@@ -19,6 +20,7 @@ export type V2Base =
   | 'Ed25519+ML-DSA-87'
   | 'P-256+ML-DSA-44'
   | 'P-256+ML-DSA-65'
+  | 'P-384+ML-DSA-87'
   | 'ML-DSA-44'
   | 'ML-DSA-65'
   | 'ML-DSA-87';
@@ -39,6 +41,7 @@ export type SignatureAlgorithm =
   | 'Ed25519+ML-DSA-87'
   | 'P-256+ML-DSA-44'
   | 'P-256+ML-DSA-65'
+  | 'P-384+ML-DSA-87'
   | 'ML-DSA-44'
   | 'ML-DSA-65'
   | 'ML-DSA-87'

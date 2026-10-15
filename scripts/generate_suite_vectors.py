@@ -28,6 +28,7 @@ HYBRID_SUITES = [
     ("X25519", "ML-KEM-1024"),
     ("P-256", "ML-KEM-512"),
     ("P-256", "ML-KEM-768"),
+    ("P-384", "ML-KEM-1024"),
 ]
 PURE_SUITES = ["ML-KEM-512", "ML-KEM-768", "ML-KEM-1024"]
 
@@ -114,7 +115,7 @@ vectors["keys"] = key_vectors
 
 # ---- Signatures: py signs, ts must verify (and sign with py keys, py verifies later) ----
 PURE_SIGS = ["ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHAKE-128s", "SLH-DSA-SHAKE-128f", "SLH-DSA-SHAKE-256s"]
-HYBRID_SIGS = [("Ed25519", "ML-DSA-44"), ("Ed25519", "ML-DSA-65"), ("Ed25519", "ML-DSA-87"), ("P-256", "ML-DSA-44"), ("P-256", "ML-DSA-65")]
+HYBRID_SIGS = [("Ed25519", "ML-DSA-44"), ("Ed25519", "ML-DSA-65"), ("Ed25519", "ML-DSA-87"), ("P-256", "ML-DSA-44"), ("P-256", "ML-DSA-65"), ("P-384", "ML-DSA-87")]
 sig_vectors = []
 
 
@@ -122,7 +123,7 @@ def add_sig(signer, kp, label, hedged):
     msg = f"py signed {label}".encode()
     ctx = b"vector-ctx"
     sm = signer.sign(msg, kp.secret, context=ctx)
-    signer.verify(sm, kp.public)
+    signer.verify(sm, kp.public, context=ctx)
     sig_vectors.append(
         {
             "algorithm": kp.public.algorithm,

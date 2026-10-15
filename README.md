@@ -45,9 +45,9 @@ Both styles are in the [getting-started guide](https://animeshshaw.github.io/qua
 | Capability | API | Algorithms |
 |---|---|---|
 | One-call encryption and signing | `easy` | `X25519+ML-KEM-768`, `Ed25519+ML-DSA-65-v2` |
-| Key encapsulation | `HybridKEM`, `KEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `X-Wing`, pure `ML-KEM-512/768/1024` |
+| Key encapsulation | `HybridKEM`, `KEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `P-384+ML-KEM-1024`, `X-Wing`, pure `ML-KEM-512/768/1024` |
 | Encryption | `Envelope`, `sealStream` / `openStream` | any hybrid KEM + AES-256-GCM; streaming for large data; CNSA 2.0 profile (`ML-KEM-1024`, HKDF-SHA-384) |
-| Signatures | `Sign`, `HybridSign`, `cose` | `ML-DSA-44/65/87`, hybrids with Ed25519 and P-256, SLH-DSA (12 sets), the `-v2` format, standard FIPS 204 `signRaw`, COSE_Sign1 |
+| Signatures | `Sign`, `HybridSign`, `cose` | `ML-DSA-44/65/87`, hybrids with Ed25519, P-256 and P-384, SLH-DSA (12 sets), the `-v2` format, standard FIPS 204 `signRaw`, COSE_Sign1 |
 | Hash-based signatures | `Lms`, `LmsSigner` | LMS / HSS verification everywhere; LMS signing in Node.js with durable state |
 | Tokens | `JWTSigner` / `JWTVerifier`, `StandardJwt` | quantum-safe-py compatible, and RFC 9964 (ML-DSA for JOSE) |
 | Keys and passwords | `PublicKey`, `SecretKey`, `KeyPair`, `deriveMasterKey` | CBOR, PEM, JWK, fingerprints, Argon2id |

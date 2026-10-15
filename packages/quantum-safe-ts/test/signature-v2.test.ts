@@ -29,7 +29,7 @@ const V2_NAMES = sigSuites()
   .map((s) => s.name);
 
 describe('format v2: registry', () => {
-  it('lists eight v2 suites, none readable by quantum-safe-py, none for SLH-DSA', () => {
+  it('lists nine v2 suites, none readable by quantum-safe-py 0.3.0, none for SLH-DSA', () => {
     expect(V2_NAMES.sort()).toEqual(
       [
         'ML-DSA-44-v2',
@@ -40,13 +40,14 @@ describe('format v2: registry', () => {
         'Ed25519+ML-DSA-87-v2',
         'P-256+ML-DSA-44-v2',
         'P-256+ML-DSA-65-v2',
+        'P-384+ML-DSA-87-v2',
       ].sort(),
     );
     for (const s of sigSuites().filter((x) => x.format === 'v2')) expect(s.pyCompatible).toBe(false);
     expect(sigSuites().filter((s) => s.format !== 'v2').every((s) => !s.name.endsWith('-v2'))).toBe(true);
   });
   it('v1 suites are unchanged', () => {
-    expect(sigSuites().filter((s) => s.format !== 'v2')).toHaveLength(3 + 5 + 12);
+    expect(sigSuites().filter((s) => s.format !== 'v2')).toHaveLength(3 + 5 + 1 + 12);
   });
 });
 

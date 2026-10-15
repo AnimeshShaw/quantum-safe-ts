@@ -18,7 +18,7 @@ const PY = vectors<{ vectors: StreamVector[] }>('py_stream_vectors.json').vector
 
 describe('quantum-safe-py streaming envelopes open in TypeScript', () => {
   it('cover every supported suite and the chunk boundaries', () => {
-    expect(new Set(PY.map((v) => v.algorithm))).toEqual(new Set(['X25519+ML-KEM-768', 'P-256+ML-KEM-512', 'ML-KEM-1024', 'X-Wing']));
+    expect(new Set(PY.map((v) => v.algorithm))).toEqual(new Set(['X25519+ML-KEM-768', 'P-256+ML-KEM-512', 'P-384+ML-KEM-1024', 'ML-KEM-1024', 'X-Wing']));
     expect(new Set(PY.map((v) => h(v.plaintext).length))).toEqual(new Set([0, 1, 1024, 1025, 2048, 3000]));
   });
 

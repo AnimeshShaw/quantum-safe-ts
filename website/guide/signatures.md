@@ -57,7 +57,7 @@ helps them. Use `isValid` for a boolean, or `verifyBytes(message, signature, pub
 
 | Name | Notes |
 |---|---|
-| `Ed25519+ML-DSA-44/65/87`, `P-256+ML-DSA-44/65` | Hybrid. Default `Ed25519+ML-DSA-65-v2` (NIST category 3). Byte-compatible with quantum-safe-py. |
+| `Ed25519+ML-DSA-44/65/87`, `P-256+ML-DSA-44/65`, `P-384+ML-DSA-87` | Hybrid. Default `Ed25519+ML-DSA-65-v2` (NIST category 3). Byte-compatible with quantum-safe-py. |
 | `ML-DSA-44/65/87` | FIPS 204. `ML-DSA-87` is the CNSA 2.0 level. |
 | `SLH-DSA-SHAKE-*` and `SLH-DSA-SHA2-*` (`128/192/256`, `s`/`f`; 12 sets) | FIPS 205, hash-based. Large signatures, conservative assumptions, slower signing. `f` is faster to sign, `s` smaller. |
 | `<any ML-DSA or hybrid>-v2` | The cleaner format described below. |

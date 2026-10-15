@@ -22,6 +22,7 @@ PAIRS = [
     ("X25519", "ML-KEM-768", "X25519", "ML-KEM-1024"),
     ("X25519", "ML-KEM-512", "X25519", "ML-KEM-768"),
     ("P-256", "ML-KEM-768", "X25519", "ML-KEM-1024"),
+    ("P-256", "ML-KEM-768", "P-384", "ML-KEM-1024"),
 ]
 
 out: dict = {"generated_by": f"quantum-safe-py {quantum_safe.__version__} Envelope.rewrap", "vectors": []}

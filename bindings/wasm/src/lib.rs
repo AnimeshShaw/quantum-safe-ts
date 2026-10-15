@@ -703,7 +703,11 @@ pub fn kem_suites() -> String {
                 "hybrid": s.is_hybrid(),
                 "nistLevel": s.nist_level().0,
                 "meetsCnsa2": s.meets_cnsa2(),
-                "pyCompatible": s != KemSuite::XWing,
+                // quantum-safe-py 0.3.0 has neither X-Wing nor the P-384 hybrid (both are in 0.4.0).
+                "pyCompatible": !matches!(
+                    s,
+                    KemSuite::XWing | KemSuite::Hybrid(quantum_safe_core::suite::Classical::P384, _)
+                ),
             })
         })
         .collect();
@@ -717,6 +721,7 @@ pub fn sig_suites() -> String {
         .into_iter()
         .map(|s| {
             let (nist, py) = match s {
+                sig::SigSuite::Hybrid(sig::ClassicalSig::P384, l) => (l.nist_level(), false),
                 sig::SigSuite::MlDsa(l) | sig::SigSuite::Hybrid(_, l) => (l.nist_level(), true),
                 sig::SigSuite::Slh(p) => (p.nist_level(), p.py_compatible()),
             };

@@ -13,7 +13,7 @@ example to derive session keys in your own protocol.
 
 | Class | Algorithms | Use |
 |---|---|---|
-| `HybridKEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `X-Wing` | The default: classical and post-quantum together |
+| `HybridKEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `P-384+ML-KEM-1024`, `X-Wing` | The default: classical and post-quantum together |
 | `KEM` | `ML-KEM-512/768/1024` | Pure ML-KEM, for example the CNSA 2.0 profile (`ML-KEM-1024`) |
 
 ```ts test

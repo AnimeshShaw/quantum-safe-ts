@@ -16,7 +16,7 @@ const enc = (s) => new TextEncoder().encode(s);
 const CHUNK = 1024;
 const out = { generated_by: 'quantum-safe-ts streaming envelope v3 (chunk size 1024)', chunk_size: CHUNK, vectors: [] };
 
-const suites = ['X25519+ML-KEM-768', 'P-256+ML-KEM-512', 'ML-KEM-1024', 'X-Wing'];
+const suites = ['X25519+ML-KEM-768', 'P-256+ML-KEM-512', 'P-384+ML-KEM-1024', 'ML-KEM-1024', 'X-Wing'];
 for (const algorithm of suites) {
   const kem = algorithm.includes('+') || algorithm === 'X-Wing' ? new q.HybridKEM(algorithm) : new q.KEM(algorithm);
   const pair = kem.generateKeyPair();

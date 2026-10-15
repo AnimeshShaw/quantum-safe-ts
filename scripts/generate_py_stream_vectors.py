@@ -27,6 +27,7 @@ out: dict = {
 suites = {
     "X25519+ML-KEM-768": lambda: HybridKEM("X25519", "ML-KEM-768").generate_keypair(),
     "P-256+ML-KEM-512": lambda: HybridKEM("P-256", "ML-KEM-512").generate_keypair(),
+    "P-384+ML-KEM-1024": lambda: HybridKEM("P-384", "ML-KEM-1024").generate_keypair(),
     "ML-KEM-1024": lambda: KEM("ML-KEM-1024").generate_keypair(),
     "X-Wing": lambda: XWing().generate_keypair(),
 }

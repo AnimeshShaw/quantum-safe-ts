@@ -25,7 +25,7 @@ from quantum_safe.signatures import Sign  # noqa: E402
 V2_IDS = [
     "ML-DSA-44-v2", "ML-DSA-65-v2", "ML-DSA-87-v2",
     "Ed25519+ML-DSA-44-v2", "Ed25519+ML-DSA-65-v2", "Ed25519+ML-DSA-87-v2",
-    "P-256+ML-DSA-44-v2", "P-256+ML-DSA-65-v2",
+    "P-256+ML-DSA-44-v2", "P-256+ML-DSA-65-v2", "P-384+ML-DSA-87-v2",
 ]
 
 out: dict = {"generated_by": "quantum-safe-py 0.3.2 (PyPI)", "envelope_v2": [], "signatures_v2": [], "standard_jwt": []}

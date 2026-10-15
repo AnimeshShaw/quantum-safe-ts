@@ -17,6 +17,7 @@ hkdf = "0.13.0"
 ml-dsa = { version = "0.1.1", features = ["zeroize"] }
 ml-kem = { version = "0.3.2", features = ["getrandom", "zeroize"] }
 p256 = { version = "0.14.0", features = ["ecdh", "ecdsa", "pem", "pkcs8"] }
+p384 = { version = "0.14.0", features = ["ecdh", "ecdsa", "pem", "pkcs8"] }
 sha2 = "0.11.0"
 slh-dsa = "0.1.0"
 rand_core06 = { package = "rand_core", version = "0.6" }

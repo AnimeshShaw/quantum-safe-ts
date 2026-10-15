@@ -161,6 +161,7 @@ pub fn expected_public_len(algorithm: &str) -> Option<usize> {
             2 + match c {
                 sig::ClassicalSig::Ed25519 => 32,
                 sig::ClassicalSig::P256 => 64,
+                sig::ClassicalSig::P384 => 96,
             } + l.sizes().0
         }
     })

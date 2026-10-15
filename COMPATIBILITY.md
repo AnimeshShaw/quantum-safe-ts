@@ -20,6 +20,7 @@ Status reflects **quantum-safe-ts 0.2.0** and **quantum-safe-py 0.4.0** (the pai
 | # | quantum-safe-py feature | Status | Evidence |
 |---|---|---|---|
 | 1 | Hybrid KEM `X25519+ML-KEM-512/768/1024` | **DONE** | py→ts decapsulation and ts→py decapsulation, all three levels |
+| 2a | Hybrid KEM `P-384+ML-KEM-1024` and signature `P-384+ML-DSA-87` (+ `-v2`), py 0.4.0 | **DONE** | Same conventions as P-256 with the curve's sizes: SEC1 point 97 B / raw x‖y 96 B, PKCS#8 PEM secret, whole 48-byte ECDH output, ECDSA SHA-384, v2 classical half raw r‖s 96 B low-S; both directions |
 | 2 | Hybrid KEM `P-256+ML-KEM-512/768` | **DONE** | Includes py's quirk: the P-256 secret key is **PKCS#8 PEM text bytes** inside the packed key |
 | 3 | Pure `KEM("ML-KEM-512/768/1024")` | **DONE** | both directions |
 | 4 | `Envelope.seal/open`, AES-256-GCM, `SealedMessage` CBOR, AAD | **DONE** | All 5 hybrid suites, both directions, plus the published-package (facade) path |
