@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: { index: 'src/index.ts', node: 'src/node.ts', slim: 'src/slim.ts', 'file-store': 'src/file-store.ts', 'lms-signer': 'src/lms-signer.ts' },
+  entry: { index: 'src/index.ts', node: 'src/node.ts', slim: 'src/slim.ts', 'file-store': 'src/file-store.ts', 'lms-signer': 'src/lms-signer.ts', rewrap: 'src/rewrap-files.ts' },
   format: ['esm', 'cjs'],
   dts: true,
   sourcemap: true,

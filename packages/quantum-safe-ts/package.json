@@ -85,6 +85,16 @@
         "default": "./dist/lms-signer.cjs"
       }
     },
+    "./rewrap": {
+      "import": {
+        "types": "./dist/rewrap.d.ts",
+        "default": "./dist/rewrap.js"
+      },
+      "require": {
+        "types": "./dist/rewrap.d.cts",
+        "default": "./dist/rewrap.cjs"
+      }
+    },
     "./package.json": "./package.json",
     "./quantum_safe_wasm_bg.wasm": {
       "types": "./dist/wasm.d.ts",

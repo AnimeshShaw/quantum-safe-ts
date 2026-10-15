@@ -26,6 +26,7 @@ Use quantum-safe-py **0.3.2 or later** (`pip install "quantum-safe-py>=0.3.2"`).
 | `StandardJwt` (RFC 9964) tokens and public `AKP` JWKs | Yes, with quantum-safe-py 0.3.2+ |
 | Private `AKP` JWKs and private COSE keys (`priv` is the 32-byte seed) | Yes, with quantum-safe-py 0.4.0 and its `cryptography` backend (`pip install 'quantum-safe-py[pyca]'`): a seed made in either library signs in the other |
 | `X-Wing` KEM, streaming encryption (format v3), all twelve SLH-DSA sets | Yes, with quantum-safe-py 0.4.0 |
+| Envelope re-wrap (`Envelope.rewrap`, the directory driver and its report) | Yes, with quantum-safe-py 0.4.0: what one library re-wraps the other opens |
 | LMS signing | TypeScript signs only in Node.js with durable state; Python signs through its optional extra |
 
 What each library has that the other does not, and why, is in [Differences from quantum-safe-py](/guide/differences).

@@ -69,12 +69,18 @@ const tarballs = { ts: pack('quantum-safe-ts'), audit: pack('quantum-safe-audit'
     "console.log(Lms.isValid(s.publicKey, m, s.sign(m)) ? 'lms ok' : 'lms bad', s.remaining);",
     '',
   ].join('\n');
+  writeFileSync(join(dir, 'rw.mjs'), "import 'quantum-safe-ts';\nimport { rewrapDirectory } from 'quantum-safe-ts/rewrap';\nconsole.log(typeof rewrapDirectory);\n");
+  writeFileSync(join(dir, 'rw.cjs'), "require('quantum-safe-ts');\nconst { rewrapDirectory } = require('quantum-safe-ts/rewrap');\nconsole.log(typeof rewrapDirectory);\n");
   writeFileSync(join(dir, 'lms.mjs'), lmsEsm);
   writeFileSync(join(dir, 'lms.cjs'), lmsCjs);
   out = run('node', ['lms.mjs'], dir);
   check('quantum-safe-ts: lms-signer subpath (ESM): sign and verify', out.startsWith('lms ok 31'), out);
   out = run('node', ['lms.cjs'], dir);
   check('quantum-safe-ts: lms-signer subpath (CommonJS): sign and verify', out.startsWith('lms ok 31'), out);
+  out = run('node', ['rw.mjs'], dir);
+  check('quantum-safe-ts: rewrap subpath (ESM)', out.startsWith('function'), out);
+  out = run('node', ['rw.cjs'], dir);
+  check('quantum-safe-ts: rewrap subpath (CommonJS)', out.startsWith('function'), out);
   const files = readdirSync(join(dir, 'node_modules', 'quantum-safe-ts'));
   for (const f of ['README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_LICENSES.md', 'llms.txt', 'llms-full.txt', 'dist']) check(`quantum-safe-ts tarball contains ${f}`, files.includes(f));
 }
