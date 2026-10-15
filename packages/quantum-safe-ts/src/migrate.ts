@@ -31,21 +31,21 @@ export interface UpgradeResult {
 }
 
 export interface UpgradeKemKeyInput {
-  /** Raw classical secret. X25519: 32 bytes. P-256: the PKCS#8 **PEM text** bytes (quantum-safe-py's layout). */
+  /** Raw classical secret. X25519: 32 bytes. P-256 and P-384: the PKCS#8 **PEM text** bytes (quantum-safe-py's layout). */
   classicalSecret: Uint8Array;
-  /** Raw classical public key. X25519: 32 bytes. P-256: 65-byte uncompressed SEC1 point. */
+  /** Raw classical public key. X25519: 32 bytes. P-256: 65-byte, P-384: 97-byte uncompressed SEC1 point. */
   classicalPublic: Uint8Array;
-  classicalAlgorithm?: 'X25519' | 'P-256';
+  classicalAlgorithm?: 'X25519' | 'P-256' | 'P-384';
   /** Post-quantum KEM to add. Default `ML-KEM-768`. */
   targetPqc?: 'ML-KEM-512' | 'ML-KEM-768' | 'ML-KEM-1024';
 }
 
 export interface UpgradeSigningKeyInput {
-  /** Raw classical secret. Ed25519: 32 bytes. P-256: the PKCS#8 PEM text bytes. */
+  /** Raw classical secret. Ed25519: 32 bytes. P-256 and P-384: the PKCS#8 PEM text bytes. */
   classicalSecret: Uint8Array;
-  /** Raw classical public key. Ed25519: 32 bytes. P-256: 64-byte raw `x ‖ y` (no 0x04 tag). */
+  /** Raw classical public key. Ed25519: 32 bytes. P-256: 64-byte, P-384: 96-byte raw `x ‖ y` (no 0x04 tag). */
   classicalPublic: Uint8Array;
-  classicalAlgorithm?: 'Ed25519' | 'P-256';
+  classicalAlgorithm?: 'Ed25519' | 'P-256' | 'P-384';
   /** Post-quantum signature algorithm to add. Default `ML-DSA-65`. */
   targetPqc?: 'ML-DSA-44' | 'ML-DSA-65' | 'ML-DSA-87';
 }
@@ -123,6 +123,9 @@ export const Upgrader = {
     if (classical === 'P-256' && (pub.length !== 65 || pub[0] !== 0x04 || secret.length < 100)) {
       throw new InvalidArgumentError('P-256 needs a 65-byte uncompressed public key and the PKCS#8 PEM text bytes as the secret.');
     }
+    if (classical === 'P-384' && (pub.length !== 97 || pub[0] !== 0x04 || secret.length < 100)) {
+      throw new InvalidArgumentError('P-384 needs a 97-byte uncompressed public key and the PKCS#8 PEM text bytes as the secret.');
+    }
     using pqcPair = new KEM(pqc).generateKeyPair();
     const pqcSecret = pqcPair.secretKey.exportBytes();
     try {
@@ -163,6 +166,9 @@ export const Upgrader = {
     }
     if (classical === 'P-256' && (pub.length !== 64 || secret.length < 100)) {
       throw new InvalidArgumentError('P-256 signing needs a 64-byte raw x||y public key and the PKCS#8 PEM text bytes as the secret.');
+    }
+    if (classical === 'P-384' && (pub.length !== 96 || secret.length < 100)) {
+      throw new InvalidArgumentError('P-384 signing needs a 96-byte raw x||y public key and the PKCS#8 PEM text bytes as the secret.');
     }
     using pqcPair = new Sign(pqc).generateKeyPair();
     const pqcSecret = pqcPair.secretKey.exportBytes();

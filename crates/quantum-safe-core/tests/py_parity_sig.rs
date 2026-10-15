@@ -32,7 +32,7 @@ fn load() -> Vec<SigVec> {
 #[test]
 fn verifies_every_python_signature() {
     let vectors = load();
-    assert_eq!(vectors.len(), 22);
+    assert_eq!(vectors.len(), 24);
     for v in vectors {
         let label = format!("{} (hedged={})", v.algorithm, v.hedged);
         let public = PublicKey {
