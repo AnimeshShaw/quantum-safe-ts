@@ -61,7 +61,7 @@ Both styles are in the [getting-started guide](https://animeshshaw.github.io/qua
 | [`quantum-safe-ts`](packages/quantum-safe-ts) | The library. | `npm install quantum-safe-ts` |
 | [`quantum-safe-audit`](packages/quantum-safe-audit) (alias: `pqc-audit`) | A scanner for classical crypto in JS/TS projects; SARIF and CycloneDX CBOM output. | `npx quantum-safe-audit scan .` |
 | [`quantum-safe-mcp`](packages/quantum-safe-mcp) (alias: `pqc-mcp`) | An MCP server: lets coding agents run the scanner and get algorithm guidance. | `npx quantum-safe-mcp` |
-| [GitHub Action](https://github.com/marketplace/actions/quantum-safe-audit) ([source](action.yml)) | The scanner in CI: uploads SARIF, gates on severity. | `uses: AnimeshShaw/quantum-safe-ts@v0.1.2` |
+| [GitHub Action](https://github.com/marketplace/actions/quantum-safe-audit) ([source](action.yml)) | The scanner in CI: uploads SARIF, gates on severity. | `uses: AnimeshShaw/quantum-safe-ts@v0.1.3` |
 
 ## Documentation
 

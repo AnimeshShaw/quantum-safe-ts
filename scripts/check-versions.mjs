@@ -19,8 +19,8 @@ const channel = /channel = "([^"]+)"/.exec(read('rust-toolchain.toml'))?.[1];
 for (const f of ['.github/workflows/ci.yml', '.github/workflows/release.yml', '.github/workflows/docs.yml']) {
   for (const m of read(f).matchAll(/rust-toolchain@([0-9][^\s]*)/g)) if (m[1] !== channel) problems.push(`${f} names toolchain ${m[1]} but rust-toolchain.toml pins ${channel}`);
 }
-// quantum-safe-ts moved to 0.2.0 (with quantum-safe-py 0.4.0); the audit scanner stays at 0.1.2; the MCP server and its alias are at 0.1.3.
-const expected = { 'quantum-safe-ts': '0.2.0', 'quantum-safe-audit': '0.1.2', 'quantum-safe-mcp': '0.1.3', 'pqc-audit': '0.1.2', 'pqc-mcp': '0.1.3' };
+// quantum-safe-ts moved to 0.2.0 (with quantum-safe-py 0.4.0); the audit scanner, the MCP server and their aliases are at 0.1.3.
+const expected = { 'quantum-safe-ts': '0.2.0', 'quantum-safe-audit': '0.1.3', 'quantum-safe-mcp': '0.1.3', 'pqc-audit': '0.1.3', 'pqc-mcp': '0.1.3' };
 for (const [pkg, want] of Object.entries(expected)) {
   const v = JSON.parse(read(`packages/${pkg}/package.json`)).version;
   if (v !== want) problems.push(`${pkg} is ${v}, expected ${want}; update this script, CHANGELOG and action.yml together when versions move`);
