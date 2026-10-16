@@ -45,8 +45,8 @@ describe('envelope v2: quantum-safe-py seals, quantum-safe-ts opens', () => {
 });
 
 describe('-v2 signatures: quantum-safe-py signs, quantum-safe-ts verifies', () => {
-  it('covers all eight identifiers', () => {
-    expect(new Set(V.signatures_v2.map((s) => s.algorithm)).size).toBe(8);
+  it('covers all nine identifiers', () => {
+    expect(new Set(V.signatures_v2.map((s) => s.algorithm)).size).toBe(9);
   });
   for (const [i, s] of V.signatures_v2.entries()) {
     it(`${i}: ${s.algorithm} (context ${s.context.length ? 'set' : 'empty'})`, () => {

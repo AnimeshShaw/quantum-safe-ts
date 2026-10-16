@@ -79,10 +79,10 @@ made by one copy to the other. Use `QuantumSafeError.is(e)` instead of `instance
 
 ## Size
 
-About 410 KiB gzipped of WebAssembly (compiled for speed: the size-optimised build was about 285 KiB and 2-3x slower). The default entry embeds it
-as base64 so no bundler plugin is needed, which costs about 600 KiB gzipped of JavaScript in a bundle, whichever single function you import
+About 455 KiB gzipped of WebAssembly (compiled for speed: the size-optimised build was about 285 KiB before the P-384 suites were added, and 2-3x slower). The default entry embeds it
+as base64 so no bundler plugin is needed, which costs about 680 KiB gzipped of JavaScript in a bundle, whichever single function you import
 (tree-shaking cannot drop algorithms). If bytes matter, use the **slim entry**: `import { init } from 'quantum-safe-ts/slim'` has the same API
-with no embedded WebAssembly (about 150 KB of JavaScript, about 35 KiB gzipped); you serve the 410 KiB gzipped `.wasm` file yourself and pass it
+with no embedded WebAssembly (about 150 KB of JavaScript, about 35 KiB gzipped); you serve the 455 KiB gzipped `.wasm` file yourself and pass it
 once:
 
 ```ts no-run

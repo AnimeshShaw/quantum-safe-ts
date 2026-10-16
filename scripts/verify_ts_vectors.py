@@ -15,6 +15,17 @@ warnings.filterwarnings("ignore")
 from quantum_safe import KEM, HybridKEM  # noqa: E402
 from quantum_safe.protocols.envelope import Envelope, SealedMessage  # noqa: E402
 from quantum_safe import HybridSign  # noqa: E402
+
+try:  # P-384 hybrids exist from quantum-safe-py 0.4.0; the pinned release in CI may be older
+    from quantum_safe.kem.algorithms import CLASSICAL_KEM_ALGORITHMS as _CLASSICAL_KEMS  # noqa: E402
+
+    HAS_P384 = "P-384" in _CLASSICAL_KEMS
+except Exception:  # noqa: BLE001
+    HAS_P384 = False
+
+
+def skip_unsupported(algo: str) -> bool:
+    return algo.startswith("P-384+") and not HAS_P384
 from quantum_safe.signatures import Sign  # noqa: E402
 from quantum_safe.types import PublicKey, SecretKey  # noqa: E402
 from quantum_safe.types.signatures import SignedMessage  # noqa: E402
@@ -33,6 +44,8 @@ def check(label, ok):
 
 for k in v["kem"]:
     algo = k["algorithm"]
+    if skip_unsupported(algo):
+        continue
     sk = SecretKey(raw=bytes.fromhex(k["secret_key"]), algorithm=algo)
     ct_bytes = bytes.fromhex(k["ciphertext"])
     try:
@@ -50,6 +63,8 @@ for k in v["kem"]:
 
 for e in v["envelope"]:
     algo = e["algorithm"]
+    if skip_unsupported(algo):
+        continue
     try:
         sk = SecretKey(raw=bytes.fromhex(e["secret_key"]), algorithm=algo)
         sealed = SealedMessage.from_bytes(bytes.fromhex(e["sealed"]))
@@ -60,6 +75,8 @@ for e in v["envelope"]:
 
 for k in v["keys"]:
     algo = k["algorithm"]
+    if skip_unsupported(algo):
+        continue
     try:
         pub = PublicKey.from_cbor(bytes.fromhex(k["public_cbor"]))
         sec = SecretKey.from_cbor(bytes.fromhex(k["secret_cbor"]))
@@ -80,6 +97,8 @@ for k in v["keys"]:
 
 for s in v["signatures"]:
     algo = s["algorithm"]
+    if skip_unsupported(algo):
+        continue
     label = f"signature {algo} hedged={s['hedged']}"
     try:
         sm = SignedMessage.from_cbor(bytes.fromhex(s["signed_message"]))
@@ -103,6 +122,8 @@ if js_path.exists():
     jv = json.loads(js_path.read_text(encoding="utf-8"))
     for t in jv["jwt"]:
         algo = t["algorithm"]
+        if skip_unsupported(algo):
+            continue
         try:
             pub = PublicKey(raw=bytes.fromhex(t["public_key"]), algorithm=algo)
             claims = JWTVerifier(pub, issuer=t["issuer"]).verify(t["token"])
@@ -111,6 +132,8 @@ if js_path.exists():
             check(f"jwt {algo} ({type(exc).__name__}: {exc})", False)
     for e in jv["envelope"]:
         algo = e["algorithm"]
+        if skip_unsupported(algo):
+            continue
         try:
             sk = SecretKey(raw=bytes.fromhex(e["secret_key"]), algorithm=algo)
             pt = Envelope.open(SealedMessage.from_hex(e["sealed"]), sk)
@@ -124,6 +147,8 @@ if js_path.exists():
 
     for u in jv.get("upgrade_kem", []):
         algo = u["algorithm"]
+        if skip_unsupported(algo):
+            continue
         try:
             classical, pqc = algo.split("+", 1)
             sk = SecretKey(raw=bytes.fromhex(u["secret_key"]), algorithm=algo)
@@ -135,6 +160,8 @@ if js_path.exists():
             check(f"ts upgrade_kem {algo} ({type(exc).__name__}: {exc})", False)
     for u in jv.get("upgrade_sign", []):
         algo = u["algorithm"]
+        if skip_unsupported(algo):
+            continue
         try:
             classical, pqc = algo.split("+", 1)
             pub = PublicKey(raw=bytes.fromhex(u["public_key"]), algorithm=algo)
@@ -184,6 +211,8 @@ if StandardJwt is not None and v2_path.exists():
         label = f"signature {s['algorithm']} [{i}]"
         try:
             algo = s["algorithm"]
+            if skip_unsupported(algo):
+                continue
             sm = SignedMessage.from_cbor(bytes.fromhex(s["signed_message"]))
             pub = PublicKey(raw=bytes.fromhex(s["public_key"]), algorithm=algo)
             verifier = HybridSign(*algo.split("+", 1)) if "+" in algo else Sign(algo)

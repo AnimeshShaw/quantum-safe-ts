@@ -1,7 +1,7 @@
 /**
  * quantum-safe-ts slim entry: the same API, but the WebAssembly module is NOT embedded in the JavaScript.
  *
- * Use it when bundle size matters (the default entry carries about 600 KiB gzipped of base64). You must supply the module yourself, once,
+ * Use it when bundle size matters (the default entry carries about 680 KiB gzipped of base64). You must supply the module yourself, once,
  * before using any API:
  *
  * ```ts

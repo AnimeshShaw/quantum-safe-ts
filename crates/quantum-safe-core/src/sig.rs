@@ -92,6 +92,7 @@ pub enum SlhParam {
 pub enum ClassicalSig {
     Ed25519,
     P256,
+    P384,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -193,12 +194,14 @@ impl ClassicalSig {
         match self {
             ClassicalSig::Ed25519 => "Ed25519",
             ClassicalSig::P256 => "P-256",
+            ClassicalSig::P384 => "P-384",
         }
     }
     pub fn from_name(s: &str) -> Option<Self> {
         match s {
             "Ed25519" => Some(Self::Ed25519),
             "P-256" => Some(Self::P256),
+            "P-384" => Some(Self::P384),
             _ => None,
         }
     }
@@ -209,6 +212,7 @@ pub fn is_approved_hybrid(c: ClassicalSig, l: MlDsaLevel) -> bool {
     match c {
         ClassicalSig::Ed25519 => true,
         ClassicalSig::P256 => matches!(l, MlDsaLevel::L44 | MlDsaLevel::L65),
+        ClassicalSig::P384 => matches!(l, MlDsaLevel::L87),
     }
 }
 
@@ -257,7 +261,7 @@ impl SigSuite {
         for l in [MlDsaLevel::L44, MlDsaLevel::L65, MlDsaLevel::L87] {
             v.push(SigSuite::MlDsa(l));
         }
-        for c in [ClassicalSig::Ed25519, ClassicalSig::P256] {
+        for c in [ClassicalSig::Ed25519, ClassicalSig::P256, ClassicalSig::P384] {
             for l in [MlDsaLevel::L44, MlDsaLevel::L65, MlDsaLevel::L87] {
                 if is_approved_hybrid(c, l) {
                     v.push(SigSuite::Hybrid(c, l));
@@ -629,6 +633,14 @@ fn classical_sig_keygen(c: ClassicalSig) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
             // quantum-safe-py stores the signing public key as raw x || y (drops the 0x04 tag).
             (Zeroizing::new(pem.as_bytes().to_vec()), point[1..].to_vec())
         }
+        ClassicalSig::P384 => {
+            let sk = crate::kem::p384_random_secret();
+            let pem = sk
+                .to_pkcs8_pem(p384::pkcs8::LineEnding::LF)
+                .expect("valid P-384 key encodes");
+            let point = crate::kem::p384_public_bytes(&sk.public_key());
+            (Zeroizing::new(pem.as_bytes().to_vec()), point[1..].to_vec())
+        }
     }
 }
 
@@ -645,6 +657,13 @@ fn classical_sign(c: ClassicalSig, sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, Sig
             let pem = std::str::from_utf8(sk).map_err(|_| SigError::MalformedKey)?;
             let key = p256::ecdsa::SigningKey::from_pkcs8_pem(pem).map_err(|_| SigError::MalformedKey)?;
             let sig: p256::ecdsa::Signature = key.try_sign(msg).map_err(|_| SigError::SigningFailed)?;
+            Ok(sig.to_der().as_bytes().to_vec())
+        }
+        ClassicalSig::P384 => {
+            // ECDSA P-384 with SHA-384, DER, as quantum-safe-py (cryptography ECDSA(SHA384)).
+            let pem = std::str::from_utf8(sk).map_err(|_| SigError::MalformedKey)?;
+            let key = p384::ecdsa::SigningKey::from_pkcs8_pem(pem).map_err(|_| SigError::MalformedKey)?;
+            let sig: p384::ecdsa::Signature = key.try_sign(msg).map_err(|_| SigError::SigningFailed)?;
             Ok(sig.to_der().as_bytes().to_vec())
         }
     }
@@ -672,6 +691,20 @@ fn classical_verify(c: ClassicalSig, pk: &[u8], msg: &[u8], sig: &[u8]) -> Resul
             let vk =
                 p256::ecdsa::VerifyingKey::from_sec1_bytes(&point).map_err(|_| SigError::MalformedKey)?;
             let Ok(sig) = p256::ecdsa::Signature::from_der(sig) else {
+                return Ok(false);
+            };
+            Ok(vk.verify(msg, &sig).is_ok())
+        }
+        ClassicalSig::P384 => {
+            if pk.len() != 96 {
+                return Err(SigError::MalformedKey);
+            }
+            let mut point = Vec::with_capacity(97);
+            point.push(0x04);
+            point.extend_from_slice(pk);
+            let vk =
+                p384::ecdsa::VerifyingKey::from_sec1_bytes(&point).map_err(|_| SigError::MalformedKey)?;
+            let Ok(sig) = p384::ecdsa::Signature::from_der(sig) else {
                 return Ok(false);
             };
             Ok(vk.verify(msg, &sig).is_ok())
@@ -1087,11 +1120,14 @@ mod tests {
     #[test]
     fn registry_sizes_and_names() {
         assert_eq!(MlDsaLevel::L87.sizes().1, 4896); // liboqs / FIPS 204 (quantum-safe-py's registry said 4864 before its 0.3.1 fix)
-        assert_eq!(SigSuite::all().len(), 3 + 5 + 12);
+        assert_eq!(SigSuite::all().len(), 3 + 5 + 1 + 12); // + P-384+ML-DSA-87
         for s in SigSuite::all() {
             assert_eq!(SigSuite::parse(&s.name()), Some(s));
         }
         assert_eq!(SigSuite::parse("P-256+ML-DSA-87"), None);
+        assert_eq!(SigSuite::parse("P-384+ML-DSA-65"), None);
+        assert_eq!(SigSuite::parse("P-384+ML-DSA-44"), None);
+        assert!(SigSuite::parse("P-384+ML-DSA-87").unwrap().meets_cnsa2());
         assert_eq!(SigSuite::parse("Ed25519+ML-DSA-65+x"), None);
         assert!(SigSuite::parse("Ed25519+ML-DSA-87").unwrap().meets_cnsa2());
         assert!(!SigSuite::parse(DEFAULT_HYBRID_SIG).unwrap().meets_cnsa2());

@@ -1,6 +1,6 @@
 //! Algorithm registry for key encapsulation, mirroring
 //! `quantum_safe.kem.algorithms` in quantum-safe-py (names, sizes, NIST levels,
-//! approved hybrid combinations) plus the TypeScript-only `X-Wing` suite.
+//! approved hybrid combinations) plus the `X-Wing` suite (also in quantum-safe-py 0.4.0).
 //!
 //! Identifiers are **wire-visible** (they are bound into the envelope AAD and the
 //! hybrid combiner `info`), so they must never change meaning once released.
@@ -20,6 +20,7 @@ pub enum Pqc {
 pub enum Classical {
     X25519,
     P256,
+    P384,
 }
 
 /// A complete KEM suite as addressed by its canonical algorithm string.
@@ -31,7 +32,7 @@ pub enum KemSuite {
     /// Hybrid classical + ML-KEM, e.g. `"X25519+ML-KEM-768"` (quantum-safe-py `HybridKEM`).
     Hybrid(Classical, Pqc),
     /// X-Wing (draft-connolly-cfrg-xwing-kem): ML-KEM-768 + X25519 with the X-Wing combiner.
-    /// TypeScript-only; **not** readable by quantum-safe-py.
+    /// Also in quantum-safe-py 0.4.0 (`quantum_safe.kem.xwing`), byte for byte.
     XWing,
 }
 
@@ -83,12 +84,14 @@ impl Classical {
         match self {
             Classical::X25519 => "X25519",
             Classical::P256 => "P-256",
+            Classical::P384 => "P-384",
         }
     }
     pub fn from_name(s: &str) -> Option<Self> {
         match s {
             "X25519" => Some(Classical::X25519),
             "P-256" => Some(Classical::P256),
+            "P-384" => Some(Classical::P384),
             _ => None,
         }
     }
@@ -98,6 +101,7 @@ impl Classical {
         match self {
             Classical::X25519 => 32,
             Classical::P256 => 65,
+            Classical::P384 => 97,
         }
     }
 }
@@ -107,6 +111,7 @@ pub fn is_approved_hybrid(c: Classical, p: Pqc) -> bool {
     match c {
         Classical::X25519 => true,
         Classical::P256 => matches!(p, Pqc::MlKem512 | Pqc::MlKem768),
+        Classical::P384 => matches!(p, Pqc::MlKem1024),
     }
 }
 
@@ -161,7 +166,7 @@ impl KemSuite {
         for p in [Pqc::MlKem512, Pqc::MlKem768, Pqc::MlKem1024] {
             v.push(KemSuite::Pure(p));
         }
-        for c in [Classical::X25519, Classical::P256] {
+        for c in [Classical::X25519, Classical::P256, Classical::P384] {
             for p in [Pqc::MlKem512, Pqc::MlKem768, Pqc::MlKem1024] {
                 if is_approved_hybrid(c, p) {
                     v.push(KemSuite::Hybrid(c, p));
@@ -193,6 +198,8 @@ mod tests {
     #[test]
     fn rejects_unapproved_and_unknown() {
         assert_eq!(KemSuite::parse("P-256+ML-KEM-1024"), None);
+        assert_eq!(KemSuite::parse("P-384+ML-KEM-768"), None);
+        assert_eq!(KemSuite::parse("P-384+ML-KEM-512"), None);
         assert_eq!(KemSuite::parse("RSA+ML-KEM-768"), None);
         assert_eq!(KemSuite::parse("ML-KEM-999"), None);
         assert_eq!(KemSuite::parse(""), None);
@@ -209,7 +216,7 @@ mod tests {
 
     #[test]
     fn suite_count_matches_quantum_safe_py_plus_xwing() {
-        // 3 pure + 3 X25519 hybrids + 2 P-256 hybrids + X-Wing
-        assert_eq!(KemSuite::all().len(), 9);
+        // 3 pure + 3 X25519 hybrids + 2 P-256 hybrids + 1 P-384 hybrid + X-Wing
+        assert_eq!(KemSuite::all().len(), 10);
     }
 }

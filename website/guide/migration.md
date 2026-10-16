@@ -96,6 +96,57 @@ if (progress.hybrid_transition !== 1 || (await manager.getHistory('user-1')).len
 The states are `classical_only → hybrid_transition → pqc_preferred → pqc_only`. `pqc_only` is terminal. A transition names the state
 it expects the key to be in; if another writer moved the key first, you get an error instead of a silent overwrite.
 
+## Re-wrap sealed envelopes
+
+Upgrading a key does not touch what was already encrypted to it. To move stored envelopes to the new key, **re-wrap** them: open under the old
+secret key, seal the plaintext to the new public key, keep the AAD. `Envelope.rewrap` does one message; `rewrapDirectory` from
+`quantum-safe-ts/rewrap` (Node.js) does a directory.
+
+```ts test
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Envelope, HybridKEM, SealedMessage, utf8 } from 'quantum-safe-ts';
+import { rewrapDirectory } from 'quantum-safe-ts/rewrap';
+
+using oldPair = new HybridKEM('X25519+ML-KEM-768').generateKeyPair();
+using newPair = new HybridKEM('X25519+ML-KEM-1024').generateKeyPair();
+
+// One message: a new SealedMessage for the new key; the original is untouched.
+const sealed = Envelope.seal(utf8('record body'), oldPair.publicKey, { aad: utf8('record-42') });
+const moved = Envelope.rewrap(sealed, oldPair.secretKey, newPair.publicKey, { expectedAad: utf8('record-42') });
+if (moved.algorithm !== 'X25519+ML-KEM-1024') throw new Error('not moved');
+
+// A directory: the source is not touched, every result is opened again and compared.
+const source = mkdtempSync(join(tmpdir(), 'rewrap-src-'));
+const destination = mkdtempSync(join(tmpdir(), 'rewrap-dst-'));
+writeFileSync(join(source, 'record-42.sealed'), sealed.toBytes());
+const report = await rewrapDirectory(source, destination, {
+  oldSecretKey: oldPair.secretKey,
+  newPublicKey: newPair.publicKey,
+  newSecretKey: newPair.secretKey,
+  expectedAad: (relativePath) => utf8(relativePath === 'record-42.sealed' ? 'record-42' : relativePath),
+});
+if (!report.ok || report.counts.rewrapped !== 1) throw new Error('re-wrap failed');
+const written = SealedMessage.fromBytes(new Uint8Array(readFileSync(join(destination, 'record-42.sealed'))));
+console.log(report.counts, written.algorithm); // { rewrapped: 1, skipped: 0, failed: 0 } X25519+ML-KEM-1024
+```
+
+What the driver guarantees:
+
+- **The source is not touched** unless you pass `inPlace: true`, which replaces files one at a time through a temporary file and an atomic rename.
+- **Resumable and idempotent.** A file whose output already exists and is a valid migrated copy is `already_migrated`; a second run does nothing
+  and an interrupted run continues.
+- **Verified.** With `newSecretKey` every written file is opened again and its plaintext compared (SHA-256) with the original. Without it
+  `verified` is `null`: nothing was checked.
+- **One bad file does not stop the run.** Each item ends `rewrapped`, `skipped` (not an envelope), `already_migrated`, `would_rewrap`
+  (`dryRun: true`) or `failed`, with a reason that contains no secret. The report holds names, algorithms and counts, never keys or plaintext.
+- **The AAD is checked.** Pass `expectedAad` (bytes, or a function of the relative path); if you omit it each message's own AAD is accepted and
+  kept, and `aadChecked` is false.
+
+quantum-safe-py has the same operation (`Envelope.rewrap`, `quantum_safe.migrate.rewrap.rewrap_directory` and `qs-migrate rewrap`), with the
+same report shape; what one library re-wraps the other opens. Streaming envelopes are a different container.
+
 ## Concurrency: what is and is not safe
 
 Each key's history is stored as one document and written with a single **compare-and-set**. That gives you:

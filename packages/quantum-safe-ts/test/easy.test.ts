@@ -68,7 +68,7 @@ describe('easy: encryption', () => {
 describe('easy: signatures', () => {
   it('signs and verifies with the default hybrid, returning the message', () => {
     const k = easy.generateSigningKeys();
-    expect(k.algorithm).toBe('Ed25519+ML-DSA-65');
+    expect(k.algorithm).toBe('Ed25519+ML-DSA-65-v2'); // the default suite is the -v2 format
     const signed = easy.sign(k.secretKey, 'pay 10', { context: 'payments' });
     expect(new TextDecoder().decode(easy.verify(k.publicKey, signed, { context: 'payments' }))).toBe('pay 10');
   });

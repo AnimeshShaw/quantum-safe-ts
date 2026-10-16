@@ -103,7 +103,7 @@ if (caught !== 2) throw new Error('both attacks must be caught');
 
 **Watch for.** Users must obtain the public key through a channel the attacker cannot also control: pin the fingerprint in your docs, your
 package metadata or a second site. Include a version and an expiry in the manifest so an old signed release cannot be replayed as the latest.
-For firmware that CNSA 2.0 covers you need LMS/XMSS signing, which this library does not provide.
+For firmware that CNSA 2.0 covers you need LMS or XMSS signing: [LMS signing](/guide/lms-signing) does that in Node.js, with durable state.
 
 ## 3. A tamper-evident signed audit log
 
@@ -337,6 +337,80 @@ print(Envelope.open(sealed, sk, expected_aad=b"interop-v1"))  # b'secret for Pyt
 **Watch for.** `context`, `expected_aad` and `expectedContext` / `expectedAad` must be the same on both sides, byte for byte. Default-format
 (v1) signatures made with `hedged=False` verify only on a verifier in the same mode. The full table of what crosses and what does not is in
 [Interop with quantum-safe-py](/guide/python-interop).
+
+## 8. Keep secret keys wrapped by a KMS
+
+A secret key on disk in clear is the weakest link. Envelope encryption fixes that with any key management service: ask the KMS for a fresh
+**data key**, encrypt the library's secret key with it locally, and store the KMS-wrapped data key next to the result. Only the KMS can unwrap
+the data key, and it works for any key size (a direct KMS `Encrypt` call has a small input limit that ML-DSA-87 secret keys exceed). The
+example uses an in-memory stand-in with the two calls AWS KMS, GCP KMS and Vault transit offer:
+
+```ts test
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { Envelope, HybridKEM, SecretKey, utf8 } from 'quantum-safe-ts';
+
+class Kms {
+  readonly #master = randomBytes(32);
+  generateDataKey(context: Uint8Array): { plain: Buffer; wrapped: Buffer } {
+    const plain = randomBytes(32);
+    const nonce = randomBytes(12);
+    const c = createCipheriv('aes-256-gcm', this.#master, nonce);
+    c.setAAD(context);
+    const body = Buffer.concat([c.update(plain), c.final(), c.getAuthTag()]);
+    return { plain, wrapped: Buffer.concat([nonce, body]) };
+  }
+  decrypt(wrapped: Buffer, context: Uint8Array): Buffer {
+    const d = createDecipheriv('aes-256-gcm', this.#master, wrapped.subarray(0, 12));
+    d.setAAD(context);
+    d.setAuthTag(wrapped.subarray(wrapped.length - 16));
+    return Buffer.concat([d.update(wrapped.subarray(12, wrapped.length - 16)), d.final()]);
+  }
+}
+
+function wrapSecretKey(kms: Kms, secret: SecretKey, name: string): Buffer {
+  const context = utf8(name); // binds the result to this key's name
+  const { plain, wrapped } = kms.generateDataKey(context);
+  const nonce = randomBytes(12);
+  const c = createCipheriv('aes-256-gcm', plain, nonce);
+  c.setAAD(context);
+  const sealed = Buffer.concat([c.update(secret.toCbor()), c.final(), c.getAuthTag()]);
+  const head = Buffer.alloc(2);
+  head.writeUInt16BE(wrapped.length);
+  return Buffer.concat([head, wrapped, nonce, sealed]); // store this
+}
+
+function unwrapSecretKey(kms: Kms, stored: Buffer, name: string): SecretKey {
+  const context = utf8(name);
+  const n = stored.readUInt16BE(0);
+  const wrapped = stored.subarray(2, 2 + n);
+  const nonce = stored.subarray(2 + n, 14 + n);
+  const sealed = stored.subarray(14 + n);
+  const d = createDecipheriv('aes-256-gcm', kms.decrypt(wrapped, context), nonce);
+  d.setAAD(context);
+  d.setAuthTag(sealed.subarray(sealed.length - 16));
+  return SecretKey.fromCbor(new Uint8Array(Buffer.concat([d.update(sealed.subarray(0, sealed.length - 16)), d.final()])));
+}
+
+const kms = new Kms();
+using pair = new HybridKEM().generateKeyPair();
+const stored = wrapSecretKey(kms, pair.secretKey, 'orders-service/recipient-key');
+using secret = unwrapSecretKey(kms, stored, 'orders-service/recipient-key');
+const sealed = Envelope.seal(utf8('order 1001'), pair.publicKey, { aad: utf8('orders') });
+if (new TextDecoder().decode(Envelope.open(sealed, secret, { expectedAad: utf8('orders') })) !== 'order 1001') throw new Error('round trip');
+let refused = false;
+try {
+  unwrapSecretKey(kms, stored, 'billing-service/recipient-key');
+} catch {
+  refused = true; // another name: the KMS context does not match
+}
+if (!refused) throw new Error('a different name must not unwrap the key');
+```
+
+With a real service, replace `Kms` by a thin adapter: in AWS KMS `generateDataKey` is the `GenerateDataKey` call with `KeySpec: 'AES_256'` and an
+`EncryptionContext` (use `Plaintext` and `CiphertextBlob` from the response) and `decrypt` is the `Decrypt` call with the same
+`EncryptionContext`. The same shape gives `LmsSigner` its `{ key }` protection. Unwrap once at start-up, keep the key object for the life of the
+process, and do not log it. A key that must never leave a hardware module cannot be used through this library; keep it in the module and use the
+module's own signer.
 
 ## Patterns to avoid
 

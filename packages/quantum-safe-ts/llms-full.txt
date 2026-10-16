@@ -25,26 +25,26 @@ negotiate X25519MLKEM768, RFC 10024).
 - Cloudflare Workers forbid compiling WASM from bytes: `import wasm from 'quantum-safe-ts/quantum_safe_wasm_bg.wasm'; await init({ wasm });`
 - Chrome MV3 extensions: the extension CSP must include `'wasm-unsafe-eval'`.
 - Calling any API before initialisation throws `NotInitializedError`.
-- Bundle size: the default entry embeds the WebAssembly (about 600 KiB gzipped). `quantum-safe-ts/slim` has the same API and no embedded WebAssembly: `await init({ wasm: fetch(url) })` with `quantum-safe-ts/wasm` as the file.
+- Bundle size: the default entry embeds the WebAssembly (about 680 KiB gzipped). `quantum-safe-ts/slim` has the same API and no embedded WebAssembly: `await init({ wasm: fetch(url) })` with `quantum-safe-ts/wasm` as the file.
 
 ## 3. Algorithms (names are wire-visible identifiers; never change them)
 
 KEM suites (`kemSuites()`): `X25519+ML-KEM-512`, `X25519+ML-KEM-768` (default), `X25519+ML-KEM-1024`, `P-256+ML-KEM-512`,
-`P-256+ML-KEM-768`, `X-Wing`, and pure `ML-KEM-512`, `ML-KEM-768`, `ML-KEM-1024`.
-Signature suites (`sigSuites()`): `Ed25519+ML-DSA-44`, `Ed25519+ML-DSA-65` (default hybrid), `Ed25519+ML-DSA-87`,
-`P-256+ML-DSA-44`, `P-256+ML-DSA-65`, `ML-DSA-44`, `ML-DSA-65`, `ML-DSA-87`, and SLH-DSA (FIPS 205): `SLH-DSA-SHAKE-128s`,
+`P-256+ML-KEM-768`, `P-384+ML-KEM-1024` (the curve of CNSA 1.0 estates), `X-Wing`, and pure `ML-KEM-512`, `ML-KEM-768`, `ML-KEM-1024`.
+Signature suites (`sigSuites()`): `Ed25519+ML-DSA-44`, `Ed25519+ML-DSA-65` (original format), `Ed25519+ML-DSA-87`,
+`P-256+ML-DSA-44`, `P-256+ML-DSA-65`, `P-384+ML-DSA-87`, `ML-DSA-44`, `ML-DSA-65`, `ML-DSA-87`, and SLH-DSA (FIPS 205): `SLH-DSA-SHAKE-128s`,
 `SLH-DSA-SHAKE-128f`, `SLH-DSA-SHAKE-192s`, `SLH-DSA-SHAKE-192f`, `SLH-DSA-SHAKE-256s`, `SLH-DSA-SHAKE-256f`,
 `SLH-DSA-SHA2-128s`, `SLH-DSA-SHA2-128f`, `SLH-DSA-SHA2-192s`, `SLH-DSA-SHA2-192f`, `SLH-DSA-SHA2-256s`, `SLH-DSA-SHA2-256f`.
-quantum-safe-py reads all except `X-Wing` and the nine SLH-DSA sets it does not list (only SHAKE-128s/128f/256s are shared).
+quantum-safe-py 0.4.0 reads and writes every suite here; 0.3.x does not read `X-Wing`, the `P-384` hybrids or nine of the twelve SLH-DSA sets (only SHAKE-128s/128f/256s are in 0.3.x).
 Signature format v2 (no prefix; read and written by quantum-safe-py 0.3.2+, not by 0.3.0; ML-DSA half signs a wrapped message `M2` under the FIPS 204 context `quantum-safe-sig-v2`, so it is NOT a standard signature over your message; keys tagged `-v2`): `ML-DSA-44-v2`, `ML-DSA-65-v2`, `ML-DSA-87-v2`,
-`Ed25519+ML-DSA-44-v2`, `Ed25519+ML-DSA-65-v2`, `Ed25519+ML-DSA-87-v2`, `P-256+ML-DSA-44-v2`, `P-256+ML-DSA-65-v2`. Prefer v2 unless a quantum-safe-py older than 0.3.2 must verify the signature (the default of `easy` stays `Ed25519+ML-DSA-65` until the next minor release).
+`Ed25519+ML-DSA-44-v2`, `Ed25519+ML-DSA-65-v2`, `Ed25519+ML-DSA-87-v2`, `P-256+ML-DSA-44-v2`, `P-256+ML-DSA-65-v2`, `P-384+ML-DSA-87-v2`. Prefer v2 unless a quantum-safe-py older than 0.3.2 must verify the signature (the default of `easy` and `HybridSign` is `Ed25519+ML-DSA-65-v2`).
 
 Choosing: default hybrids are NIST category 3. CNSA 2.0 requires ML-KEM-1024 and ML-DSA-87: use pure `ML-KEM-1024` (`cnsa2.kem()`;
 hybrid is optional under CNSA 2.0) and `ML-DSA-87` (`Ed25519+ML-DSA-87` from `cnsa2.hybridSign()` has the right parameter set but reports `partial`: a hybrid is outside what CNSA 2.0 prescribes), and see section 9 for what CNSA 2.0 still lacks. For data
 other ecosystems must read, use `X-Wing` (draft-connolly-cfrg-xwing-kem) and `StandardJwt` (RFC 9964) instead of the
 quantum-safe-py-compatible constructions.
 
-Streaming (TypeScript-only): `sealStream(publicKey, source, { aad, chunkSize })` and `openStream(secretKey, source, { expectedAad })` take and yield `Uint8Array` pieces (async generators); a truncated, reordered or modified stream throws and stops. See the streaming guide.
+Streaming (also quantum-safe-py 0.4.0, `quantum_safe.protocols.stream`): `sealStream(publicKey, source, { aad, chunkSize })` and `openStream(secretKey, source, { expectedAad })` take and yield `Uint8Array` pieces (async generators); a truncated, reordered or modified stream throws and stops. See the streaming guide.
 
 ## 3b. Easy layer (shortest path, nothing to free)
 
@@ -55,7 +55,7 @@ const keys = easy.generateEncryptionKeys(); // { publicKey, secretKey, algorithm
 const sealed = easy.encrypt(keys.publicKey, 'hello', { aad: 'ctx' }); // Uint8Array (CBOR SealedMessage)
 if (new TextDecoder().decode(easy.decrypt(keys.secretKey, sealed)) !== 'hello') throw new Error('round trip');
 
-const signer = easy.generateSigningKeys(); // default Ed25519+ML-DSA-65
+const signer = easy.generateSigningKeys(); // default Ed25519+ML-DSA-65-v2
 const signed = easy.sign(signer.secretKey, 'doc', { context: 'docs-v1' }); // Uint8Array (CBOR SignedMessage)
 if (new TextDecoder().decode(easy.verify(signer.publicKey, signed, { context: 'docs-v1' })) !== 'doc') throw new Error('verify');
 ```
@@ -142,6 +142,11 @@ if (!pure.isValid(pure.sign(utf8('x'), p2.secretKey), p2.publicKey)) throw new E
 - Verifier settings that are security checks: `verify(signed, publicKey, { expectedContext })` requires the context YOU signed with (default empty; the message's own context is never trusted), and the verifier's `hedged`
   must match the signer's: a hedged verifier (default) requires a 32-byte prefix, `{ hedged: false }` requires none. Without that pinning the prefix/message boundary in the unsigned signature blob could be moved to forge
   signatures on a suffix of a signed message. `easy.verify(publicKey, signed, { context, hedged })` does both.
+- Standard FIPS 204 signatures (interoperable with any ML-DSA implementation): `new Sign('ML-DSA-65')`, `signer.generateStandardKeyPair()` (a 32-byte
+  seed; `using` frees it), `signer.signRaw(message, pair, { context })` returns the bare signature, and `signer.verifyRaw(message, signature, publicKey, { context })`
+  throws `VerificationError` unless it verifies (`signStandard` / `verifyStandard` are aliases). The context is FIPS 204's native context, at most 255 bytes.
+  quantum-safe-py's `Sign.sign_raw` / `verify_raw` produce and accept the same bytes. A secret key that quantum-safe-py made through liboqs is an
+  expanded key: verify with its public key here, but signing needs a seed key.
 - Compatibility note: quantum-safe-py's "context" is a message prefix (`len(ctx) || ctx || prefix || message`) with an empty FIPS 204 context.
   A generic ML-DSA verifier will not accept these signatures unless it rebuilds that input.
 
@@ -207,7 +212,7 @@ CNSA 2.0 mandates ML-KEM-1024, ML-DSA-87, AES-256, SHA-384/512, and LMS/XMSS (SP
 Selecting the parameter sets is necessary and not sufficient. Known gaps in this library, reported honestly by `cnsa2.report()`:
 (1) a hybrid is outside what CNSA 2.0 prescribes (NSA's FAQ: not required, not to be used on NSS mission systems except NSA-specified exceptions), so `X25519+ML-KEM-1024` is `partial`; hybrid
 is optional and pure ML-KEM-1024 is compliant; (2) the quantum-safe-py-compatible hybrid combiner and envelope v1 use HKDF-SHA-256 (below
-the SHA-384/512 requirement); pure ML-KEM-1024 envelopes (v2) use HKDF-SHA-384; (3) LMS/XMSS are not implemented.
+the SHA-384/512 requirement); pure ML-KEM-1024 envelopes (v2) use HKDF-SHA-384; (3) LMS is verified everywhere and signed in Node.js (LmsSigner, quantum-safe-ts/lms-signer); XMSS is not implemented.
 
 ## 10. Errors
 

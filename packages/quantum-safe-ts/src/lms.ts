@@ -2,10 +2,9 @@
  * LMS / HSS signature **verification** (RFC 8554, SHA-256, n = m = 32), the stateful hash-based scheme
  * CNSA 2.0 requires for software and firmware signing (with XMSS, via NIST SP 800-208).
  *
- * Verification only, deliberately: LMS signing is stateful, and reusing a one-time-signature index
- * destroys the scheme's security. Doing that safely needs a durable, atomic state store that a library
- * cannot provide for an embedding application, and SP 800-208 also requires key generation inside a
- * validated cryptographic module. Verifying a firmware or software signature needs none of that.
+ * This is verification, which works in every runtime. Signing is stateful (reusing a one-time-signature
+ * index destroys the scheme's security), so it lives apart, in Node.js only, with write-ahead durable
+ * state: `LmsSigner` from `quantum-safe-ts/lms-signer`.
  *
  * Supported: `LMS_SHA256_M32_H{5,10,15,20,25}` with `LMOTS_SHA256_N32_W{1,2,4,8}`, HSS with 1 to 8
  * levels (a bare LMS key is HSS with one level). Not supported (rejected explicitly): the 192-bit and

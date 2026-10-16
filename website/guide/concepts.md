@@ -101,7 +101,7 @@ for one key. The [`-v2` format](#the-two-signature-formats) has no hedging mode 
 
 ## The two signature formats
 
-| | v1 (default) | v2 (`-v2` suffix) |
+| | v1 (original) | v2 (`-v2` suffix; the default hybrid) |
 |---|---|---|
 | Identifier | `ML-DSA-65`, `Ed25519+ML-DSA-65`, ... | `ML-DSA-65-v2`, `Ed25519+ML-DSA-65-v2`, ... |
 | Bytes signed | `len(ctx) ‖ ctx ‖ prefix ‖ message`, ML-DSA with an **empty** FIPS 204 context | `M2 = len(algo) ‖ algo ‖ len(ctx) ‖ ctx ‖ message`; ML-DSA with the **native** FIPS 204 context `quantum-safe-sig-v2` |

@@ -48,10 +48,10 @@ if (plain.length !== 14) throw new Error('unexpected length');
 | Capability | API | Algorithms |
 |---|---|---|
 | One-call encryption and signing | `easy` | defaults: `X25519+ML-KEM-768`, `Ed25519+ML-DSA-65` |
-| Key encapsulation | `HybridKEM`, `KEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `X-Wing`, pure `ML-KEM-512/768/1024` |
+| Key encapsulation | `HybridKEM`, `KEM` | `X25519+ML-KEM-512/768/1024`, `P-256+ML-KEM-512/768`, `P-384+ML-KEM-1024`, `X-Wing`, pure `ML-KEM-512/768/1024` |
 | Public-key encryption (anonymous: no sender authentication) | `Envelope`, `SealedMessage` | any hybrid KEM + AES-256-GCM |
-| Signatures | `Sign`, `HybridSign`, `SignedMessage` | `ML-DSA-44/65/87`, `Ed25519+ML-DSA-*`, `P-256+ML-DSA-44/65`, SLH-DSA (12 parameter sets); plus the `-v2` format of each ML-DSA suite (native FIPS 204 context over a wrapped message, not a standard signature over your message; quantum-safe-py 0.3.2+ reads it too) |
-| Stateful hash-based verification | `Lms` | LMS / HSS (RFC 8554, SHA-256), verification only |
+| Signatures | `Sign`, `HybridSign`, `SignedMessage` | `ML-DSA-44/65/87`, `Ed25519+ML-DSA-*`, `P-256+ML-DSA-44/65`, `P-384+ML-DSA-87`, SLH-DSA (12 parameter sets); plus the `-v2` format of each ML-DSA suite (native FIPS 204 context over a wrapped message, not a standard signature over your message; quantum-safe-py 0.3.2+ reads it too) |
+| Stateful hash-based signatures | `Lms` (verify, everywhere), `LmsSigner` (sign, Node.js, durable state) | LMS / HSS (RFC 8554, SHA-256) |
 | JWT | `JWTSigner`/`JWTVerifier`, `StandardJwt` | quantum-safe-py-compatible, and RFC 9964 (ML-DSA for JOSE) |
 | Password KDF | `deriveMasterKey` | Argon2id |
 | Keys | `PublicKey`, `SecretKey`, `KeyPair` | CBOR, PEM, JWK (public), fingerprints, migration state |
@@ -74,7 +74,7 @@ Every row is exercised by a test that installs the packed npm tarball into a fre
 | Deno 2, Bun | From `node_modules`. |
 | Chrome extensions (Manifest V3) | Needs `'wasm-unsafe-eval'` in the extension CSP. |
 
-Not supported: React Native. About 410 KiB of gzipped WebAssembly (compiled for speed), embedded as base64 in the default entry (about 600 KiB gzipped of JavaScript; import `quantum-safe-ts/slim` and pass the `.wasm` to `init` to avoid that; tree-shaking cannot drop algorithms).
+Not supported: React Native. About 455 KiB of gzipped WebAssembly (compiled for speed), embedded as base64 in the default entry (about 680 KiB gzipped of JavaScript; import `quantum-safe-ts/slim` and pass the `.wasm` to `init` to avoid that; tree-shaking cannot drop algorithms).
 
 ## Compatible with quantum-safe-py, and what that means
 

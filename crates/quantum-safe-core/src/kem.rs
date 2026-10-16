@@ -3,7 +3,7 @@
 //! - hybrid `X25519+ML-KEM-{512,768,1024}` and `P-256+ML-KEM-{512,768}`, matching
 //!   `quantum_safe.kem.hybrid.HybridKEM` byte for byte;
 //! - pure `ML-KEM-{512,768,1024}`, matching `quantum_safe.kem.core.KEM`;
-//! - `X-Wing` (TypeScript-only, draft-connolly-cfrg-xwing-kem).
+//! - `X-Wing` (draft-connolly-cfrg-xwing-kem; quantum-safe-py 0.4.0 has the same suite).
 //!
 //! Wire layouts (all verified against quantum-safe-py 0.3.0):
 //!
@@ -221,6 +221,22 @@ pub(crate) fn p256_public_bytes(pk: &p256::PublicKey) -> Vec<u8> {
     pk.to_sec1_point(false).as_bytes().to_vec()
 }
 
+pub(crate) fn p384_random_secret() -> p384::SecretKey {
+    loop {
+        let mut b = Zeroizing::new([0u8; 48]);
+        getrandom::fill(&mut b[..]).expect("OS RNG must be available");
+        // Rejects zero and values >= the group order; loop until valid.
+        if let Ok(sk) = p384::SecretKey::from_slice(&b[..]) {
+            return sk;
+        }
+    }
+}
+
+pub(crate) fn p384_public_bytes(pk: &p384::PublicKey) -> Vec<u8> {
+    use p384::elliptic_curve::sec1::ToSec1Point;
+    pk.to_sec1_point(false).as_bytes().to_vec()
+}
+
 fn classical_keygen(c: Classical) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
     match c {
         Classical::X25519 => {
@@ -236,6 +252,16 @@ fn classical_keygen(c: Classical) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
             (
                 Zeroizing::new(pem.as_bytes().to_vec()),
                 p256_public_bytes(&sk.public_key()),
+            )
+        }
+        Classical::P384 => {
+            let sk = p384_random_secret();
+            let pem = sk
+                .to_pkcs8_pem(p384::pkcs8::LineEnding::LF)
+                .expect("P-384 PKCS#8 PEM encoding is infallible for a valid key");
+            (
+                Zeroizing::new(pem.as_bytes().to_vec()),
+                p384_public_bytes(&sk.public_key()),
             )
         }
     }
@@ -267,6 +293,17 @@ fn classical_encaps(c: Classical, recipient_pub: &[u8]) -> Result<(Vec<u8>, Zero
                 Zeroizing::new(ss.raw_secret_bytes().as_slice().to_vec()),
             ))
         }
+        Classical::P384 => {
+            let recipient =
+                p384::PublicKey::from_sec1_bytes(recipient_pub).map_err(|_| KemError::MalformedKey)?;
+            let eph = p384_random_secret();
+            let ss = p384::ecdh::diffie_hellman(eph.to_nonzero_scalar(), recipient.as_affine());
+            // The whole ECDH x-coordinate (48 bytes), as quantum-safe-py uses it.
+            Ok((
+                p384_public_bytes(&eph.public_key()),
+                Zeroizing::new(ss.raw_secret_bytes().as_slice().to_vec()),
+            ))
+        }
     }
 }
 
@@ -287,6 +324,13 @@ fn classical_decaps(c: Classical, secret: &[u8], ct: &[u8]) -> Result<Zeroizing<
             let sk = p256::SecretKey::from_pkcs8_pem(pem).map_err(|_| KemError::MalformedKey)?;
             let peer = p256::PublicKey::from_sec1_bytes(ct).map_err(|_| KemError::MalformedCiphertext)?;
             let ss = p256::ecdh::diffie_hellman(sk.to_nonzero_scalar(), peer.as_affine());
+            Ok(Zeroizing::new(ss.raw_secret_bytes().as_slice().to_vec()))
+        }
+        Classical::P384 => {
+            let pem = std::str::from_utf8(secret).map_err(|_| KemError::MalformedKey)?;
+            let sk = p384::SecretKey::from_pkcs8_pem(pem).map_err(|_| KemError::MalformedKey)?;
+            let peer = p384::PublicKey::from_sec1_bytes(ct).map_err(|_| KemError::MalformedCiphertext)?;
+            let ss = p384::ecdh::diffie_hellman(sk.to_nonzero_scalar(), peer.as_affine());
             Ok(Zeroizing::new(ss.raw_secret_bytes().as_slice().to_vec()))
         }
     }

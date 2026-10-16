@@ -50,12 +50,12 @@ describe('registry', () => {
   it('lists the expected suites', () => {
     expect(kemSuites().map((s) => s.name).sort()).toEqual(
       [
-        'ML-KEM-1024', 'ML-KEM-512', 'ML-KEM-768', 'P-256+ML-KEM-512', 'P-256+ML-KEM-768',
+        'ML-KEM-1024', 'ML-KEM-512', 'ML-KEM-768', 'P-256+ML-KEM-512', 'P-256+ML-KEM-768', 'P-384+ML-KEM-1024',
         'X-Wing', 'X25519+ML-KEM-1024', 'X25519+ML-KEM-512', 'X25519+ML-KEM-768',
       ].sort(),
     );
-    expect(sigSuites().filter((s) => s.format !== 'v2')).toHaveLength(20); // the quantum-safe-py-compatible suites
-    expect(sigSuites().filter((s) => s.format === 'v2')).toHaveLength(8); // the -v2 signature format
+    expect(sigSuites().filter((s) => s.format !== 'v2')).toHaveLength(21); // the quantum-safe-py suites (with the P-384 hybrid)
+    expect(sigSuites().filter((s) => s.format === 'v2')).toHaveLength(9); // the -v2 signature format
     expect(isInitialized()).toBe(true);
     expect(coreVersion()).toMatch(/^\d+\.\d+\.\d+/);
   });
@@ -342,10 +342,10 @@ describe('signatures for every fast suite', () => {
     const ok = other.publicKey.toBytes();
     const classicalLen = (pk[0]! << 8) | pk[1]!;
     const mixed = new Uint8Array([...pk.slice(0, 2 + classicalLen), ...ok.slice(2 + classicalLen)]); // our Ed25519 + their ML-DSA
-    using mixedKey = PublicKey.fromBytes('Ed25519+ML-DSA-65', mixed);
+    using mixedKey = PublicKey.fromBytes(signer.algorithm, mixed);
     expect(signer.isValid(sm, mixedKey)).toBe(false);
     const mixed2 = new Uint8Array([...ok.slice(0, 2 + classicalLen), ...pk.slice(2 + classicalLen)]); // their Ed25519 + our ML-DSA
-    using mixedKey2 = PublicKey.fromBytes('Ed25519+ML-DSA-65', mixed2);
+    using mixedKey2 = PublicKey.fromBytes(signer.algorithm, mixed2);
     expect(signer.isValid(sm, mixedKey2)).toBe(false);
     expect(signer.isValid(sm, pair.publicKey)).toBe(true);
   });
@@ -466,8 +466,24 @@ describe('CNSA 2.0 profile', () => {
     expect(cnsa2.kem().algorithm).toBe('ML-KEM-1024');
     expect(cnsa2.hybridKem().algorithm).toBe('X25519+ML-KEM-1024');
     expect(cnsa2.hybridSign().algorithm).toBe('Ed25519+ML-DSA-87');
-    expect(() => cnsa2.hybridKem('P-384')).toThrow(UnsupportedAlgorithmError);
-    expect(cnsa2.describe()).toContain('NOT give you');
+    expect(cnsa2.hybridKem('P-384').algorithm).toBe('P-384+ML-KEM-1024');
+    expect(cnsa2.hybridSign({ classical: 'P-384' }).algorithm).toBe('P-384+ML-DSA-87');
+    expect(cnsa2.describe()).toContain('Beyond parameter selection');
+  });
+  it('evaluates the P-384 hybrids and the v2 names as hybrids (partial), not as unknown names', () => {
+    for (const name of ['P-384+ML-DSA-87', 'P-384+ML-DSA-87-v2', 'Ed25519+ML-DSA-87-v2']) {
+      expect(cnsa2.checkSignature(name).finding, name).toBe('partial');
+    }
+    expect(cnsa2.checkKem('P-384+ML-KEM-1024').finding).toBe('partial');
+    expect(cnsa2.checkSignature('ML-DSA-87-v2').finding).toBe('compliant');
+    expect(cnsa2.checkSignature('P-384+ML-DSA-65').finding).toBe('non-compliant');
+  });
+  it('lists only the classical partners that are implemented, as quantum-safe-py does', () => {
+    expect([...cnsa2.CNSA2_HYBRID_CLASSICAL]).toEqual(['X25519', 'P-384']);
+    // Any partner outside the list is refused with a typed error, not silently replaced by X25519.
+    for (const other of ['P-256', 'X448', '']) {
+      expect(() => cnsa2.hybridKem(other as never), other).toThrow(UnsupportedAlgorithmError);
+    }
   });
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "quantum-safe-ts",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Hybrid post-quantum cryptography for TypeScript and JavaScript: ML-KEM, ML-DSA, SLH-DSA, hybrid envelopes and signatures. Rust core compiled to WASM, wire-compatible with quantum-safe-py.",
   "license": "Apache-2.0",
   "author": "Animesh Shaw",
@@ -73,6 +73,26 @@
       "require": {
         "types": "./dist/file-store.d.cts",
         "default": "./dist/file-store.cjs"
+      }
+    },
+    "./lms-signer": {
+      "import": {
+        "types": "./dist/lms-signer.d.ts",
+        "default": "./dist/lms-signer.js"
+      },
+      "require": {
+        "types": "./dist/lms-signer.d.cts",
+        "default": "./dist/lms-signer.cjs"
+      }
+    },
+    "./rewrap": {
+      "import": {
+        "types": "./dist/rewrap.d.ts",
+        "default": "./dist/rewrap.js"
+      },
+      "require": {
+        "types": "./dist/rewrap.d.cts",
+        "default": "./dist/rewrap.cjs"
       }
     },
     "./package.json": "./package.json",

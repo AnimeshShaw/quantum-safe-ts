@@ -24,6 +24,7 @@
  *     which one applies.
  *  3. **`X-Wing` is ML-KEM-768 based** and is never CNSA 2.0 compliant.
  */
+import type { KemAlgorithm } from './algorithms.js';
 import { HybridKEM, KEM } from './kem.js';
 import { HybridSign } from './signatures.js';
 import { PolicyViolationError, UnsupportedAlgorithmError } from './errors.js';
@@ -39,8 +40,8 @@ export const CNSA2_HASHES = ['SHA-384', 'SHA-512'] as const;
 /** SP 800-208 stateful hash-based schemes required for software/firmware signing. */
 export const CNSA2_CODE_SIGNING = ['LMS', 'XMSS'] as const;
 /**
- * Classical partners once listed for CNSA 2.0 hybrids. Only `X25519` is implemented (here and in quantum-safe-py).
- * `P-384` is listed but not implemented, and a hybrid would still be reported `partial` (see the module comment).
+ * Classical partners {@link hybridKem} can build, the same list as quantum-safe-py's `CNSA2_HYBRID_CLASSICAL`. A
+ * hybrid is reported `partial` (see the module comment); {@link kem} is the compliant configuration.
  */
 export const CNSA2_HYBRID_CLASSICAL = ['X25519', 'P-384'] as const;
 
@@ -87,9 +88,9 @@ const pqcHalf = (algorithm: string): string => {
 };
 
 // Names this library actually implements. A selection is only evaluated if its WHOLE name is one of these: 'RSA-1024+ML-DSA-87' is not 'compliant'.
-const KNOWN_KEM = /^(?:ML-KEM-(?:512|768|1024)|X-Wing|X25519\+ML-KEM-(?:512|768|1024)|P-256\+ML-KEM-(?:512|768))$/;
+const KNOWN_KEM = /^(?:ML-KEM-(?:512|768|1024)|X-Wing|X25519\+ML-KEM-(?:512|768|1024)|P-256\+ML-KEM-(?:512|768)|P-384\+ML-KEM-1024)$/;
 const KNOWN_SIGNATURE =
-  /^(?:ML-DSA-(?:44|65|87)(?:-v2)?|Ed25519\+ML-DSA-(?:44|65|87)(?:-v2)?|P-256\+ML-DSA-(?:44|65)(?:-v2)?|SLH-DSA-(?:SHAKE|SHA2)-(?:128|192|256)[sf])$/;
+  /^(?:ML-DSA-(?:44|65|87)(?:-v2)?|Ed25519\+ML-DSA-(?:44|65|87)(?:-v2)?|P-256\+ML-DSA-(?:44|65)(?:-v2)?|P-384\+ML-DSA-87(?:-v2)?|SLH-DSA-(?:SHAKE|SHA2)-(?:128|192|256)[sf])$/;
 const unknown = (requirement: string, algorithm: string): CheckResult =>
   result(requirement, 'non-compliant', `'${algorithm}' is not an algorithm name this library implements, so it cannot be evaluated.`);
 
@@ -189,11 +190,11 @@ function kdfCheck(kem: string): CheckResult {
 const CODE_SIGNING = result(
   'Software/firmware signing (SP 800-208)',
   'partial',
-  'CNSA 2.0 requires LMS or XMSS (SP 800-208). quantum-safe-ts verifies LMS/HSS signatures (RFC 8554, SHA-256 M32/N32: Lms.verify) but does not sign ' +
-    '(LMS signing is stateful and unsafe without a durable state store) and does not implement XMSS. SP 800-208 also requires key generation inside ' +
-    'a validated cryptographic module, which is a property of the deployment, not of a library.',
+  'CNSA 2.0 requires LMS or XMSS (SP 800-208). quantum-safe-ts verifies LMS/HSS signatures (RFC 8554, SHA-256 M32/N32: Lms.verify) and signs one LMS tree in Node.js with write-ahead ' +
+    'durable state (LmsSigner); it does not implement XMSS. SP 800-208 also requires key generation inside a validated cryptographic module, ' +
+    'which is a property of the deployment, not of a library.',
   CNSA2_CODE_SIGNING.join(' or '),
-  'LMS verification only',
+  'LMS verification; Node.js LMS signing with durable state',
 );
 
 /** Options for {@link report}. */
@@ -278,21 +279,24 @@ export function kem(): KEM {
 }
 
 /**
- * A hybrid KEM pinned to ML-KEM-1024 (`X25519+ML-KEM-1024`). Reported as `partial` by {@link report}: hybrids are
+ * A hybrid KEM pinned to ML-KEM-1024 (`X25519+ML-KEM-1024`, or `P-384+ML-KEM-1024` for estates that hold CNSA 1.0 P-384 keys). Reported as `partial` by {@link report}: hybrids are
  * outside what CNSA 2.0 prescribes. Kept for quantum-safe-py compatibility (it is what quantum-safe-py's
  * `cnsa2.hybrid_kem()` returns, and it reports it `partial` too). Use {@link kem} for a compliant configuration.
- * @throws {UnsupportedAlgorithmError} for `P-384`, which is not implemented here or in quantum-safe-py.
+ * @throws {UnsupportedAlgorithmError} for any partner outside {@link CNSA2_HYBRID_CLASSICAL}.
  */
-export function hybridKem(classical: 'X25519' | 'P-384' = 'X25519'): HybridKEM {
-  if (classical === 'P-384') {
-    throw new UnsupportedAlgorithmError('P-384 hybrids are not implemented (neither here nor in quantum-safe-py), and a hybrid would still be reported partial.');
+export function hybridKem(classical: (typeof CNSA2_HYBRID_CLASSICAL)[number] = 'X25519'): HybridKEM {
+  if (!(CNSA2_HYBRID_CLASSICAL as readonly string[]).includes(classical)) {
+    throw new UnsupportedAlgorithmError(
+      `classical partner '${String(classical)}' is not available for a CNSA 2.0 hybrid; choose from ${CNSA2_HYBRID_CLASSICAL.join(', ')}, or use kem().`,
+    );
   }
-  return new HybridKEM('X25519+ML-KEM-1024');
+  return new HybridKEM(`${classical}+ML-KEM-1024` as KemAlgorithm);
 }
 
-/** A hybrid signer pinned to the CNSA 2.0 parameter set (`Ed25519+ML-DSA-87`). */
-export function hybridSign(options: { hedged?: boolean } = {}): HybridSign {
-  return new HybridSign('Ed25519+ML-DSA-87', options);
+/** A hybrid signer pinned to the CNSA 2.0 parameter set (`Ed25519+ML-DSA-87`, or `P-384+ML-DSA-87` with `classical: 'P-384'`). */
+export function hybridSign(options: { hedged?: boolean; classical?: 'Ed25519' | 'P-384' } = {}): HybridSign {
+  const { classical = 'Ed25519', ...rest } = options;
+  return new HybridSign(`${classical}+ML-DSA-87`, rest);
 }
 
 /** Concrete steps to move a deployment onto CNSA 2.0 parameter sets, with the limits stated. */
@@ -307,9 +311,10 @@ export function describe(): string {
     '',
     `Use ${CNSA2_HASHES.join(' or ')} for hashing and ${CNSA2_SYMMETRIC} for symmetric encryption.`,
     '',
-    'Things this does NOT give you:',
+    'Beyond parameter selection:',
     '',
-    `  1. Software and firmware signing: CNSA 2.0 requires ${CNSA2_CODE_SIGNING.join(' or ')} (SP 800-208); not implemented yet.`,
+    `  1. Software and firmware signing: CNSA 2.0 requires ${CNSA2_CODE_SIGNING.join(' or ')} (SP 800-208). LMS is verified in every runtime and signed in`,
+    '     Node.js (LmsSigner, quantum-safe-ts/lms-signer); XMSS is not implemented, and SP 800-208 expects key generation inside a validated module.',
     '  2. SHA-384/512 key derivation with hybrids: the hybrid combiner and envelope v1 use HKDF-SHA-256 for byte-compatibility with quantum-safe-py.',
     '     Pure ML-KEM-1024 (envelope v2) uses HKDF-SHA-384.',
     '  3. A CNSA 2.0 hybrid: NSA\'s FAQ does not define one (hybrids are not required and not to be used on NSS mission systems',

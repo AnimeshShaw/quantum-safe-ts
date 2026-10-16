@@ -50,6 +50,8 @@ describe('documentation snippets run', () => {
         const rewritten = code
           .replace(/from 'quantum-safe-ts'/g, "from '../../src/core.js'")
           .replace(/from 'quantum-safe-ts\/file-store'/g, "from '../../src/file-store.js'")
+          .replace(/from 'quantum-safe-ts\/lms-signer'/g, "from '../../src/lms-signer.js'")
+          .replace(/from 'quantum-safe-ts\/rewrap'/g, "from '../../src/rewrap-files.js'")
           .replace(/from 'quantum-safe-audit'/g, "from '../../../quantum-safe-audit/src/index.js'");
         const lines = rewritten.split(NL);
         const imports = lines.filter((l) => l.startsWith('import ')).join(NL);

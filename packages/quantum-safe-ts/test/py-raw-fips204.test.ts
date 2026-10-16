@@ -6,7 +6,7 @@
  * StandardJwt, internal WASM call) must accept them. The other direction (TypeScript signs, Python `verify_raw` verifies) is
  * scripts/gen_ts_raw_vectors.mjs plus scripts/verify_ts_vectors.py.
  *
- * The bare primitive is not part of the public TypeScript API (it is on the roadmap); this test exercises it through the internal module.
+ * This test exercises the primitive through the internal module; the public `Sign.signRaw` / `verifyRaw` are in standard-sign.test.ts.
  */
 import { describe, expect, it } from 'vitest';
 import { SecretBytes } from '../src/keys.js';

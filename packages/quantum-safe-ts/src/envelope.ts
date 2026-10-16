@@ -1,7 +1,8 @@
+import { warnOnce } from './warnings.js';
 import { DecryptionAuthenticationError, InvalidArgumentError } from './errors.js';
 import { PublicKey, SecretKey } from './keys.js';
 import { call } from './runtime.js';
-import { bytes, equalBytes, fromHex, toHex } from './utils.js';
+import { bytes, equalBytes, fromHex, toHex, wipe } from './utils.js';
 
 /** Non-secret metadata of a sealed message. */
 export interface SealedInfo {
@@ -144,6 +145,54 @@ export const Envelope = {
     if (options.expectedAad !== undefined && !equalBytes(msg.aad, bytes(options.expectedAad, 'expectedAad'))) {
       throw new DecryptionAuthenticationError('The message AAD does not equal the expected AAD.');
     }
+    if (options.expectedAad === undefined && msg.aad.length > 0) {
+      warnOnce(
+        'QS_AAD_OMITTED',
+        'Envelope.open() was called without expectedAad for a message that carries AAD. The AAD travels inside the message and anyone with ' +
+          "the recipient's public key can set it, so pass the AAD you expect.",
+      );
+    }
     return call((w) => w.envelopeOpen(msg.toBytes(), secretKey._wasm));
+  },
+
+  /**
+   * Moves a message from one recipient key to another: opens `sealed` under `oldSecretKey` and seals the plaintext to `newPublicKey`,
+   * keeping the AAD. The original message is not modified, and nothing is returned if opening fails. This is the single step of a migration
+   * to a hybrid or stronger key; `rewrapDirectory` from `quantum-safe-ts/rewrap` applies it to a directory.
+   *
+   * @param options.expectedAad The AAD the message must carry, as for {@link Envelope.open}. Omitted: any AAD is accepted (it is
+   * authenticated) and a `QS_AAD_OMITTED` warning is emitted when the message carries AAD.
+   * @param options.aad AAD for the new message. Default: the message's own AAD, unchanged.
+   * @throws {DecryptionAuthenticationError} on a wrong key, an AAD mismatch or any tampering.
+   */
+  rewrap(
+    sealed: SealedMessage | Uint8Array,
+    oldSecretKey: SecretKey,
+    newPublicKey: PublicKey,
+    options: { expectedAad?: Uint8Array; aad?: Uint8Array } = {},
+  ): SealedMessage {
+    if (!(oldSecretKey instanceof SecretKey)) throw new InvalidArgumentError('oldSecretKey must be a SecretKey.');
+    if (!(newPublicKey instanceof PublicKey)) throw new InvalidArgumentError('newPublicKey must be a PublicKey.');
+    const msg = sealed instanceof SealedMessage ? sealed : SealedMessage.fromBytes(bytes(sealed, 'sealed'));
+    if (options.expectedAad === undefined && msg.aad.length > 0) {
+      warnOnce(
+        'QS_AAD_OMITTED',
+        'Envelope.rewrap() was called without expectedAad for a message that carries AAD. The AAD travels inside the message and anyone ' +
+          "with the recipient's public key can set it, so pass the AAD you expect.",
+      );
+    }
+    const expected = options.expectedAad ?? msg.aad;
+    if (!equalBytes(msg.aad, bytes(expected, 'expectedAad'))) {
+      throw new DecryptionAuthenticationError('The message AAD does not equal the expected AAD.');
+    }
+    const plaintext = call((w) => w.envelopeOpen(msg.toBytes(), oldSecretKey._wasm));
+    try {
+      const cbor = call((w) =>
+        w.envelopeSeal(bytes(plaintext, 'plaintext'), newPublicKey._wasm, bytes(options.aad ?? msg.aad, 'aad')),
+      );
+      return SealedMessage.fromBytes(cbor);
+    } finally {
+      wipe(plaintext);
+    }
   },
 } as const;

@@ -7,6 +7,7 @@ export type KemAlgorithm =
   | 'X25519+ML-KEM-1024'
   | 'P-256+ML-KEM-512'
   | 'P-256+ML-KEM-768'
+  | 'P-384+ML-KEM-1024'
   | 'X-Wing'
   | 'ML-KEM-512'
   | 'ML-KEM-768'
@@ -19,6 +20,7 @@ export type V2Base =
   | 'Ed25519+ML-DSA-87'
   | 'P-256+ML-DSA-44'
   | 'P-256+ML-DSA-65'
+  | 'P-384+ML-DSA-87'
   | 'ML-DSA-44'
   | 'ML-DSA-65'
   | 'ML-DSA-87';
@@ -39,6 +41,7 @@ export type SignatureAlgorithm =
   | 'Ed25519+ML-DSA-87'
   | 'P-256+ML-DSA-44'
   | 'P-256+ML-DSA-65'
+  | 'P-384+ML-DSA-87'
   | 'ML-DSA-44'
   | 'ML-DSA-65'
   | 'ML-DSA-87'
@@ -79,8 +82,13 @@ export interface SuiteInfo {
 
 /** Default hybrid KEM (quantum-safe-py default). NIST category 3; below CNSA 2.0's ML-KEM-1024. */
 export const DEFAULT_KEM = 'X25519+ML-KEM-768' as const satisfies KemAlgorithm;
-/** Default hybrid signature (quantum-safe-py default). */
-export const DEFAULT_HYBRID_SIGNATURE = 'Ed25519+ML-DSA-65' as const satisfies SignatureAlgorithm;
+/**
+ * Default hybrid signature (quantum-safe-py's default too): the `-v2` format (no hedging prefix, FIPS 204 native context). The original
+ * format is `Ed25519+ML-DSA-65`; name it to keep using it.
+ */
+export const DEFAULT_HYBRID_SIGNATURE = 'Ed25519+ML-DSA-65-v2' as const satisfies SignatureAlgorithm;
+/** The original (prefix) format of the default hybrid suite: used when `hedged: false` is requested without naming a suite. */
+export const ORIGINAL_HYBRID_SIGNATURE = 'Ed25519+ML-DSA-65' as const satisfies SignatureAlgorithm;
 /** Default pure signature. */
 export const DEFAULT_SIGNATURE = 'ML-DSA-65' as const satisfies SignatureAlgorithm;
 

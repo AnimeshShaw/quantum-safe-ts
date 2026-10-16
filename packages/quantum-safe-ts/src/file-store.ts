@@ -26,7 +26,8 @@ export interface FileMigrationStoreOptions {
   lockTimeoutMs?: number;
 }
 
-const MAX_KEY_BYTES = 120;
+// Hex doubles the length, and the temporary-file and lock suffixes are added to the file name, which must stay under 255 characters.
+const MAX_KEY_BYTES = 100;
 // Lowercase hex, not base64url: file names that differ only by case would be the SAME file on case-insensitive filesystems (Windows, macOS default).
 const enc = (key: string): string => Buffer.from(key, 'utf8').toString('hex');
 const dec = (name: string): string => Buffer.from(name, 'hex').toString('utf8');
@@ -183,13 +184,42 @@ export class FileMigrationStore implements MigrationStore {
 
   /** Removes a lock that has not been refreshed for `staleLockMs`. The removal is a rename to a unique name, so only one waiter wins it. */
   async #breakIfStale(lock: string): Promise<void> {
+    await breakIfStale(lock, this.#stale);
+  }
+}
+
+const ageMs = async (path: string): Promise<number> => Date.now() - (await stat(path)).mtimeMs;
+
+/**
+ * Breaks `lock` if it has not been refreshed for `staleMs`.
+ *
+ * Checking the age and renaming are two steps. Between them another waiter may have broken the stale lock and a third process taken a fresh
+ * one at the same path, which our rename would then move away. So the age is checked again on what was actually moved: a lock that turns out
+ * to be live is put back (if its path is still free). If it cannot be, its holder fails with "lock lost" before writing, never with a corrupt
+ * write.
+ * @internal `ageOf` is injectable for tests.
+ */
+export async function breakIfStale(lock: string, staleMs: number, ageOf: (path: string) => Promise<number> = ageMs): Promise<void> {
+  try {
+    if ((await ageOf(lock)) <= staleMs) return;
+    const graveyard = `${lock}.stale.${randomBytes(6).toString('hex')}`;
+    await rename(lock, graveyard);
+    let movedLive = false;
     try {
-      if (Date.now() - (await stat(lock)).mtimeMs <= this.#stale) return;
-      const graveyard = `${lock}.stale.${randomBytes(6).toString('hex')}`;
-      await rename(lock, graveyard);
-      await rm(graveyard, { recursive: true, force: true });
+      movedLive = (await ageOf(graveyard)) <= staleMs;
     } catch {
-      /* the holder released it, or another waiter broke it first: just retry */
+      movedLive = false;
     }
+    if (movedLive) {
+      try {
+        await rename(graveyard, lock);
+        return;
+      } catch {
+        /* the path is taken again: the holder will notice and fail safely */
+      }
+    }
+    await rm(graveyard, { recursive: true, force: true });
+  } catch {
+    /* the holder released it, or another waiter broke it first: just retry */
   }
 }

@@ -121,7 +121,7 @@ export function buildCbom(report: ScanReport, options: CbomOptions = {}): Record
           {
             type: 'application',
             name: 'quantum-safe-audit',
-            version: options.toolVersion ?? '0.1.2',
+            version: options.toolVersion ?? '0.1.3',
             description: 'Static cryptographic asset discovery for JavaScript and TypeScript',
           },
         ],

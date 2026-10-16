@@ -1,8 +1,10 @@
-import { DEFAULT_HYBRID_SIGNATURE, DEFAULT_SIGNATURE, sigSuites } from './algorithms.js';
+import { DEFAULT_HYBRID_SIGNATURE, DEFAULT_SIGNATURE, ORIGINAL_HYBRID_SIGNATURE, sigSuites } from './algorithms.js';
 import type { SignatureAlgorithm, SuiteInfo } from './algorithms.js';
 import { AlgorithmMismatchError, InvalidArgumentError, UnsupportedAlgorithmError, VerificationError } from './errors.js';
-import { KeyPair, PublicKey, SecretKey } from './keys.js';
+import { KeyPair, PublicKey, SecretBytes, SecretKey } from './keys.js';
 import { call } from './runtime.js';
+import { warnOnce } from './warnings.js';
+import { StandardKeyPair, STANDARD_SEED_LENGTH, checkStandardAlgorithm } from './standard.js';
 import { bytes, equalBytes, fromHex, toHex } from './utils.js';
 
 const MAX_CONTEXT = 255;
@@ -148,6 +150,15 @@ abstract class BaseSigner {
     this.info = lookup(algorithm, hybrid);
     this.algorithm = this.info.name as SignatureAlgorithm;
     this.hedged = hedged;
+    if (!hedged && this.algorithm.endsWith('-v2')) {
+      // Kept lenient so existing code keeps working; said out loud so nobody believes they got deterministic signatures.
+      warnOnce(
+        'QS_HEDGED_IGNORED',
+        `hedged: false has no effect on ${this.algorithm}: the -v2 formats have no prefix and always hedge inside ML-DSA, so signatures are ` +
+          'made and verified exactly as with hedged: true. Remove the option, or name the original format (for example Ed25519+ML-DSA-65) if ' +
+          'you need unhedged signatures. quantum-safe-py raises ValueError for this combination.',
+      );
+    }
   }
 
   /** The blob is `len(prefix) || prefix || payload`; the length must match this verifier's hedging mode (see {@link hedged}). */
@@ -210,6 +221,13 @@ abstract class BaseSigner {
       throw new AlgorithmMismatchError(`Signed message algorithm '${signed.algorithm}' does not match '${this.algorithm}'.`);
     }
     this.#requirePrefix(signed.signature);
+    if (options.expectedContext === undefined && signed.context.length > 0) {
+      warnOnce(
+        'QS_CONTEXT_OMITTED',
+        'verify() was called without expectedContext but the message carries a non-empty context, so it is rejected: omitting ' +
+          "expectedContext means 'expect an empty context'. Pass the context you expect.",
+      );
+    }
     call((w) => w.sigVerify(signed.toCbor(), publicKey._wasm));
     if (!equalBytes(signed.context, bytes(options.expectedContext ?? new Uint8Array(), 'expectedContext'))) throw new VerificationError();
   }
@@ -264,6 +282,94 @@ export class Sign extends BaseSigner {
   constructor(algorithm: Exclude<SignatureAlgorithm, `${string}+${string}`> = DEFAULT_SIGNATURE, options: { hedged?: boolean } = {}) {
     super(algorithm, false, options.hedged ?? true);
   }
+
+  // ---- Standard FIPS 204 (interoperable): bare ML-DSA.Sign with a native context ---------------------------------------------
+
+  /**
+   * Generates a standards-mode key pair (a 32-byte seed and the FIPS 204 public key) for this signer's ML-DSA level. Free it or use `using`.
+   * @throws {InvalidArgumentError} for an algorithm without a standards-mode signer (SLH-DSA).
+   */
+  generateStandardKeyPair(): StandardKeyPair {
+    const level = checkStandardAlgorithm(this.algorithm);
+    const pair = call((w) => w.mldsaStandardKeyGen(level));
+    try {
+      const seed = new SecretBytes(pair.takeSeed());
+      return new StandardKeyPair(level, pair.publicKey, seed);
+    } finally {
+      pair.free();
+    }
+  }
+
+  /**
+   * Rebuilds a standards-mode key pair from its 32-byte seed. The seed is copied into WebAssembly memory; wipe your own copy.
+   * @throws {InvalidArgumentError} if the seed is not 32 bytes.
+   */
+  standardKeyPairFromSeed(seed: Uint8Array): StandardKeyPair {
+    const level = checkStandardAlgorithm(this.algorithm);
+    if (!(seed instanceof Uint8Array) || seed.length !== STANDARD_SEED_LENGTH) {
+      throw new InvalidArgumentError(`A seed is exactly ${STANDARD_SEED_LENGTH} bytes.`);
+    }
+    const secret = SecretBytes.from(seed);
+    try {
+      const publicKey = call((w) => w.mldsaStandardPublicFromSeed(level, secret._wasm));
+      return new StandardKeyPair(level, publicKey, secret);
+    } catch (e) {
+      secret.free();
+      throw e;
+    }
+  }
+
+  /**
+   * Signs `message` as standard FIPS 204 `ML-DSA.Sign`: the message is signed exactly as given, `context` is FIPS 204's native context
+   * (at most 255 bytes), and the randomness is FIPS 204's own. Returns the bare signature: no prefix, no wrapper, no metadata.
+   * Any FIPS 204 implementation verifies it from the same message, context and public key (quantum-safe-py: `Sign.verify_raw`).
+   *
+   * Use {@link Sign.sign} (a {@link SignedMessage}) when both ends are quantum-safe; use this when the other side is not.
+   * @throws {AlgorithmMismatchError} if the key belongs to a different level.
+   * @throws {InvalidArgumentError} for a context over 255 bytes.
+   */
+  signRaw(message: Uint8Array, key: StandardKeyPair, options: { context?: Uint8Array } = {}): Uint8Array {
+    if (!(key instanceof StandardKeyPair)) throw new InvalidArgumentError('key must be a StandardKeyPair (see generateStandardKeyPair).');
+    const level = checkStandardAlgorithm(this.algorithm);
+    if (key.algorithm !== level) {
+      throw new AlgorithmMismatchError(`Key algorithm '${key.algorithm}' does not match this signer ('${level}').`);
+    }
+    const context = bytes(options.context ?? new Uint8Array(), 'context');
+    if (context.length > MAX_CONTEXT) throw new InvalidArgumentError('context must be at most 255 bytes.');
+    return call((w) => w.mldsaStandardSign(level, key._seed._wasm, bytes(message, 'message'), context));
+  }
+
+  /**
+   * Verifies a standard FIPS 204 signature made by any implementation (including quantum-safe-py `Sign.sign_raw`).
+   * `publicKey` is the FIPS 204 encoded key as bytes, or a {@link PublicKey} of this signer's algorithm.
+   * @throws {VerificationError} if the signature, message or context is wrong (no detail on which, by design).
+   */
+  verifyRaw(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array | PublicKey, options: { context?: Uint8Array } = {}): void {
+    const level = checkStandardAlgorithm(this.algorithm);
+    let pk: Uint8Array;
+    if (publicKey instanceof PublicKey) {
+      if (publicKey.algorithm !== this.algorithm) {
+        throw new AlgorithmMismatchError(`Key algorithm '${publicKey.algorithm}' does not match this signer ('${this.algorithm}').`);
+      }
+      pk = publicKey.toBytes();
+    } else {
+      pk = bytes(publicKey, 'publicKey');
+    }
+    const context = bytes(options.context ?? new Uint8Array(), 'context');
+    if (context.length > MAX_CONTEXT) throw new InvalidArgumentError('context must be at most 255 bytes.');
+    const ok = call((w) => w.mldsaStandardVerify(level, pk, bytes(message, 'message'), context, bytes(signature, 'signature')));
+    if (!ok) throw new VerificationError();
+  }
+
+  /** The standard FIPS 204 signature of `message`. Identical to {@link Sign.signRaw}; the name says what it is. */
+  signStandard(message: Uint8Array, key: StandardKeyPair, options: { context?: Uint8Array } = {}): Uint8Array {
+    return this.signRaw(message, key, options);
+  }
+
+  /** Verifies a standard FIPS 204 signature. Identical to {@link Sign.verifyRaw}. */
+  verifyStandard(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array | PublicKey, options: { context?: Uint8Array } = {}): void {
+    this.verifyRaw(message, signature, publicKey, options);
+  }
 }
 
 /**
@@ -277,10 +383,12 @@ export class Sign extends BaseSigner {
  * ```
  */
 export class HybridSign extends BaseSigner {
-  constructor(
-    algorithm: Extract<SignatureAlgorithm, `${string}+${string}`> = DEFAULT_HYBRID_SIGNATURE,
-    options: { hedged?: boolean } = {},
-  ) {
-    super(algorithm, true, options.hedged ?? true);
+  /**
+   * @param algorithm Default `Ed25519+ML-DSA-65-v2`. With `hedged: false` and no algorithm the original format `Ed25519+ML-DSA-65` is used,
+   * because `-v2` is always hedged inside ML-DSA and has no unhedged mode.
+   */
+  constructor(algorithm?: Extract<SignatureAlgorithm, `${string}+${string}`>, options: { hedged?: boolean } = {}) {
+    const hedged = options.hedged ?? true;
+    super(algorithm ?? (hedged ? DEFAULT_HYBRID_SIGNATURE : ORIGINAL_HYBRID_SIGNATURE), true, hedged);
   }
 }

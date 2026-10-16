@@ -16,7 +16,7 @@ const hex = (b) => Buffer.from(b).toString('hex');
 const V2_IDS = [
   'ML-DSA-44-v2', 'ML-DSA-65-v2', 'ML-DSA-87-v2',
   'Ed25519+ML-DSA-44-v2', 'Ed25519+ML-DSA-65-v2', 'Ed25519+ML-DSA-87-v2',
-  'P-256+ML-DSA-44-v2', 'P-256+ML-DSA-65-v2',
+  'P-256+ML-DSA-44-v2', 'P-256+ML-DSA-65-v2', 'P-384+ML-DSA-87-v2',
 ];
 
 const out = { generated_by: 'quantum-safe-ts npm package', envelope_v2: [], signatures_v2: [], standard_jwt: [] };
