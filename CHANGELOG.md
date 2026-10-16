@@ -4,7 +4,7 @@ All notable changes are documented here. The project follows semantic versioning
 add capability and, with notice, change behaviour that has not been released. **Wire formats are never changed**: new capability arrives
 as a new, explicitly identified algorithm suite.
 
-## [Unreleased]
+## [0.2.0] - 2026-10-18
 
 ### Security
 
