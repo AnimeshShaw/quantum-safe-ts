@@ -470,6 +470,14 @@ describe('CNSA 2.0 profile', () => {
     expect(cnsa2.hybridSign({ classical: 'P-384' }).algorithm).toBe('P-384+ML-DSA-87');
     expect(cnsa2.describe()).toContain('Beyond parameter selection');
   });
+  it('evaluates the P-384 hybrids and the v2 names as hybrids (partial), not as unknown names', () => {
+    for (const name of ['P-384+ML-DSA-87', 'P-384+ML-DSA-87-v2', 'Ed25519+ML-DSA-87-v2']) {
+      expect(cnsa2.checkSignature(name).finding, name).toBe('partial');
+    }
+    expect(cnsa2.checkKem('P-384+ML-KEM-1024').finding).toBe('partial');
+    expect(cnsa2.checkSignature('ML-DSA-87-v2').finding).toBe('compliant');
+    expect(cnsa2.checkSignature('P-384+ML-DSA-65').finding).toBe('non-compliant');
+  });
   it('lists only the classical partners that are implemented, as quantum-safe-py does', () => {
     expect([...cnsa2.CNSA2_HYBRID_CLASSICAL]).toEqual(['X25519', 'P-384']);
     // Any partner outside the list is refused with a typed error, not silently replaced by X25519.

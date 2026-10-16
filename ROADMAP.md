@@ -40,7 +40,7 @@ The theme is "make the safe thing the only thing", the same as in Python.
 - **ESM only, or a shared registry**: the dual ESM and CommonJS builds create two copies of each class when both are loaded in one process.
 - **A native-accelerated provider for Node**: Node's WebCrypto ML-KEM is faster than the WebAssembly for the bare primitive but asynchronous
   and ML-KEM only. It needs a second implementation kept byte-identical and an async story.
-- **XMSS** next to LMS, and **multi-level HSS signing**, only behind the same durable-state interface as `LmsSigner`.
+- **XMSS** and **multi-level HSS signing**, if a maintained library provides them. CNSA 2.0 asks for LMS or XMSS, and LMS is covered.
 - **FN-DSA** after FIPS 206 is final and **HQC** after its standard is final, never presented as standard earlier.
 - **Standards-based X.509** for ML-DSA and ML-KEM.
 - **Per-feature WebAssembly builds** (KEM only, signatures only) to cut the size.

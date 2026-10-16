@@ -56,7 +56,7 @@ export const RULES: readonly Rule[] = [
     description:
       "RSA is broken by Shor's algorithm on a cryptographically relevant quantum computer. Data encrypted or signed under RSA today can be harvested now and attacked later.",
     replacement:
-      'Encryption/key transport: HybridKEM + Envelope (X25519+ML-KEM-768; CNSA 2.0: pure ML-KEM-1024 via cnsa2.kem()). Signatures: HybridSign (Ed25519+ML-DSA-65; CNSA 2.0: pure ML-DSA-87).',
+      'Encryption/key transport: HybridKEM + Envelope (X25519+ML-KEM-768; CNSA 2.0: pure ML-KEM-1024 via cnsa2.kem()). Signatures: HybridSign (Ed25519+ML-DSA-65-v2; CNSA 2.0: pure ML-DSA-87).',
     example:
       "import { HybridKEM, Envelope, utf8 } from 'quantum-safe-ts';\nconst kem = new HybridKEM();\nconst pair = kem.generateKeyPair();\nconst sealed = Envelope.seal(utf8('data'), pair.publicKey);",
     references: [NIST_IR_8547, CNSA2],
@@ -72,7 +72,7 @@ export const RULES: readonly Rule[] = [
     quantumLevel: 0,
     quantumVulnerable: true,
     description: 'RSA signatures (PKCS#1 v1.5 / RSA-SHA*) are quantum-vulnerable.',
-    replacement: 'HybridSign (Ed25519+ML-DSA-65; CNSA 2.0: pure ML-DSA-87), or StandardJwt for JOSE interoperability.',
+    replacement: 'HybridSign (Ed25519+ML-DSA-65-v2; CNSA 2.0: pure ML-DSA-87), or StandardJwt for JOSE interoperability.',
     example: "import { HybridSign, utf8 } from 'quantum-safe-ts';\nconst signer = new HybridSign();\nconst pair = signer.generateKeyPair();\nconst sm = signer.sign(utf8('doc'), pair.secretKey, { context: utf8('app-v1') });",
     references: [NIST_IR_8547, CNSA2],
   },
@@ -102,7 +102,7 @@ export const RULES: readonly Rule[] = [
     quantumLevel: 0,
     quantumVulnerable: true,
     description: 'ECDSA and other elliptic-curve signatures are broken by a quantum computer (Shor).',
-    replacement: 'HybridSign (Ed25519+ML-DSA-65; CNSA 2.0: ML-DSA-87). For JWT: StandardJwt (RFC 9964).',
+    replacement: 'HybridSign (Ed25519+ML-DSA-65-v2; CNSA 2.0: ML-DSA-87; P-384+ML-DSA-87-v2 for P-384 keys). For JWT: StandardJwt (RFC 9964).',
     example: "import { StandardJwt } from 'quantum-safe-ts';\nconst { publicJwk, privateJwk } = StandardJwt.generateKeyPair('ML-DSA-65');\nconst token = StandardJwt.sign({ sub: 'u1' }, privateJwk);",
     references: [NIST_IR_8547, CNSA2],
   },
@@ -132,8 +132,8 @@ export const RULES: readonly Rule[] = [
     quantumLevel: 0,
     quantumVulnerable: true,
     description: 'Ed25519/Ed448 are elliptic-curve signatures and are broken by a quantum computer.',
-    replacement: 'HybridSign keeps Ed25519 and adds ML-DSA: new HybridSign("Ed25519+ML-DSA-65").',
-    example: "import { HybridSign } from 'quantum-safe-ts';\nconst signer = new HybridSign('Ed25519+ML-DSA-65');",
+    replacement: 'HybridSign keeps Ed25519 and adds ML-DSA: new HybridSign("Ed25519+ML-DSA-65-v2").',
+    example: "import { HybridSign } from 'quantum-safe-ts';\nconst signer = new HybridSign('Ed25519+ML-DSA-65-v2');",
     references: [NIST_IR_8547, CNSA2],
   },
   {
@@ -147,7 +147,7 @@ export const RULES: readonly Rule[] = [
     quantumLevel: 0,
     quantumVulnerable: true,
     description: 'DSA is quantum-vulnerable and deprecated.',
-    replacement: 'HybridSign (Ed25519+ML-DSA-65).',
+    replacement: 'HybridSign (Ed25519+ML-DSA-65-v2).',
     references: [NIST_IR_8547],
   },
   {

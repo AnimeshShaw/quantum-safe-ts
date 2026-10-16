@@ -77,7 +77,8 @@ counter out of range, a state file that belongs to a different key, a lock held 
 | `winternitz` | 1, 2, 4, 8 | 8 | Larger is slower to generate and gives a shorter signature. |
 
 The scheme is `LMS_SHA256_M32_H{h}` with `LMOTS_SHA256_N32_W{w}`: one LMS tree, which is an HSS key with one level. Multi-level HSS signing,
-height 25, the 192-bit and SHAKE parameter sets, and XMSS are not provided; verification of HSS keys with several levels is (`Lms.verify`).
+height 25, the 192-bit and SHAKE parameter sets, and XMSS are not provided. CNSA 2.0 asks for LMS or XMSS, and single-tree LMS covers it.
+Verification of HSS keys with several levels is provided (`Lms.verify`).
 
 Key generation computes every leaf of the tree and takes time that grows with it: seconds for height 10, minutes to hours for 15 and 20. Run it
 in a worker thread or a separate process, once. Signing is quick (milliseconds) because the tree is stored.

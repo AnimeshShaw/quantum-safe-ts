@@ -63,7 +63,7 @@ export interface ServerOptions {
 
 export function createServer(options: ServerOptions = {}): McpServer {
   const root = options.root ?? process.env.QS_MCP_ROOT ?? process.cwd();
-  const server = new McpServer({ name: 'quantum-safe', version: options.version ?? '0.1.2' });
+  const server = new McpServer({ name: 'quantum-safe', version: options.version ?? '0.1.3' });
 
   server.registerTool(
     'audit_path',
@@ -145,7 +145,16 @@ export function createServer(options: ServerOptions = {}): McpServer {
       description:
         'Given a use case, returns the quantum-safe-ts algorithm, the API to call, a working code snippet, compatibility notes, and honest caveats. Mentions when a simpler platform primitive (WebCrypto, @noble/post-quantum) is the better choice.',
       inputSchema: {
-        useCase: z.enum(['encrypt-data', 'key-exchange', 'sign-data', 'jwt', 'password-kdf', 'file-or-vault-encryption']),
+        useCase: z.enum([
+          'encrypt-data',
+          'key-exchange',
+          'sign-data',
+          'jwt',
+          'password-kdf',
+          'file-or-vault-encryption',
+          'firmware-signing',
+          'migrate-stored-data',
+        ]),
         requireCnsa2: z.boolean().optional().describe('Select CNSA 2.0 parameter sets (ML-KEM-1024 / ML-DSA-87).'),
         interoperateWith: z.enum(['none', 'quantum-safe-py', 'other-ecosystems']).optional(),
       },
