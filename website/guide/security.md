@@ -72,6 +72,11 @@ a key are not all wiped, and a review found residual copies in WebAssembly linea
 JavaScript heap (`exportBytes()`, `toPem()` of a secret, plaintext) is outside this library's control; call `wipe()` on those copies. Treat memory as not
 reliably scrubbed.
 
+On Node.js, `Envelope` payloads of 16 KiB or more and streams with chunks of 16 KiB or more are encrypted by Node's native AES-256-GCM, which is
+about five times faster than the WebAssembly cipher. For those calls the one-time AES key of the message (not your key pair) is copied into the
+JavaScript heap for the duration of the call and wiped afterwards, like the plaintext it protects. The bytes produced are identical, and all
+checks stay in the WebAssembly core. Browsers, Workers and the `slim` entry keep the WebAssembly cipher.
+
 ## Evidence in the repository
 
 | Evidence | Where |

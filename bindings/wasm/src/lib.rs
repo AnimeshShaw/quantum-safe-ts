@@ -359,6 +359,99 @@ pub fn envelope_open(sealed: &[u8], secret_key: &SecretKey) -> Result<Vec<u8>, J
     envelope::open(&msg, &secret_key.core()).map_err(err)
 }
 
+/// The key step of `envelopeSeal`, for a caller that runs AES-256-GCM itself (Node's native crypto): the KEM
+/// ciphertext, nonce and AAD are public; `takeKey()` hands out the one-time AES key once. Free it when done.
+#[wasm_bindgen]
+pub struct SealPlan {
+    inner: Option<envelope::SealPlan>,
+}
+
+#[wasm_bindgen]
+impl SealPlan {
+    fn plan(&self) -> &envelope::SealPlan {
+        self.inner
+            .as_ref()
+            .expect("a SealPlan is not used after finish()")
+    }
+    #[wasm_bindgen(getter)]
+    pub fn version(&self) -> u8 {
+        self.plan().version
+    }
+    #[wasm_bindgen(getter)]
+    pub fn algorithm(&self) -> String {
+        self.plan().algorithm.clone()
+    }
+    #[wasm_bindgen(getter, js_name = kemCiphertext)]
+    pub fn kem_ciphertext(&self) -> Vec<u8> {
+        self.plan().kem_ct.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn nonce(&self) -> Vec<u8> {
+        self.plan().nonce.to_vec()
+    }
+    /// The AAD that AES-GCM authenticates (version, algorithm and the caller's AAD).
+    #[wasm_bindgen(getter, js_name = builtAad)]
+    pub fn built_aad(&self) -> Vec<u8> {
+        self.plan().built_aad.clone()
+    }
+    /// The caller's own AAD, which the message stores.
+    #[wasm_bindgen(getter)]
+    pub fn aad(&self) -> Vec<u8> {
+        self.plan().aad.clone()
+    }
+    /// A copy of the one-time AES-256 key, wipeable from JavaScript.
+    #[wasm_bindgen(js_name = takeKey)]
+    pub fn take_key(&self) -> SecretBytes {
+        SecretBytes {
+            inner: Zeroizing::new(self.plan().key.to_vec()),
+        }
+    }
+    /// Encodes the sealed message, given the AES-GCM output (`ciphertext || tag`); consumes the plan.
+    pub fn finish(&mut self, ciphertext: &[u8]) -> Result<Vec<u8>, JsValue> {
+        let plan = self.inner.take().expect("a SealPlan is finished once");
+        plan.into_message(ciphertext.to_vec()).to_cbor().map_err(err)
+    }
+}
+
+#[wasm_bindgen(js_name = envelopeSealPlan)]
+pub fn envelope_seal_plan(public_key: &PublicKey, aad: &[u8]) -> Result<SealPlan, JsValue> {
+    Ok(SealPlan {
+        inner: Some(envelope::seal_plan(&public_key.core(), aad).map_err(err)?),
+    })
+}
+
+/// The key step of `envelopeOpen`: nonce and AAD are public; `takeKey()` hands out the one-time AES key.
+#[wasm_bindgen]
+pub struct OpenPlan {
+    inner: envelope::OpenPlan,
+}
+
+#[wasm_bindgen]
+impl OpenPlan {
+    #[wasm_bindgen(getter)]
+    pub fn nonce(&self) -> Vec<u8> {
+        self.inner.nonce.to_vec()
+    }
+    #[wasm_bindgen(getter, js_name = builtAad)]
+    pub fn built_aad(&self) -> Vec<u8> {
+        self.inner.built_aad.clone()
+    }
+    #[wasm_bindgen(js_name = takeKey)]
+    pub fn take_key(&self) -> SecretBytes {
+        SecretBytes {
+            inner: Zeroizing::new(self.inner.key.to_vec()),
+        }
+    }
+}
+
+#[wasm_bindgen(js_name = envelopeOpenPlan)]
+pub fn envelope_open_plan(sealed: &[u8], secret_key: &SecretKey) -> Result<OpenPlan, JsValue> {
+    let msg = envelope::SealedMessage::from_cbor(sealed).map_err(err)?;
+    Ok(OpenPlan {
+        inner: envelope::open_plan(&msg, &secret_key.core()).map_err(err)?,
+    })
+}
+
 /// Non-secret metadata of a sealed message, as JSON.
 #[wasm_bindgen(js_name = envelopeInspect)]
 pub fn envelope_inspect(sealed: &[u8]) -> Result<String, JsValue> {
@@ -807,6 +900,50 @@ impl StreamCipher {
     #[wasm_bindgen(js_name = openChunk)]
     pub fn open_chunk(&mut self, ciphertext: &[u8], last: bool) -> Result<Vec<u8>, JsValue> {
         self.inner.open_chunk(ciphertext, last).map_err(err)
+    }
+
+    /// For a caller that runs AES-256-GCM itself: the checks and the nonce of the next sealed chunk.
+    #[wasm_bindgen(js_name = prepareSeal)]
+    pub fn prepare_seal(&mut self, plaintext_len: usize, last: bool) -> Result<Vec<u8>, JsValue> {
+        Ok(self
+            .inner
+            .prepare_seal(plaintext_len, last)
+            .map_err(err)?
+            .to_vec())
+    }
+
+    /// For a caller that runs AES-256-GCM itself: the checks and the nonce of the next opened chunk.
+    #[wasm_bindgen(js_name = prepareOpen)]
+    pub fn prepare_open(&mut self, ciphertext_len: usize, last: bool) -> Result<Vec<u8>, JsValue> {
+        Ok(self
+            .inner
+            .prepare_open(ciphertext_len, last)
+            .map_err(err)?
+            .to_vec())
+    }
+
+    /// Moves to the next chunk after the caller's AES-256-GCM step succeeded.
+    pub fn commit(&mut self, last: bool) -> Result<(), JsValue> {
+        self.inner.commit(last).map_err(err)
+    }
+
+    /// Ends the stream (call it when a chunk fails authentication).
+    pub fn abort(&mut self) {
+        self.inner.abort();
+    }
+
+    /// A copy of the stream's one-time AES-256 key, wipeable from JavaScript.
+    #[wasm_bindgen(js_name = takeKey)]
+    pub fn take_key(&self) -> SecretBytes {
+        SecretBytes {
+            inner: Zeroizing::new(self.inner.key().to_vec()),
+        }
+    }
+
+    /// The AAD every chunk authenticates.
+    #[wasm_bindgen(getter)]
+    pub fn aad(&self) -> Vec<u8> {
+        self.inner.aad().to_vec()
     }
 }
 

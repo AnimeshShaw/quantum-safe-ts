@@ -1,6 +1,7 @@
 import { warnOnce } from './warnings.js';
 import { DecryptionAuthenticationError, InvalidArgumentError } from './errors.js';
 import { PublicKey, SecretKey } from './keys.js';
+import { NATIVE_AEAD_MIN_BYTES, nativeAead } from './native-aead.js';
 import { call } from './runtime.js';
 import { bytes, equalBytes, fromHex, toHex, wipe } from './utils.js';
 
@@ -105,6 +106,61 @@ export class SealedMessage {
 }
 
 /**
+ * Seals `plaintext` to `publicKey` and returns the CBOR message. Payloads of {@link NATIVE_AEAD_MIN_BYTES} or more are encrypted by the
+ * native AES-256-GCM when the entry point registered one (Node.js); the message is byte-for-byte what the WebAssembly core would build.
+ */
+function sealToCbor(plaintext: Uint8Array, publicKey: PublicKey, aad: Uint8Array): Uint8Array {
+  const native = nativeAead();
+  if (native === null || plaintext.length < NATIVE_AEAD_MIN_BYTES) {
+    return call((w) => w.envelopeSeal(plaintext, publicKey._wasm, aad));
+  }
+  return call((w) => {
+    const plan = w.envelopeSealPlan(publicKey._wasm, aad);
+    let key: Uint8Array | null = null;
+    try {
+      const secret = plan.takeKey();
+      try {
+        key = secret.exportBytes();
+      } finally {
+        secret.free();
+      }
+      return plan.finish(native.encrypt(key, plan.nonce, plan.builtAad, plaintext));
+    } finally {
+      if (key !== null) wipe(key);
+      plan.free();
+    }
+  });
+}
+
+/**
+ * Opens `msg` with `secretKey`. For large payloads the native AES-256-GCM does the decryption; on any authentication failure the
+ * WebAssembly core runs the same message so the error is exactly the one it raises.
+ */
+function openSealed(msg: SealedMessage, secretKey: SecretKey): Uint8Array {
+  const native = nativeAead();
+  if (native !== null && msg.ciphertext.length >= NATIVE_AEAD_MIN_BYTES + 16) {  // the plaintext is the ciphertext without its 16-byte tag
+    const plain = call((w) => {
+      const plan = w.envelopeOpenPlan(msg.toBytes(), secretKey._wasm);
+      let key: Uint8Array | null = null;
+      try {
+        const secret = plan.takeKey();
+        try {
+          key = secret.exportBytes();
+        } finally {
+          secret.free();
+        }
+        return native.decrypt(key, plan.nonce, plan.builtAad, msg.ciphertext);
+      } finally {
+        if (key !== null) wipe(key);
+        plan.free();
+      }
+    });
+    if (plain !== null) return plain;
+  }
+  return call((w) => w.envelopeOpen(msg.toBytes(), secretKey._wasm));
+}
+
+/**
  * Authenticated public-key encryption: hybrid KEM + AES-256-GCM, interoperable with
  * quantum-safe-py's `Envelope`.
  *
@@ -123,9 +179,7 @@ export const Envelope = {
    */
   seal(plaintext: Uint8Array, publicKey: PublicKey, options: SealOptions = {}): SealedMessage {
     if (!(publicKey instanceof PublicKey)) throw new InvalidArgumentError('publicKey must be a PublicKey.');
-    const cbor = call((w) =>
-      w.envelopeSeal(bytes(plaintext, 'plaintext'), publicKey._wasm, bytes(options.aad ?? new Uint8Array(), 'aad')),
-    );
+    const cbor = sealToCbor(bytes(plaintext, 'plaintext'), publicKey, bytes(options.aad ?? new Uint8Array(), 'aad'));
     return SealedMessage.fromBytes(cbor);
   },
 
@@ -152,7 +206,7 @@ export const Envelope = {
           "the recipient's public key can set it, so pass the AAD you expect.",
       );
     }
-    return call((w) => w.envelopeOpen(msg.toBytes(), secretKey._wasm));
+    return openSealed(msg, secretKey);
   },
 
   /**
@@ -185,11 +239,9 @@ export const Envelope = {
     if (!equalBytes(msg.aad, bytes(expected, 'expectedAad'))) {
       throw new DecryptionAuthenticationError('The message AAD does not equal the expected AAD.');
     }
-    const plaintext = call((w) => w.envelopeOpen(msg.toBytes(), oldSecretKey._wasm));
+    const plaintext = openSealed(msg, oldSecretKey);
     try {
-      const cbor = call((w) =>
-        w.envelopeSeal(bytes(plaintext, 'plaintext'), newPublicKey._wasm, bytes(options.aad ?? msg.aad, 'aad')),
-      );
+      const cbor = sealToCbor(bytes(plaintext, 'plaintext'), newPublicKey, bytes(options.aad ?? msg.aad, 'aad'));
       return SealedMessage.fromBytes(cbor);
     } finally {
       wipe(plaintext);

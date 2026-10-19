@@ -21,8 +21,10 @@
  */
 import { InvalidArgumentError, MalformedCiphertextError } from './errors.js';
 import { PublicKey, SecretKey } from './keys.js';
+import { NATIVE_AEAD_MIN_BYTES, nativeAead } from './native-aead.js';
+import type { NativeAead } from './native-aead.js';
 import { call } from './runtime.js';
-import { bytes } from './utils.js';
+import { bytes, wipe } from './utils.js';
 
 const MAGIC = new Uint8Array([0x51, 0x53, 0x53, 0x33]); // "QSS3"
 const TAG_LEN = 16;
@@ -67,6 +69,25 @@ function concat(parts: readonly Uint8Array[]): Uint8Array {
   return out;
 }
 
+/** What a stream needs to run its chunks through the native AES-256-GCM: the implementation, the stream's one-time key and its AAD. */
+interface NativeChunks {
+  readonly aead: NativeAead;
+  readonly key: Uint8Array;
+  readonly aad: Uint8Array;
+}
+
+/** Fetches the key and AAD for the native cipher, or `null` when the WebAssembly cipher should be used (no native cipher, or small chunks). */
+function nativeChunks(cipher: WasmStreamCipher, chunkSize: number): NativeChunks | null {
+  const aead = nativeAead();
+  if (aead === null || chunkSize < NATIVE_AEAD_MIN_BYTES) return null;
+  const secret = cipher.takeKey();
+  try {
+    return { aead, key: secret.exportBytes(), aad: cipher.aad };
+  } finally {
+    secret.free();
+  }
+}
+
 /** Inspects a stream header (the CBOR bytes, not the whole prelude) without any key. */
 export function inspectStreamHeader(header: Uint8Array): StreamHeaderInfo {
   return JSON.parse(call((w) => w.streamHeaderInspect(bytes(header, 'header')))) as StreamHeaderInfo;
@@ -78,12 +99,14 @@ export function inspectStreamHeader(header: Uint8Array): StreamHeaderInfo {
  */
 export class StreamSealer implements Disposable {
   readonly #h: ReturnType<typeof makeSealer>;
+  readonly #native: NativeChunks | null;
   /** The header bytes to send first (the recipient needs them to open the stream). */
   readonly header: Uint8Array;
   readonly chunkSize: number;
 
   private constructor(h: ReturnType<typeof makeSealer>) {
     this.#h = h;
+    this.#native = nativeChunks(h.cipher, h.chunkSize);
     this.header = h.header;
     this.chunkSize = h.chunkSize;
   }
@@ -97,10 +120,19 @@ export class StreamSealer implements Disposable {
 
   /** Seals the next chunk; pass `last = true` for the final one (exactly once). Returns the ciphertext (plaintext length + 16 bytes). */
   seal(plaintext: Uint8Array, last = false): Uint8Array {
-    return call(() => this.#h.cipher.sealChunk(bytes(plaintext, 'plaintext'), last));
+    const data = bytes(plaintext, 'plaintext');
+    const native = this.#native;
+    const cipher = this.#h.cipher;
+    if (native === null) return call(() => cipher.sealChunk(data, last));
+    // The core checks the length and the state and issues the nonce; the native cipher encrypts; the core then advances its counter.
+    const nonce = call(() => cipher.prepareSeal(data.length, last));
+    const out = native.aead.encrypt(native.key, nonce, native.aad, data);
+    call(() => cipher.commit(last));
+    return out;
   }
 
   free(): void {
+    if (this.#native !== null) wipe(this.#native.key);
     this.#h.cipher.free();
   }
   [Symbol.dispose](): void {
@@ -116,11 +148,13 @@ function makeSealer(publicKey: PublicKey, aad: Uint8Array, chunkSize: number) {
 /** Low-level opener: feed the ciphertext of each chunk in order, saying whether it is the last one. A failure ends the stream. */
 export class StreamOpener implements Disposable {
   readonly #cipher: WasmStreamCipher;
+  readonly #native: NativeChunks | null;
   readonly chunkSize: number;
 
   private constructor(cipher: WasmStreamCipher) {
     this.#cipher = cipher;
     this.chunkSize = cipher.chunkSize;
+    this.#native = nativeChunks(cipher, cipher.chunkSize);
   }
 
   static start(secretKey: SecretKey, header: Uint8Array, options: OpenStreamOptions = {}): StreamOpener {
@@ -134,10 +168,20 @@ export class StreamOpener implements Disposable {
 
   /** Opens the next chunk. @throws {DecryptionAuthenticationError} if it was modified, reordered, dropped, truncated, or the key or AAD is wrong. */
   open(ciphertext: Uint8Array, last: boolean): Uint8Array {
-    return call(() => this.#cipher.openChunk(bytes(ciphertext, 'ciphertext'), last));
+    const data = bytes(ciphertext, 'ciphertext');
+    const native = this.#native;
+    const cipher = this.#cipher;
+    if (native === null) return call(() => cipher.openChunk(data, last));
+    const nonce = call(() => cipher.prepareOpen(data.length, last));
+    const plain = native.aead.decrypt(native.key, nonce, native.aad, data);
+    // On failure the core opens the same chunk itself: it raises its own error and ends the stream.
+    if (plain === null) return call(() => cipher.openChunk(data, last));
+    call(() => cipher.commit(last));
+    return plain;
   }
 
   free(): void {
+    if (this.#native !== null) wipe(this.#native.key);
     this.#cipher.free();
   }
   [Symbol.dispose](): void {

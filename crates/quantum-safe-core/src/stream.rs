@@ -279,6 +279,69 @@ impl StreamCipher {
         Ok(out)
     }
 
+    /// The key step of `seal_chunk` for a caller that runs AES-256-GCM itself: checks the stream is open and the
+    /// chunk length is allowed and returns the chunk's nonce. Encrypt exactly `plaintext_len` bytes under
+    /// [`StreamCipher::key`] with this nonce and [`StreamCipher::aad`] (the result equals `seal_chunk`'s), then call
+    /// [`StreamCipher::commit`].
+    pub fn prepare_seal(
+        &mut self,
+        plaintext_len: usize,
+        last: bool,
+    ) -> Result<[u8; aead::NONCE_LEN], StreamError> {
+        if self.finished {
+            return Err(StreamError::Finished);
+        }
+        if plaintext_len > self.chunk_size || (!last && plaintext_len != self.chunk_size) {
+            return Err(StreamError::BadPlaintextLength);
+        }
+        Ok(self.nonce(last))
+    }
+
+    /// The key step of `open_chunk` for a caller that runs AES-256-GCM itself: checks the stream is open and the
+    /// ciphertext length is allowed and returns the chunk's nonce. If the caller's decryption succeeds it calls
+    /// [`StreamCipher::commit`]; if it fails it calls [`StreamCipher::abort`], which ends the stream exactly as a
+    /// failure inside `open_chunk` does.
+    pub fn prepare_open(
+        &mut self,
+        ciphertext_len: usize,
+        last: bool,
+    ) -> Result<[u8; aead::NONCE_LEN], StreamError> {
+        if self.finished {
+            return Err(StreamError::Finished);
+        }
+        let ok_len = if last {
+            (TAG_LEN..=self.chunk_size + TAG_LEN).contains(&ciphertext_len)
+        } else {
+            ciphertext_len == self.chunk_size + TAG_LEN
+        };
+        if !ok_len {
+            self.finished = true;
+            return Err(StreamError::BadChunkLength);
+        }
+        Ok(self.nonce(last))
+    }
+
+    /// Moves to the next chunk after the caller's AES-256-GCM step succeeded (the counter advances, or the stream
+    /// finishes after the last chunk).
+    pub fn commit(&mut self, last: bool) -> Result<(), StreamError> {
+        self.advance(last)
+    }
+
+    /// Ends the stream: every later call is refused.
+    pub fn abort(&mut self) {
+        self.finished = true;
+    }
+
+    /// The one-time AES-256 key of this stream (for a caller that runs AES-256-GCM itself).
+    pub fn key(&self) -> &[u8; 32] {
+        &self.key
+    }
+
+    /// The AAD that every chunk authenticates.
+    pub fn aad(&self) -> &[u8] {
+        &self.aad
+    }
+
     /// Opens the next chunk. `last` says whether the transport reached its end after this chunk. Any failure ends the stream.
     pub fn open_chunk(&mut self, ciphertext: &[u8], last: bool) -> Result<Vec<u8>, StreamError> {
         if self.finished {
@@ -482,6 +545,91 @@ mod tests {
         assert!(matches!(
             StreamCipher::start_opening(&b.secret, &h, b""),
             Err(StreamError::AlgorithmMismatch)
+        ));
+    }
+}
+
+#[cfg(test)]
+mod plan_tests {
+    use super::*;
+
+    /// Seals every chunk through `prepare_seal` + the caller's AES-GCM + `commit`, then opens the stream
+    /// with the ordinary `open_chunk`, and the other way round.
+    #[test]
+    fn prepare_commit_path_matches_the_ordinary_chunk_path() {
+        for algo in ["X25519+ML-KEM-768", "ML-KEM-1024"] {
+            let pair = kem::generate_keypair_for(algo).unwrap();
+            let cs = 1024usize;
+            let chunks: Vec<Vec<u8>> = vec![vec![1u8; cs], vec![2u8; cs], vec![3u8; 17]];
+
+            let (header, mut sealer) = StreamCipher::start_sealing(&pair.public, b"aad", cs).unwrap();
+            let mut sealed = Vec::new();
+            for (i, c) in chunks.iter().enumerate() {
+                let last = i + 1 == chunks.len();
+                let nonce = sealer.prepare_seal(c.len(), last).unwrap();
+                sealed.push(aead::encrypt(sealer.key(), &nonce, c, sealer.aad()));
+                sealer.commit(last).unwrap();
+            }
+            let mut opener = StreamCipher::start_opening(&pair.secret, &header, b"aad").unwrap();
+            for (i, ct) in sealed.iter().enumerate() {
+                let last = i + 1 == sealed.len();
+                assert_eq!(opener.open_chunk(ct, last).unwrap(), chunks[i]);
+            }
+
+            // and open through the plan path what the ordinary path sealed
+            let (header, mut sealer) = StreamCipher::start_sealing(&pair.public, b"aad", cs).unwrap();
+            let ordinary: Vec<Vec<u8>> = chunks
+                .iter()
+                .enumerate()
+                .map(|(i, c)| sealer.seal_chunk(c, i + 1 == chunks.len()).unwrap())
+                .collect();
+            let mut opener = StreamCipher::start_opening(&pair.secret, &header, b"aad").unwrap();
+            for (i, ct) in ordinary.iter().enumerate() {
+                let last = i + 1 == ordinary.len();
+                let nonce = opener.prepare_open(ct.len(), last).unwrap();
+                let plain = aead::decrypt(opener.key(), &nonce, ct, opener.aad()).unwrap();
+                opener.commit(last).unwrap();
+                assert_eq!(plain, chunks[i]);
+            }
+            assert!(matches!(
+                opener.prepare_open(20, true),
+                Err(StreamError::Finished)
+            ));
+        }
+    }
+
+    #[test]
+    fn prepare_enforces_the_same_rules_and_abort_ends_the_stream() {
+        let pair = kem::generate_keypair_for("X25519+ML-KEM-768").unwrap();
+        let (header, mut sealer) = StreamCipher::start_sealing(&pair.public, b"", 1024).unwrap();
+        assert!(matches!(
+            sealer.prepare_seal(10, false),
+            Err(StreamError::BadPlaintextLength)
+        ));
+        assert!(matches!(
+            sealer.prepare_seal(1025, true),
+            Err(StreamError::BadPlaintextLength)
+        ));
+        sealer.prepare_seal(0, true).unwrap();
+        sealer.commit(true).unwrap();
+        assert!(matches!(sealer.prepare_seal(0, true), Err(StreamError::Finished)));
+
+        let mut opener = StreamCipher::start_opening(&pair.secret, &header, b"").unwrap();
+        assert!(matches!(
+            opener.prepare_open(5, false),
+            Err(StreamError::BadChunkLength)
+        ));
+        assert!(
+            matches!(opener.prepare_open(20, true), Err(StreamError::Finished)),
+            "a length error ends the stream"
+        );
+
+        let mut opener = StreamCipher::start_opening(&pair.secret, &header, b"").unwrap();
+        opener.prepare_open(20, true).unwrap();
+        opener.abort();
+        assert!(matches!(
+            opener.prepare_open(20, true),
+            Err(StreamError::Finished)
         ));
     }
 }

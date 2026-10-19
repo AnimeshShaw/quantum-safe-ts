@@ -146,6 +146,59 @@ impl SealedMessage {
     }
 }
 
+/// Everything `seal` decides before the AES-256-GCM step: the KEM ciphertext, the one-time AES key,
+/// the nonce and the AAD that GCM authenticates. `seal` uses it and then encrypts; a caller with a
+/// faster AES-256-GCM (Node's native crypto) can encrypt with these values itself and get the same
+/// bytes, then assemble the message with [`SealPlan::into_message`].
+pub struct SealPlan {
+    pub version: u8,
+    pub algorithm: String,
+    pub kem_ct: Vec<u8>,
+    pub nonce: [u8; aead::NONCE_LEN],
+    /// The AAD passed to AES-GCM: version || algorithm length || algorithm || caller AAD.
+    pub built_aad: Vec<u8>,
+    /// The caller's own AAD, stored unchanged in the message.
+    pub aad: Vec<u8>,
+    /// The one-time AES-256 key. Wiped when dropped.
+    pub key: Zeroizing<[u8; 32]>,
+}
+
+impl SealPlan {
+    /// The finished message, given the AES-GCM output (`ciphertext || tag`).
+    pub fn into_message(self, ciphertext: Vec<u8>) -> SealedMessage {
+        SealedMessage {
+            version: self.version,
+            algorithm: self.algorithm,
+            kem_ct: self.kem_ct,
+            nonce: self.nonce.to_vec(),
+            ciphertext,
+            aad: self.aad,
+        }
+    }
+}
+
+/// The key step of [`seal`]: KEM-encapsulate to the recipient, derive the AES key from the shared
+/// secret, generate a random 12-byte nonce and build the AAD.
+pub fn seal_plan(recipient_public_key: &kem::PublicKey, aad: &[u8]) -> Result<SealPlan, EnvelopeError> {
+    let version = version_for(&recipient_public_key.algorithm)?;
+    let (kem_ct, shared_secret) = kem::encapsulate(recipient_public_key)?;
+    let key = derive_enc_key(version, &shared_secret[..])?;
+
+    let mut nonce = [0u8; aead::NONCE_LEN];
+    getrandom::fill(&mut nonce).expect("OS RNG must be available to generate a nonce");
+
+    let built_aad = build_aad(version, &recipient_public_key.algorithm, aad)?;
+    Ok(SealPlan {
+        version,
+        algorithm: recipient_public_key.algorithm.clone(),
+        kem_ct,
+        nonce,
+        built_aad,
+        aad: aad.to_vec(),
+        key,
+    })
+}
+
 /// Matches `Envelope.seal`: KEM-encapsulate to the recipient, derive the AES
 /// key from the shared secret, generate a random 12-byte nonce, and
 /// AES-256-GCM-encrypt with the version+algorithm+caller-aad bound in as AAD.
@@ -154,24 +207,9 @@ pub fn seal(
     recipient_public_key: &kem::PublicKey,
     aad: &[u8],
 ) -> Result<SealedMessage, EnvelopeError> {
-    let version = version_for(&recipient_public_key.algorithm)?;
-    let (kem_ct, shared_secret) = kem::encapsulate(recipient_public_key)?;
-    let enc_key = derive_enc_key(version, &shared_secret[..])?;
-
-    let mut nonce_bytes = [0u8; aead::NONCE_LEN];
-    getrandom::fill(&mut nonce_bytes).expect("OS RNG must be available to generate a nonce");
-
-    let built_aad = build_aad(version, &recipient_public_key.algorithm, aad)?;
-    let ciphertext = aead::encrypt(&enc_key, &nonce_bytes, plaintext, &built_aad);
-
-    Ok(SealedMessage {
-        version,
-        algorithm: recipient_public_key.algorithm.clone(),
-        kem_ct,
-        nonce: nonce_bytes.to_vec(),
-        ciphertext,
-        aad: aad.to_vec(),
-    })
+    let plan = seal_plan(recipient_public_key, aad)?;
+    let ciphertext = aead::encrypt(&plan.key, &plan.nonce, plaintext, &plan.built_aad);
+    Ok(plan.into_message(ciphertext))
 }
 
 /// Which envelope version a KEM suite uses. v1 (quantum-safe-py compatible): any hybrid suite.
@@ -196,9 +234,21 @@ fn derive_enc_key(version: u8, shared_secret: &[u8]) -> Result<Zeroizing<[u8; 32
     Ok(key)
 }
 
-/// Matches `Envelope.open`: KEM-decapsulate, re-derive the same AES key,
-/// rebuild the same AAD, then AES-256-GCM-decrypt+verify.
-pub fn open(sealed: &SealedMessage, recipient_secret_key: &kem::SecretKey) -> Result<Vec<u8>, EnvelopeError> {
+/// What `open` needs for the AES-256-GCM step: the one-time key, the nonce and the AAD to authenticate.
+pub struct OpenPlan {
+    pub nonce: [u8; aead::NONCE_LEN],
+    /// The AAD passed to AES-GCM: version || algorithm length || algorithm || the message's AAD.
+    pub built_aad: Vec<u8>,
+    /// The one-time AES-256 key. Wiped when dropped.
+    pub key: Zeroizing<[u8; 32]>,
+}
+
+/// The key step of [`open`]: checks the message against the key, decapsulates, re-derives the AES key
+/// and rebuilds the AAD. The caller (or [`open`]) then decrypts `sealed.ciphertext` with them.
+pub fn open_plan(
+    sealed: &SealedMessage,
+    recipient_secret_key: &kem::SecretKey,
+) -> Result<OpenPlan, EnvelopeError> {
     if sealed.nonce.len() != aead::NONCE_LEN {
         return Err(EnvelopeError::BadNonceLength {
             expected: aead::NONCE_LEN,
@@ -228,7 +278,23 @@ pub fn open(sealed: &SealedMessage, recipient_secret_key: &kem::SecretKey) -> Re
         .as_slice()
         .try_into()
         .expect("length already checked above");
-    Ok(aead::decrypt(&enc_key, &nonce, &sealed.ciphertext, &built_aad)?)
+    Ok(OpenPlan {
+        nonce,
+        built_aad,
+        key: enc_key,
+    })
+}
+
+/// Matches `Envelope.open`: KEM-decapsulate, re-derive the same AES key,
+/// rebuild the same AAD, then AES-256-GCM-decrypt+verify.
+pub fn open(sealed: &SealedMessage, recipient_secret_key: &kem::SecretKey) -> Result<Vec<u8>, EnvelopeError> {
+    let plan = open_plan(sealed, recipient_secret_key)?;
+    Ok(aead::decrypt(
+        &plan.key,
+        &plan.nonce,
+        &sealed.ciphertext,
+        &plan.built_aad,
+    )?)
 }
 
 #[cfg(test)]
@@ -473,5 +539,48 @@ mod tests {
 
         let opened = open(&sealed, &secret_key).unwrap();
         assert_eq!(hex::encode(opened), v.plaintext);
+    }
+}
+
+#[cfg(test)]
+mod plan_tests {
+    use super::*;
+
+    #[test]
+    fn plan_then_encrypt_equals_seal_and_opens() {
+        for algo in ["X25519+ML-KEM-768", "P-384+ML-KEM-1024", "ML-KEM-1024"] {
+            let pair = kem::generate_keypair_for(algo).unwrap();
+            for len in [0usize, 1, 100, 70_000] {
+                let data: Vec<u8> = (0..len).map(|i| (i * 7 + 3) as u8).collect();
+                let plan = seal_plan(&pair.public, b"extra").unwrap();
+                let ct = aead::encrypt(&plan.key, &plan.nonce, &data, &plan.built_aad);
+                let msg = plan.into_message(ct);
+                assert_eq!(open(&msg, &pair.secret).unwrap(), data, "{algo} {len}");
+                // the key step of open gives the values that decrypt the same message
+                let op = open_plan(&msg, &pair.secret).unwrap();
+                let plain = aead::decrypt(&op.key, &op.nonce, &msg.ciphertext, &op.built_aad).unwrap();
+                assert_eq!(plain, data);
+            }
+        }
+    }
+
+    #[test]
+    fn open_plan_keeps_every_check_of_open() {
+        let a = kem::generate_keypair_for("X25519+ML-KEM-768").unwrap();
+        let b = kem::generate_keypair_for("X25519+ML-KEM-1024").unwrap();
+        let msg = seal(b"hello", &a.public, b"").unwrap();
+        assert!(matches!(
+            open_plan(&msg, &b.secret),
+            Err(EnvelopeError::AlgorithmMismatch)
+        ));
+        let mut bad = seal(b"hello", &a.public, b"").unwrap();
+        bad.nonce.pop();
+        assert!(matches!(
+            open_plan(&bad, &a.secret),
+            Err(EnvelopeError::BadNonceLength { .. })
+        ));
+        let mut relabelled = seal(b"hello", &a.public, b"").unwrap();
+        relabelled.version = ENVELOPE_VERSION_CNSA2;
+        assert!(open_plan(&relabelled, &a.secret).is_err());
     }
 }
