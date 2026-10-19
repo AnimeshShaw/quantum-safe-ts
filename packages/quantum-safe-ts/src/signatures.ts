@@ -7,16 +7,24 @@ import { warnOnce } from './warnings.js';
 import { StandardKeyPair, STANDARD_SEED_LENGTH, checkStandardAlgorithm } from './standard.js';
 import { bytes, equalBytes, fromHex, toHex } from './utils.js';
 
+/** Longest allowed signature context, in bytes (the FIPS 204 limit). */
 const MAX_CONTEXT = 255;
 
 /** Non-secret metadata of a signed message. */
 export interface SignedInfo {
+  /** Algorithm the message was signed with, e.g. `Ed25519+ML-DSA-65`. */
   readonly algorithm: string;
+  /** True for classical+PQC hybrid signatures. */
   readonly isHybrid: boolean;
+  /** Length of the signed message in bytes. */
   readonly messageLength: number;
+  /** Length of the signature blob in bytes. */
   readonly signatureLength: number;
+  /** Length of the context in bytes. */
   readonly contextLength: number;
+  /** Hex fingerprint of the signer's public key recorded in the message, or `''`. Not authenticated. */
   readonly signerFingerprint: string;
+  /** Unix time in seconds when signed. Not covered by the signature. */
   readonly signedAt: number;
 }
 
@@ -39,8 +47,10 @@ export class SignedMessage {
   readonly signedAt: number;
   /** True for classical+PQC hybrid signatures. */
   readonly isHybrid: boolean;
+  /** The CBOR encoding this object was parsed from; `toCbor()` and `toHex()` return it (a copy for `toCbor()`). */
   readonly #cbor: Uint8Array;
 
+  /** Parses `cbor` through the core and copies the fields out; use the static factories. */
   private constructor(cbor: Uint8Array) {
     this.#cbor = cbor;
     const p = call((w) => w.signedMessageParse(cbor));
@@ -57,19 +67,42 @@ export class SignedMessage {
     }
   }
 
-  /** Parses CBOR from {@link SignedMessage.toCbor} or quantum-safe-py `SignedMessage.to_cbor()`. */
+  /**
+   * Parses CBOR from {@link SignedMessage.toCbor} or quantum-safe-py `SignedMessage.to_cbor()`. The input is copied.
+   * @param data - CBOR-encoded signed message.
+   * @returns The parsed message.
+   * @throws {InvalidArgumentError} if `data` is not bytes, or the encoded message is empty.
+   * @throws {KeyParseError} if `data` is not a valid signed message.
+   */
   static fromCbor(data: Uint8Array): SignedMessage {
     return new SignedMessage(bytes(data, 'data').slice());
   }
-  /** Alias of {@link SignedMessage.fromCbor}, matching `SealedMessage.fromBytes`. */
+  /**
+   * Alias of {@link SignedMessage.fromCbor}, matching `SealedMessage.fromBytes`.
+   * @param data - CBOR-encoded signed message.
+   * @returns The parsed message.
+   * @throws {KeyParseError} if `data` is not a valid signed message.
+   */
   static fromBytes(data: Uint8Array): SignedMessage {
     return SignedMessage.fromCbor(data);
   }
-  /** Parses a hex string produced by {@link SignedMessage.toHex}. */
+  /**
+   * Parses a hex string produced by {@link SignedMessage.toHex}.
+   * @param hex - Hex of the CBOR encoding, either case.
+   * @returns The parsed message.
+   * @throws {InvalidArgumentError} if `hex` is not valid hex.
+   * @throws {KeyParseError} if the decoded bytes are not a valid signed message.
+   */
   static fromHex(hex: string): SignedMessage {
     return SignedMessage.fromCbor(fromHex(hex));
   }
-  /** Assembles a signed message from stored fields (for example separate database columns). */
+  /**
+   * Assembles a signed message from stored fields (for example separate database columns).
+   * @param parts - The fields. `context` defaults to empty, `signerFingerprint` to `''`, `signedAt` to the current time in seconds,
+   * and `isHybrid` to whether `algorithm` contains `+`.
+   * @returns The message re-parsed from its CBOR encoding. The signature is not verified.
+   * @throws {InvalidArgumentError} if `message` or `signature` is empty, `context` is over 255 bytes, or a byte field is not bytes.
+   */
   static fromParts(parts: {
     message: Uint8Array;
     signature: Uint8Array;
@@ -93,21 +126,36 @@ export class SignedMessage {
     return new SignedMessage(cbor);
   }
 
-  /** CBOR serialization (copy). */
-  /** Alias of {@link SignedMessage.toCbor}, matching `SealedMessage.toBytes`. */
+  /**
+   * Alias of {@link SignedMessage.toCbor}, matching `SealedMessage.toBytes`.
+   * @returns A fresh copy of the CBOR bytes.
+   */
   toBytes(): Uint8Array {
     return this.toCbor();
   }
+  /**
+   * CBOR serialization (copy).
+   * @returns A fresh copy of the CBOR bytes.
+   */
   toCbor(): Uint8Array {
     return this.#cbor.slice();
   }
+  /**
+   * Lowercase hex of {@link SignedMessage.toCbor}.
+   * @returns The hex string.
+   */
   toHex(): string {
     return toHex(this.#cbor);
   }
-  /** Non-secret metadata without echoing the message. */
+  /**
+   * Non-secret metadata without echoing the message.
+   * @returns Algorithm, lengths, signer fingerprint and signing time.
+   * @throws {NotInitializedError} if the WASM module is not initialised.
+   */
   inspect(): SignedInfo {
     return JSON.parse(call((w) => w.signedMessageInspect(this.#cbor))) as SignedInfo;
   }
+  /** Short description with the algorithm and message length; contains no message data. */
   toString(): string {
     return `SignedMessage(${this.algorithm}, msg=${this.message.length} B)`;
   }
@@ -117,10 +165,14 @@ export class SignedMessage {
 export interface SignOptions {
   /** Domain-separation context, at most 255 bytes. Include app name and protocol version. */
   context?: Uint8Array;
-  /** Fingerprint of the signer's public key to record in the message (metadata only). */
+  /** Fingerprint of the signer's public key to record in the message (metadata only). Default: none (`''`). */
   signerFingerprint?: string;
 }
 
+/**
+ * Finds the suite named `algorithm` in {@link sigSuites}; its `hybrid` flag must equal `hybrid`.
+ * Throws {@link UnsupportedAlgorithmError} when the name is unknown or is of the other kind (hybrid versus single).
+ */
 function lookup(algorithm: string, hybrid: boolean): SuiteInfo {
   const info = sigSuites().find((s) => s.name === algorithm);
   if (!info || info.hybrid !== hybrid) {
@@ -131,8 +183,11 @@ function lookup(algorithm: string, hybrid: boolean): SuiteInfo {
   return info;
 }
 
+/** Shared implementation of {@link Sign} and {@link HybridSign}: one instance is bound to one algorithm and one hedging mode. */
 abstract class BaseSigner {
+  /** Canonical algorithm string. */
   readonly algorithm: SignatureAlgorithm;
+  /** Suite metadata (NIST level, CNSA 2.0 status, format, ...). */
   readonly info: SuiteInfo;
   /**
    * True when each signature is prefixed with 32 random bytes (default; see quantum-safe-py).
@@ -146,6 +201,14 @@ abstract class BaseSigner {
    */
   readonly hedged: boolean;
 
+  /**
+   * Binds the instance to `algorithm` and a hedging mode. Passing `hedged: false` with a `-v2` suite emits the `QS_HEDGED_IGNORED` warning.
+   * @param algorithm - Canonical algorithm string.
+   * @param hybrid - Whether `algorithm` must be a hybrid (`true`) or a single-algorithm (`false`) suite.
+   * @param hedged - Whether signatures carry the 32-byte random prefix.
+   * @throws {UnsupportedAlgorithmError} if `algorithm` is not a supported suite of that kind.
+   * @throws {NotInitializedError} if `init()` has not completed.
+   */
   protected constructor(algorithm: string, hybrid: boolean, hedged: boolean) {
     this.info = lookup(algorithm, hybrid);
     this.algorithm = this.info.name as SignatureAlgorithm;
@@ -161,22 +224,34 @@ abstract class BaseSigner {
     }
   }
 
-  /** The blob is `len(prefix) || prefix || payload`; the length must match this verifier's hedging mode (see {@link hedged}). */
+  /**
+   * The blob is `len(prefix) || prefix || payload`; the length must match this verifier's hedging mode (see {@link hedged}).
+   * Throws {@link VerificationError} on an empty blob or a different prefix length; format v2 blobs are not checked.
+   */
   #requirePrefix(blob: Uint8Array): void {
     if (this.info.format === 'v2') return; // format v2 has no prefix: the blob is the signature itself
     const want = this.hedged ? 32 : 0;
     if (blob.length === 0 || blob[0] !== want) throw new VerificationError();
   }
 
-  /** Generates a signing key pair. Free it (or use `using`) when done. */
+  /**
+   * Generates a signing key pair. Free it (or use `using`) when done.
+   * @returns A new key pair for this signer's algorithm.
+   * @throws {NotInitializedError} if `init()` has not completed.
+   */
   generateKeyPair(): KeyPair {
     return new KeyPair(call((w) => w.sigGenerateKeyPair(this.algorithm)));
   }
 
   /**
    * Signs `message`.
+   * @param message - The bytes to sign; must not be empty.
+   * @param secretKey - Secret key for this signer's algorithm.
+   * @param options - See {@link SignOptions}; `context` defaults to empty. `signedAt` is set to the current time in seconds.
+   * @returns A self-contained {@link SignedMessage}.
    * @throws {AlgorithmMismatchError} if the key belongs to a different algorithm.
    * @throws {InvalidArgumentError} for an empty message or a context over 255 bytes.
+   * @throws {SigningError} if the core fails to produce a signature.
    */
   sign(message: Uint8Array, secretKey: SecretKey, options: SignOptions = {}): SignedMessage {
     if (!(secretKey instanceof SecretKey)) throw new InvalidArgumentError('secretKey must be a SecretKey.');
@@ -196,7 +271,15 @@ abstract class BaseSigner {
     return SignedMessage.fromCbor(cbor);
   }
 
-  /** Signs and records `keyPair.publicKey.fingerprint()` in the message. */
+  /**
+   * Signs and records `keyPair.publicKey.fingerprint()` in the message.
+   * @param message - The bytes to sign; must not be empty.
+   * @param keyPair - Key pair for this signer's algorithm; its secret key signs.
+   * @param options - Signing options without `signerFingerprint`; `context` defaults to empty.
+   * @returns A self-contained {@link SignedMessage} carrying the signer's fingerprint.
+   * @throws {AlgorithmMismatchError} if the key belongs to a different algorithm.
+   * @throws {InvalidArgumentError} for an empty message or a context over 255 bytes.
+   */
   signWithFingerprint(message: Uint8Array, keyPair: KeyPair, options: Omit<SignOptions, 'signerFingerprint'> = {}) {
     return this.sign(message, keyPair.secretKey, {
       ...options,
@@ -210,8 +293,17 @@ abstract class BaseSigner {
    * The signature covers the message's context, and this method requires it to equal `options.expectedContext` (default: empty, i.e. no
    * context), so a signature made for one purpose cannot be accepted for another. Pass the context you signed with. (Reading the context from
    * the message itself would let an attacker choose it.)
+   * @param signed - The signed message to check.
+   * @param publicKey - Public key of the signer, for this signer's algorithm.
+   * @param options.expectedContext - The context the message must carry. Default: empty.
    * @throws {VerificationError} if the signature does not verify, or the context differs from `expectedContext` (no detail on why, by design).
    * @throws {AlgorithmMismatchError} if key and message algorithms differ.
+   * @throws {InvalidArgumentError} if an argument has the wrong type.
+   * @example
+   * ```ts
+   * const sm = signer.sign(utf8('hello'), pair.secretKey, { context: utf8('myapp-v1') });
+   * signer.verify(sm, pair.publicKey, { expectedContext: utf8('myapp-v1') }); // throws VerificationError on failure
+   * ```
    */
   verify(signed: SignedMessage, publicKey: PublicKey, options: { expectedContext?: Uint8Array } = {}): void {
     if (!(signed instanceof SignedMessage)) throw new InvalidArgumentError('signed must be a SignedMessage.');
@@ -232,7 +324,17 @@ abstract class BaseSigner {
     if (!equalBytes(signed.context, bytes(options.expectedContext ?? new Uint8Array(), 'expectedContext'))) throw new VerificationError();
   }
 
-  /** Verifies a detached `message` + `signature` blob + `context` without a SignedMessage. */
+  /**
+   * Verifies a detached `message` + `signature` blob + `context` without a SignedMessage.
+   * The inputs are copied once so the checks and the verification see the same bytes.
+   * @param message - The signed message bytes.
+   * @param signature - The signature blob (`SignedMessage.signature`).
+   * @param publicKey - Public key of the signer, for this signer's algorithm.
+   * @param options.context - The context the signature was made with. Default: empty.
+   * @throws {VerificationError} if the signature does not verify (no detail on why, by design).
+   * @throws {AlgorithmMismatchError} if the key belongs to a different algorithm.
+   * @throws {InvalidArgumentError} if an argument has the wrong type.
+   */
   verifyBytes(message: Uint8Array, signature: Uint8Array, publicKey: PublicKey, options: { context?: Uint8Array } = {}): void {
     if (!(publicKey instanceof PublicKey)) throw new InvalidArgumentError('publicKey must be a PublicKey.');
     this.#check(publicKey.algorithm);
@@ -244,7 +346,15 @@ abstract class BaseSigner {
     call((w) => w.sigVerifyParts(this.algorithm, msg, sig, ctx, publicKey._wasm));
   }
 
-  /** Like {@link verify} but returns a boolean instead of throwing {@link VerificationError}. */
+  /**
+   * Like {@link verify} but returns a boolean instead of throwing {@link VerificationError}.
+   * @param signed - The signed message to check.
+   * @param publicKey - Public key of the signer.
+   * @param options.expectedContext - The context the message must carry. Default: empty.
+   * @returns `true` when valid, `false` on a verification failure.
+   * @throws {AlgorithmMismatchError} if key and message algorithms differ.
+   * @throws {InvalidArgumentError} if an argument has the wrong type.
+   */
   isValid(signed: SignedMessage, publicKey: PublicKey, options: { expectedContext?: Uint8Array } = {}): boolean {
     try {
       this.verify(signed, publicKey, options);
@@ -255,6 +365,7 @@ abstract class BaseSigner {
     }
   }
 
+  /** Throws {@link AlgorithmMismatchError} unless `algorithm` equals this signer's algorithm. */
   #check(algorithm: string): void {
     if (algorithm !== this.algorithm) {
       throw new AlgorithmMismatchError(`Key algorithm '${algorithm}' does not match this signer ('${this.algorithm}').`);
@@ -279,6 +390,13 @@ abstract class BaseSigner {
  * ```
  */
 export class Sign extends BaseSigner {
+  /**
+   * Creates a single-algorithm signer.
+   * @param algorithm - An ML-DSA or SLH-DSA name (see `sigSuites()`), including the `-v2` ML-DSA names. Default `ML-DSA-65`.
+   * @param options.hedged - Prefix each signature with 32 random bytes. Default `true`; has no effect for `-v2` names.
+   * @throws {UnsupportedAlgorithmError} if `algorithm` is not a supported single-algorithm suite.
+   * @throws {NotInitializedError} if `init()` has not completed.
+   */
   constructor(algorithm: Exclude<SignatureAlgorithm, `${string}+${string}`> = DEFAULT_SIGNATURE, options: { hedged?: boolean } = {}) {
     super(algorithm, false, options.hedged ?? true);
   }
@@ -287,7 +405,8 @@ export class Sign extends BaseSigner {
 
   /**
    * Generates a standards-mode key pair (a 32-byte seed and the FIPS 204 public key) for this signer's ML-DSA level. Free it or use `using`.
-   * @throws {InvalidArgumentError} for an algorithm without a standards-mode signer (SLH-DSA).
+   * @returns A new {@link StandardKeyPair}.
+   * @throws {InvalidArgumentError} for an algorithm without a standards-mode signer (SLH-DSA and the `-v2` names).
    */
   generateStandardKeyPair(): StandardKeyPair {
     const level = checkStandardAlgorithm(this.algorithm);
@@ -302,7 +421,10 @@ export class Sign extends BaseSigner {
 
   /**
    * Rebuilds a standards-mode key pair from its 32-byte seed. The seed is copied into WebAssembly memory; wipe your own copy.
-   * @throws {InvalidArgumentError} if the seed is not 32 bytes.
+   * If deriving the public key fails, the copied seed is freed before the error propagates.
+   * @param seed - The 32-byte ML-DSA seed.
+   * @returns A {@link StandardKeyPair} that owns the copied seed.
+   * @throws {InvalidArgumentError} if the seed is not 32 bytes, or the algorithm has no standards-mode signer (SLH-DSA and the `-v2` names).
    */
   standardKeyPairFromSeed(seed: Uint8Array): StandardKeyPair {
     const level = checkStandardAlgorithm(this.algorithm);
@@ -325,8 +447,20 @@ export class Sign extends BaseSigner {
    * Any FIPS 204 implementation verifies it from the same message, context and public key (quantum-safe-py: `Sign.verify_raw`).
    *
    * Use {@link Sign.sign} (a {@link SignedMessage}) when both ends are quantum-safe; use this when the other side is not.
+   * @param message - The bytes to sign.
+   * @param key - A key pair from {@link Sign.generateStandardKeyPair} or {@link Sign.standardKeyPairFromSeed} at this signer's level.
+   * @param options.context - FIPS 204 context, at most 255 bytes. Default: empty.
+   * @returns The bare FIPS 204 signature bytes.
    * @throws {AlgorithmMismatchError} if the key belongs to a different level.
-   * @throws {InvalidArgumentError} for a context over 255 bytes.
+   * @throws {InvalidArgumentError} for a context over 255 bytes, a key that is not a {@link StandardKeyPair}, or an algorithm without a
+   * standards-mode signer.
+   * @example
+   * ```ts
+   * const signer = new Sign('ML-DSA-65');
+   * using pair = signer.generateStandardKeyPair();
+   * const sig = signer.signRaw(utf8('hello'), pair, { context: utf8('myapp') });
+   * signer.verifyRaw(utf8('hello'), sig, pair.publicKey, { context: utf8('myapp') });
+   * ```
    */
   signRaw(message: Uint8Array, key: StandardKeyPair, options: { context?: Uint8Array } = {}): Uint8Array {
     if (!(key instanceof StandardKeyPair)) throw new InvalidArgumentError('key must be a StandardKeyPair (see generateStandardKeyPair).');
@@ -342,7 +476,13 @@ export class Sign extends BaseSigner {
   /**
    * Verifies a standard FIPS 204 signature made by any implementation (including quantum-safe-py `Sign.sign_raw`).
    * `publicKey` is the FIPS 204 encoded key as bytes, or a {@link PublicKey} of this signer's algorithm.
+   * @param message - The signed bytes.
+   * @param signature - The bare FIPS 204 signature.
+   * @param publicKey - The FIPS 204 encoded public key, or a {@link PublicKey} of this signer's algorithm.
+   * @param options.context - FIPS 204 context the signature was made with, at most 255 bytes. Default: empty.
    * @throws {VerificationError} if the signature, message or context is wrong (no detail on which, by design).
+   * @throws {AlgorithmMismatchError} if a {@link PublicKey} belongs to a different algorithm.
+   * @throws {InvalidArgumentError} for a context over 255 bytes, a wrong argument type, or an algorithm without a standards-mode signer.
    */
   verifyRaw(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array | PublicKey, options: { context?: Uint8Array } = {}): void {
     const level = checkStandardAlgorithm(this.algorithm);
@@ -361,12 +501,29 @@ export class Sign extends BaseSigner {
     if (!ok) throw new VerificationError();
   }
 
-  /** The standard FIPS 204 signature of `message`. Identical to {@link Sign.signRaw}; the name says what it is. */
+  /**
+   * The standard FIPS 204 signature of `message`. Identical to {@link Sign.signRaw}; the name says what it is.
+   * @param message - The bytes to sign.
+   * @param key - A standards-mode key pair at this signer's level.
+   * @param options.context - FIPS 204 context, at most 255 bytes. Default: empty.
+   * @returns The bare FIPS 204 signature bytes.
+   * @throws {AlgorithmMismatchError} if the key belongs to a different level.
+   * @throws {InvalidArgumentError} for a context over 255 bytes or a key that is not a {@link StandardKeyPair}.
+   */
   signStandard(message: Uint8Array, key: StandardKeyPair, options: { context?: Uint8Array } = {}): Uint8Array {
     return this.signRaw(message, key, options);
   }
 
-  /** Verifies a standard FIPS 204 signature. Identical to {@link Sign.verifyRaw}. */
+  /**
+   * Verifies a standard FIPS 204 signature. Identical to {@link Sign.verifyRaw}.
+   * @param message - The signed bytes.
+   * @param signature - The bare FIPS 204 signature.
+   * @param publicKey - The FIPS 204 encoded public key, or a {@link PublicKey} of this signer's algorithm.
+   * @param options.context - FIPS 204 context the signature was made with. Default: empty.
+   * @throws {VerificationError} if the signature, message or context is wrong.
+   * @throws {AlgorithmMismatchError} if a {@link PublicKey} belongs to a different algorithm.
+   * @throws {InvalidArgumentError} for a context over 255 bytes or a wrong argument type.
+   */
   verifyStandard(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array | PublicKey, options: { context?: Uint8Array } = {}): void {
     this.verifyRaw(message, signature, publicKey, options);
   }
@@ -386,6 +543,9 @@ export class HybridSign extends BaseSigner {
   /**
    * @param algorithm Default `Ed25519+ML-DSA-65-v2`. With `hedged: false` and no algorithm the original format `Ed25519+ML-DSA-65` is used,
    * because `-v2` is always hedged inside ML-DSA and has no unhedged mode.
+   * @param options.hedged Prefix each signature with 32 random bytes. Default `true`; has no effect for `-v2` names.
+   * @throws {UnsupportedAlgorithmError} if `algorithm` is not a supported hybrid signature suite.
+   * @throws {NotInitializedError} if `init()` has not completed.
    */
   constructor(algorithm?: Extract<SignatureAlgorithm, `${string}+${string}`>, options: { hedged?: boolean } = {}) {
     const hedged = options.hedged ?? true;

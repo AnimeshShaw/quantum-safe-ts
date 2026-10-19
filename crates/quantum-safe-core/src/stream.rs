@@ -21,40 +21,63 @@ use sha2::{Digest, Sha256, Sha384};
 use thiserror::Error;
 use zeroize::Zeroizing;
 
+/// Stream format version written in the header (`v`).
 pub const STREAM_VERSION: u8 = 3;
+/// Length in bytes of the random per-stream nonce prefix.
 pub const NONCE_PREFIX_LEN: usize = 7;
+/// Length in bytes of the AES-GCM tag that ends every encrypted chunk.
 pub const TAG_LEN: usize = 16;
+/// Smallest chunk size in bytes a header may declare.
 pub const MIN_CHUNK_SIZE: usize = 1024;
+/// Largest chunk size in bytes a header may declare (16 MiB).
 pub const MAX_CHUNK_SIZE: usize = 16 * 1024 * 1024;
+/// Chunk size in bytes that callers use when they have no reason to choose another (64 KiB).
 pub const DEFAULT_CHUNK_SIZE: usize = 64 * 1024;
 /// A header is a KEM ciphertext plus a few fixed fields; anything much larger is not a header.
 pub const MAX_HEADER_LEN: usize = 64 * 1024;
+/// HKDF `info` label; the header digest follows after a zero byte.
 const KEY_INFO: &[u8] = b"qs-envelope-stream-v3";
 
+/// Errors returned while sealing or opening a stream.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum StreamError {
+    /// The header is not a valid v3 header; the field says what is wrong (too large, not well-formed or
+    /// decodable CBOR, not a map, not exactly five entries, bad version, a missing or mistyped entry, or a
+    /// nonce prefix that is not 7 bytes).
     #[error("stream header is malformed: {0}")]
     Header(&'static str),
+    /// The suite is neither a hybrid KEM suite (including X-Wing) nor pure ML-KEM-1024; the field is the
+    /// algorithm string.
     #[error(
         "stream suite '{0}' is not supported (hybrid suites (including X-Wing) and pure ML-KEM-1024 only)"
     )]
     UnsupportedSuite(String),
+    /// The header's algorithm differs from the secret key's.
     #[error("stream algorithm does not match the secret key algorithm")]
     AlgorithmMismatch,
+    /// The chunk size is outside [`MIN_CHUNK_SIZE`]..=[`MAX_CHUNK_SIZE`].
     #[error("chunk size must be between {MIN_CHUNK_SIZE} and {MAX_CHUNK_SIZE} bytes")]
     BadChunkSize,
+    /// A plaintext chunk is longer than the chunk size, or is shorter and not the last chunk.
     #[error("plaintext chunk has the wrong length: every chunk except the last must be exactly the chunk size, and none may exceed it")]
     BadPlaintextLength,
+    /// An encrypted chunk is not `chunk_size + 16` bytes, or (for the last chunk) not between 16 and
+    /// `chunk_size + 16` bytes. The stream is finished.
     #[error("encrypted chunk has the wrong length for its position in the stream")]
     BadChunkLength,
+    /// The last chunk was already processed, or an earlier failure ended the stream.
     #[error("stream is finished or has failed; no further chunks are accepted")]
     Finished,
+    /// The chunk counter (a `u32`) would overflow. The stream is finished.
     #[error("stream has too many chunks")]
     TooManyChunks,
+    /// The KEM step failed (see [`KemError`]).
     #[error("KEM operation failed: {0}")]
     Kem(#[from] KemError),
+    /// Deriving the stream key failed (see [`KdfError`]).
     #[error("key derivation failed: {0}")]
     Kdf(#[from] KdfError),
+    /// A chunk's GCM tag did not verify. The stream is finished.
     #[error("chunk failed authentication: wrong key, wrong associated data, or a modified, reordered, dropped or truncated stream")]
     Authentication,
 }
@@ -77,13 +100,20 @@ fn uses_sha384(algorithm: &str) -> Result<bool, StreamError> {
 /// The parsed, validated header of a stream.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StreamHeader {
+    /// KEM suite name of the recipient key.
     pub algorithm: String,
+    /// KEM ciphertext for the recipient.
     pub kem_ct: Vec<u8>,
+    /// Random 7-byte prefix of every chunk nonce.
     pub nonce_prefix: [u8; NONCE_PREFIX_LEN],
+    /// Plaintext bytes in every chunk except the last.
     pub chunk_size: usize,
 }
 
 impl StreamHeader {
+    /// Encodes the header as the CBOR map `{v, algo, kct, np, cs}` with `v` = [`STREAM_VERSION`].
+    ///
+    /// The sealer encodes the header once and these exact bytes feed the key derivation and the chunk AAD.
     pub fn to_cbor(&self) -> Vec<u8> {
         let value = Value::Map(vec![
             (Value::Text("v".into()), Value::Integer(STREAM_VERSION.into())),
@@ -101,6 +131,15 @@ impl StreamHeader {
     }
 
     /// Strict parser: exactly the five entries, correct types, a supported suite, a chunk size in range. Never panics.
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamError::Header`] for a header over [`MAX_HEADER_LEN`] bytes, a shape the CBOR guard
+    ///   refuses, undecodable CBOR, a top-level value that is not a map, a map without exactly five
+    ///   entries, a version other than 3, a missing or mistyped `algo`, `kct`, `np` or `cs`, or a nonce
+    ///   prefix that is not 7 bytes.
+    /// - [`StreamError::UnsupportedSuite`] when `algo` is not a hybrid suite or ML-KEM-1024.
+    /// - [`StreamError::BadChunkSize`] when `cs` is negative or outside the allowed range.
     pub fn from_cbor(data: &[u8]) -> Result<Self, StreamError> {
         if data.len() > MAX_HEADER_LEN {
             return Err(StreamError::Header("is too large"));
@@ -167,6 +206,8 @@ pub struct StreamCipher {
     finished: bool,
 }
 
+// Derives the 32-byte stream key from the KEM shared secret and the exact header bytes. `sha384` selects
+// HKDF-SHA384 and SHA-384 for the header digest (pure ML-KEM-1024); otherwise SHA-256 is used for both.
 fn derive_key(shared_secret: &[u8], header: &[u8], sha384: bool) -> Result<Zeroizing<[u8; 32]>, StreamError> {
     // info = label || 0x00 || H(header), with H = the KDF's own hash: binds the whole header (KEM ciphertext, nonce prefix, chunk size) to the key
     // while keeping the HKDF info short (some HKDF implementations cap it at 1,024 bytes; a KEM ciphertext alone can be longer).
@@ -189,6 +230,7 @@ fn derive_key(shared_secret: &[u8], header: &[u8], sha384: bool) -> Result<Zeroi
     Ok(key)
 }
 
+// The AAD of every chunk: `u32_be(len(header)) || header || u32_be(len(caller_aad)) || caller_aad`.
 fn build_aad(header: &[u8], caller_aad: &[u8]) -> Vec<u8> {
     let mut v = Vec::with_capacity(8 + header.len() + caller_aad.len());
     v.extend_from_slice(&(header.len() as u32).to_be_bytes());
@@ -200,6 +242,19 @@ fn build_aad(header: &[u8], caller_aad: &[u8]) -> Vec<u8> {
 
 impl StreamCipher {
     /// Starts a stream to `recipient`: encapsulates, writes the header, derives the key. Returns the header bytes to send first.
+    ///
+    /// `caller_aad` is authenticated with every chunk and not stored; the opener must supply the same bytes.
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamError::BadChunkSize`] when `chunk_size` is outside [`MIN_CHUNK_SIZE`]..=[`MAX_CHUNK_SIZE`].
+    /// - [`StreamError::UnsupportedSuite`] when the key's algorithm is not a hybrid suite or ML-KEM-1024.
+    /// - [`StreamError::Kem`] when encapsulation fails, e.g. a malformed public key.
+    /// - [`StreamError::Kdf`] if key derivation fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the operating system RNG is unavailable.
     pub fn start_sealing(
         recipient: &kem::PublicKey,
         caller_aad: &[u8],
@@ -232,6 +287,16 @@ impl StreamCipher {
     }
 
     /// Starts opening a stream: parses and validates the header, decapsulates, derives the key.
+    ///
+    /// `caller_aad` must equal the bytes given to [`StreamCipher::start_sealing`]; a difference shows up
+    /// as [`StreamError::Authentication`] on the first chunk.
+    ///
+    /// # Errors
+    ///
+    /// - The errors of [`StreamHeader::from_cbor`].
+    /// - [`StreamError::AlgorithmMismatch`] when the header's algorithm differs from the secret key's.
+    /// - [`StreamError::Kem`] when decapsulation fails, e.g. a wrong-length KEM ciphertext.
+    /// - [`StreamError::Kdf`] if key derivation fails.
     pub fn start_opening(
         recipient_secret: &kem::SecretKey,
         header_bytes: &[u8],
@@ -254,10 +319,12 @@ impl StreamCipher {
         })
     }
 
+    /// The chunk size of this stream in bytes.
     pub fn chunk_size(&self) -> usize {
         self.chunk_size
     }
 
+    // The 12-byte nonce of the current chunk: `prefix (7) || counter (u32 big-endian) || last (0 or 1)`.
     fn nonce(&self, last: bool) -> [u8; aead::NONCE_LEN] {
         let mut n = [0u8; aead::NONCE_LEN];
         n[..NONCE_PREFIX_LEN].copy_from_slice(&self.prefix);
@@ -267,6 +334,14 @@ impl StreamCipher {
     }
 
     /// Seals the next chunk. Every chunk except the last must be exactly `chunk_size` bytes; the last may be 0..=`chunk_size`.
+    ///
+    /// The output is `plaintext.len() + 16` bytes. Passing `last = true` finishes the stream.
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamError::Finished`] when the stream is already finished.
+    /// - [`StreamError::BadPlaintextLength`] when the length is not allowed for this position.
+    /// - [`StreamError::TooManyChunks`] when the chunk counter would overflow.
     pub fn seal_chunk(&mut self, plaintext: &[u8], last: bool) -> Result<Vec<u8>, StreamError> {
         if self.finished {
             return Err(StreamError::Finished);
@@ -283,6 +358,13 @@ impl StreamCipher {
     /// chunk length is allowed and returns the chunk's nonce. Encrypt exactly `plaintext_len` bytes under
     /// [`StreamCipher::key`] with this nonce and [`StreamCipher::aad`] (the result equals `seal_chunk`'s), then call
     /// [`StreamCipher::commit`].
+    ///
+    /// Nothing advances until `commit`, so calling this twice without it returns the same nonce.
+    ///
+    /// # Errors
+    ///
+    /// [`StreamError::Finished`] when the stream is finished; [`StreamError::BadPlaintextLength`] when
+    /// `plaintext_len` is not allowed for this position (the stream stays open).
     pub fn prepare_seal(
         &mut self,
         plaintext_len: usize,
@@ -301,6 +383,11 @@ impl StreamCipher {
     /// ciphertext length is allowed and returns the chunk's nonce. If the caller's decryption succeeds it calls
     /// [`StreamCipher::commit`]; if it fails it calls [`StreamCipher::abort`], which ends the stream exactly as a
     /// failure inside `open_chunk` does.
+    ///
+    /// # Errors
+    ///
+    /// [`StreamError::Finished`] when the stream is finished; [`StreamError::BadChunkLength`] when
+    /// `ciphertext_len` is not allowed for this position, which also finishes the stream.
     pub fn prepare_open(
         &mut self,
         ciphertext_len: usize,
@@ -323,6 +410,10 @@ impl StreamCipher {
 
     /// Moves to the next chunk after the caller's AES-256-GCM step succeeded (the counter advances, or the stream
     /// finishes after the last chunk).
+    ///
+    /// # Errors
+    ///
+    /// [`StreamError::TooManyChunks`] when the chunk counter would overflow, which finishes the stream.
     pub fn commit(&mut self, last: bool) -> Result<(), StreamError> {
         self.advance(last)
     }
@@ -343,6 +434,14 @@ impl StreamCipher {
     }
 
     /// Opens the next chunk. `last` says whether the transport reached its end after this chunk. Any failure ends the stream.
+    ///
+    /// # Errors
+    ///
+    /// - [`StreamError::Finished`] when the stream is already finished.
+    /// - [`StreamError::BadChunkLength`] when the ciphertext length is not allowed for this position.
+    /// - [`StreamError::Authentication`] when the tag does not verify: a wrong key or AAD, or a modified,
+    ///   reordered, dropped or truncated chunk.
+    /// - [`StreamError::TooManyChunks`] when the chunk counter would overflow.
     pub fn open_chunk(&mut self, ciphertext: &[u8], last: bool) -> Result<Vec<u8>, StreamError> {
         if self.finished {
             return Err(StreamError::Finished);
@@ -368,6 +467,8 @@ impl StreamCipher {
         }
     }
 
+    // Moves past the chunk just processed: the last chunk finishes the stream, any other increments the
+    // counter, and an overflowing counter finishes the stream with `TooManyChunks`.
     fn advance(&mut self, last: bool) -> Result<(), StreamError> {
         if last {
             self.finished = true;

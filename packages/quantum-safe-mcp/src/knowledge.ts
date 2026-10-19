@@ -3,6 +3,7 @@
  * never touches the network and never executes scanned code.
  */
 
+/** Use cases `recommend` has a recommendation for. */
 export type UseCase =
   | 'encrypt-data'
   | 'key-exchange'
@@ -12,24 +13,54 @@ export type UseCase =
   | 'file-or-vault-encryption'
   | 'firmware-signing'
   | 'migrate-stored-data';
+/**
+ * Which software has to read the output: nothing in particular (`none`), quantum-safe-py (`quantum-safe-py`), or third-party libraries
+ * (`other-ecosystems`, which selects X-Wing and the clean `-v2` signature format).
+ */
 export type Interop = 'none' | 'quantum-safe-py' | 'other-ecosystems';
 
+/** A recommendation returned by {@link recommend}. */
 export interface Recommendation {
+  /** The use case the recommendation answers. */
   useCase: UseCase;
+  /** One-sentence description of the approach. */
   summary: string;
+  /** Algorithm or suite name. */
   algorithm: string;
+  /** quantum-safe-ts API to call. */
   api: string;
+  /** Code snippet using the API. */
   code: string;
+  /** Interoperability notes for the chosen suite. */
   compatibility: string;
+  /** Points to know before using it: CNSA 2.0 notes first when requested, then the notes common to every recommendation. */
   caveats: string[];
+  /** Other options and related advice. */
   alternatives: string[];
 }
 
+/** Caveats added to every recommendation: initialising the WASM module outside Node.js, and freeing or wiping secrets. */
 const COMMON_CAVEATS = [
   'Outside Node.js call `await init()` once before use; in Cloudflare Workers pass the precompiled module: init({ wasm }).',
   'Secret objects live in WASM memory: free() them or use `using`; wipe() any bytes you export.',
 ];
 
+/**
+ * Returns the recommended algorithm suite, API, code snippet, compatibility notes and caveats for a use case.
+ *
+ * `requireCnsa2` selects pure ML-KEM-1024 and ML-DSA-87 (and adds the CNSA 2.0 caveats). Otherwise the key-encapsulation default is
+ * X25519+ML-KEM-768 and the signature default is Ed25519+ML-DSA-65-v2; `other-ecosystems` selects X-Wing and ML-DSA-65-v2 instead.
+ * The `password-kdf` and `firmware-signing` recommendations do not depend on these choices, and `jwt` picks its algorithm (ML-DSA-65 or
+ * ML-DSA-87) from `requireCnsa2` alone.
+ * `encrypt-data` and `file-or-vault-encryption` share a recommendation, and the latter adds a per-item key derivation line to the code.
+ * @param useCase - What the caller wants to do.
+ * @param requireCnsa2 - Select the CNSA 2.0 parameter sets.
+ * @param interop - Which software must read the output; see {@link Interop}.
+ * @returns The recommendation.
+ * @example
+ * const r = recommend('sign-data', true, 'none');
+ * r.algorithm; // 'ML-DSA-87'
+ */
 export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Interop): Recommendation {
   // CNSA 2.0: pure ML-KEM-1024 satisfies key establishment (NSA does not require hybrid and says not to use one on NSS
   // mission systems except NSA-specified exceptions). Pure ML-KEM-1024 seals as envelope v2 (HKDF-SHA-384).
@@ -194,10 +225,15 @@ const report = await rewrapDirectory(sourceDir, destinationDir, {
   }
 }
 
+/** Description of one quantum-safe-ts error class. */
 export interface ErrorInfo {
+  /** Error class name, for example `DecryptionAuthenticationError`. */
   name: string;
+  /** Stable error code, for example `QS_DECRYPTION_FAILED`. */
   code: string;
+  /** What the error means. */
   meaning: string;
+  /** The usual fix. */
   fix: string;
 }
 
@@ -224,11 +260,20 @@ export const ERRORS: readonly ErrorInfo[] = [
   { name: 'CryptoError', code: 'QS_INTERNAL_ERROR', meaning: 'Unexpected internal error in the WASM module (a bug).', fix: 'Report at https://github.com/AnimeshShaw/quantum-safe-ts/issues without secret data.' },
 ];
 
+/**
+ * Looks up an error by code or class name, ignoring case and surrounding whitespace.
+ * The `QS_` prefix of the code may be left out.
+ * @param query - Error code (`QS_DECRYPTION_FAILED`), code without prefix (`DECRYPTION_FAILED`) or class name (`VerificationError`).
+ * @returns The matching entry of {@link ERRORS}, or `undefined`.
+ * @example
+ * findError('decryption_failed')?.name; // 'DecryptionAuthenticationError'
+ */
 export function findError(query: string): ErrorInfo | undefined {
   const q = query.trim().toLowerCase();
   return ERRORS.find((e) => e.code.toLowerCase() === q || e.name.toLowerCase() === q || e.code.toLowerCase() === `qs_${q}`);
 }
 
+/** Plain-text summary of quantum-safe-ts, served as the `quantum-safe-ts://llms.txt` resource. */
 export const LLMS_TXT = `quantum-safe-ts: hybrid post-quantum cryptography for TypeScript/JavaScript (Rust core compiled to WASM).
 Install: npm install quantum-safe-ts. Outside Node.js call await init() first.
 Defaults: X25519+ML-KEM-768 (HybridKEM), Ed25519+ML-DSA-65-v2 (HybridSign); P-384 hybrids (P-384+ML-KEM-1024, P-384+ML-DSA-87-v2) for CNSA 1.0 estates. CNSA 2.0 needs pure ML-KEM-1024 (cnsa2.kem(); Envelope v2 uses HKDF-SHA-384) and ML-DSA-87 (new Sign('ML-DSA-87')); hybrids are reported partial.

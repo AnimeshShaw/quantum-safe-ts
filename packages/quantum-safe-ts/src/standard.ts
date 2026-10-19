@@ -4,7 +4,10 @@ import type { SecretBytes } from './keys.js';
 /** The ML-DSA levels that have a standards-mode (bare FIPS 204) signer. */
 export type StandardAlgorithm = 'ML-DSA-44' | 'ML-DSA-65' | 'ML-DSA-87';
 
-/** @internal */
+/**
+ * The algorithm names that have a standards-mode signer; `checkStandardAlgorithm` accepts exactly these.
+ * @internal
+ */
 export const STANDARD_ALGORITHMS: readonly StandardAlgorithm[] = ['ML-DSA-44', 'ML-DSA-65', 'ML-DSA-87'];
 
 /** Length of the secret seed, in bytes (FIPS 204 `xi`). */
@@ -36,40 +39,61 @@ export class StandardKeyPair {
   readonly publicKey: Uint8Array;
   readonly #seed: SecretBytes;
 
-  /** @internal Use `Sign.generateStandardKeyPair()` or `Sign.standardKeyPairFromSeed()`. */
+  /**
+   * @internal Use `Sign.generateStandardKeyPair()` or `Sign.standardKeyPairFromSeed()`.
+   * @param algorithm - The ML-DSA level.
+   * @param publicKey - The FIPS 204 encoded public key.
+   * @param seed - The 32-byte seed; the pair takes ownership and wipes it in {@link StandardKeyPair.free}.
+   */
   constructor(algorithm: StandardAlgorithm, publicKey: Uint8Array, seed: SecretBytes) {
     this.algorithm = algorithm;
     this.publicKey = publicKey;
     this.#seed = seed;
   }
 
-  /** @internal */
+  /**
+   * The seed object held in WebAssembly memory.
+   * @internal
+   */
   get _seed(): SecretBytes {
     return this.#seed;
   }
 
-  /** Copies the 32-byte seed out of WebAssembly memory. **Wipe the copy after use** (`seed.fill(0)`). */
+  /**
+   * Copies the 32-byte seed out of WebAssembly memory. **Wipe the copy after use** (`seed.fill(0)`).
+   * @returns A copy of the seed.
+   * @throws {InvalidArgumentError} if the pair has been freed.
+   */
   exportSeed(): Uint8Array {
     return this.#seed.exportBytes();
   }
 
-  /** Wipes the seed. Using the pair afterwards throws. */
+  /** Wipes the seed. Using the pair afterwards throws {@link InvalidArgumentError}. Calling it again does nothing. */
   free(): void {
     this.#seed.free();
   }
+  /** Supports `using pair = ...`; calls {@link StandardKeyPair.free}. */
   [Symbol.dispose](): void {
     this.free();
   }
 
+  /** Short description with the algorithm; the seed is not shown. */
   toString(): string {
     return `StandardKeyPair(${this.algorithm}, <seed redacted>)`;
   }
+  /** JSON form used by `JSON.stringify`: the algorithm and a placeholder in place of the public key. Neither seed nor key bytes appear. */
   toJSON(): { algorithm: StandardAlgorithm; publicKey: string } {
     return { algorithm: this.algorithm, publicKey: '<public key omitted>' };
   }
 }
 
-/** @internal */
+/**
+ * Returns `algorithm` typed as a {@link StandardAlgorithm} when it is `ML-DSA-44`, `ML-DSA-65` or `ML-DSA-87`.
+ * @param algorithm - Algorithm name to check.
+ * @returns The same name, narrowed.
+ * @throws {InvalidArgumentError} for any other name (SLH-DSA, hybrids, `-v2` names).
+ * @internal
+ */
 export function checkStandardAlgorithm(algorithm: string): StandardAlgorithm {
   if (!(STANDARD_ALGORITHMS as readonly string[]).includes(algorithm)) {
     throw new InvalidArgumentError(`A standard FIPS 204 signature is offered for ${STANDARD_ALGORITHMS.join(', ')}, not '${algorithm}'.`);

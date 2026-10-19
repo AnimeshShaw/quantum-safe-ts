@@ -13,15 +13,21 @@
 
 use thiserror::Error;
 
+/// Fixed prefix of the combiner's HKDF `info`; the suite name follows after a zero byte.
 const HYBRID_COMBINER_INFO: &[u8] = b"quantum-safe hybrid KEM v1";
+/// Length in bytes of a combined hybrid shared secret.
 const SHARED_SECRET_LEN: usize = 32;
 /// RFC 5869 §2.3: HKDF-Expand output is capped at 255 * HashLen.
 const MAX_HKDF_OUTPUT_SHA256: usize = 255 * 32;
 
+/// Errors returned by the derivation functions in this module.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum KdfError {
+    /// The requested HKDF output length exceeds 255 times the hash output length; `max` is that limit in
+    /// bytes (8160 for SHA-256, 12240 for SHA-384).
     #[error("requested HKDF output of {requested} bytes exceeds the maximum of {max} for SHA-256")]
     OutputTooLong { requested: usize, max: usize },
+    /// The Argon2 implementation rejected the parameters, password or salt; the field holds its message.
     #[error("Argon2id derivation failed: {0}")]
     Argon2(String),
 }
@@ -36,6 +42,10 @@ const MAX_HKDF_OUTPUT_SHA384: usize = 255 * 48;
 /// CNSA 2.0 requires SHA-384 or SHA-512 for key derivation; the quantum-safe-py-compatible suites use
 /// HKDF-SHA256 and therefore cannot satisfy that requirement. quantum-safe-py (0.3.2 or later) uses the same
 /// derivation for its envelope v2.
+///
+/// # Errors
+///
+/// [`KdfError::OutputTooLong`] when `length` exceeds 12240 bytes (255 * 48).
 pub fn derive_key_sha384(shared_secret: &[u8], info: &[u8], length: usize) -> Result<Vec<u8>, KdfError> {
     if length > MAX_HKDF_OUTPUT_SHA384 {
         return Err(KdfError::OutputTooLong {
@@ -56,6 +66,10 @@ pub fn derive_key_sha384(shared_secret: &[u8], info: &[u8], length: usize) -> Re
 ///   salt = classical_ct || pqc_ct
 ///   info = b"quantum-safe hybrid KEM v1" || 0x00 || algorithm.encode("ascii")
 ///   combined = HKDF-SHA256(ikm, salt, info, length=32)
+///
+/// # Panics
+///
+/// The `expect` on the 32-byte expansion is unreachable: 32 is below the HKDF-SHA256 output cap.
 pub fn combine_shared_secrets(
     classical_ss: &[u8],
     pqc_ss: &[u8],
@@ -88,6 +102,10 @@ pub fn combine_shared_secrets(
 /// `length` is caller-controlled (it will eventually come from the WASM
 /// binding, i.e. from JS callers), so this returns `Result` rather than
 /// panicking on an out-of-range request.
+///
+/// # Errors
+///
+/// [`KdfError::OutputTooLong`] when `length` exceeds 8160 bytes (255 * 32).
 pub fn derive_key(shared_secret: &[u8], info: &[u8], length: usize) -> Result<Vec<u8>, KdfError> {
     if length > MAX_HKDF_OUTPUT_SHA256 {
         return Err(KdfError::OutputTooLong {
@@ -109,10 +127,22 @@ use argon2::{Algorithm, Argon2, Params, Version};
 /// 1 degree of parallelism, 32-byte output. quantum-safe-py has no
 /// master-password concept, so there is no upstream construction to match here;
 /// these follow OWASP's recommended minimum for interactive use.
+/// Argon2id memory cost in KiB.
 const ARGON2ID_MEMORY_KIB: u32 = 19 * 1024;
+/// Argon2id time cost (passes over memory).
 const ARGON2ID_ITERATIONS: u32 = 2;
+/// Argon2id lanes.
 const ARGON2ID_PARALLELISM: u32 = 1;
 
+/// Stretch `password` with `salt` into a 32-byte master key using Argon2id (version 0x13) and the
+/// parameters above.
+///
+/// The same password and salt always produce the same key. The Argon2 implementation sets the limits on
+/// `salt` (it requires at least 8 bytes).
+///
+/// # Errors
+///
+/// [`KdfError::Argon2`] when Argon2 rejects the parameters or the salt, carrying its message.
 pub fn derive_master_key(password: &[u8], salt: &[u8]) -> Result<[u8; 32], KdfError> {
     let params = Params::new(
         ARGON2ID_MEMORY_KIB,

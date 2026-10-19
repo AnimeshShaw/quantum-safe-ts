@@ -16,6 +16,7 @@ initSyncFromBytes(inlineWasmBytes());
 
 // Large payloads are encrypted with Node's AES-256-GCM (about ten times faster than the WebAssembly cipher); see native-aead.ts.
 setNativeAead({
+  /** AES-256-GCM encryption through `node:crypto` with a 16-byte tag; returns `ciphertext || tag`. */
   encrypt(key, nonce, aad, plaintext) {
     const cipher = createCipheriv('aes-256-gcm', key, nonce, { authTagLength: 16 });
     cipher.setAAD(aad);
@@ -28,6 +29,7 @@ setNativeAead({
     out.set(tag, body.length + rest.length);
     return out;
   },
+  /** AES-256-GCM decryption through `node:crypto`; returns `null` for input shorter than the tag or when authentication fails. */
   decrypt(key, nonce, aad, ciphertextWithTag) {
     if (ciphertextWithTag.length < 16) return null;
     const split = ciphertextWithTag.length - 16;

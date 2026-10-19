@@ -26,7 +26,9 @@ import type { NativeAead } from './native-aead.js';
 import { call } from './runtime.js';
 import { bytes, wipe } from './utils.js';
 
+/** The four bytes that begin every stream. */
 const MAGIC = new Uint8Array([0x51, 0x53, 0x53, 0x33]); // "QSS3"
+/** Length of the AES-256-GCM authentication tag appended to every chunk, in bytes. */
 const TAG_LEN = 16;
 /** Largest header accepted (a KEM ciphertext plus a few fixed fields). */
 const MAX_HEADER_LEN = 64 * 1024;
@@ -49,14 +51,20 @@ export interface OpenStreamOptions {
 
 /** Non-secret fields of a stream header. */
 export interface StreamHeaderInfo {
+  /** The KEM algorithm of the recipient key, for example `X25519+ML-KEM-768`. */
   readonly algorithm: string;
+  /** Length in bytes of the KEM ciphertext carried in the header. */
   readonly kemCiphertextLength: number;
+  /** Plaintext chunk size in bytes. */
   readonly chunkSize: number;
 }
 
+/** Encodes `n` as four big-endian bytes. */
 const u32 = (n: number): Uint8Array => new Uint8Array([(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff]);
+/** Reads the four big-endian bytes of `b` starting at `at` as an unsigned integer. */
 const readU32 = (b: Uint8Array, at: number): number => ((b[at]! << 24) | (b[at + 1]! << 16) | (b[at + 2]! << 8) | b[at + 3]!) >>> 0;
 
+/** Joins `parts` into one new array, in order. */
 function concat(parts: readonly Uint8Array[]): Uint8Array {
   let n = 0;
   for (const p of parts) n += p.length;
@@ -88,7 +96,14 @@ function nativeChunks(cipher: WasmStreamCipher, chunkSize: number): NativeChunks
   }
 }
 
-/** Inspects a stream header (the CBOR bytes, not the whole prelude) without any key. */
+/**
+ * Inspects a stream header (the CBOR bytes, not the whole prelude) without any key.
+ * @param header - The header bytes: the CBOR that follows the magic and the length field.
+ * @returns The algorithm, the KEM ciphertext length and the chunk size.
+ * @throws {MalformedCiphertextError} if the header is not a valid stream header.
+ * @throws {UnsupportedAlgorithmError} if the header names an algorithm that streams do not support.
+ * @throws {InvalidArgumentError} if `header` is not bytes.
+ */
 export function inspectStreamHeader(header: Uint8Array): StreamHeaderInfo {
   return JSON.parse(call((w) => w.streamHeaderInspect(bytes(header, 'header')))) as StreamHeaderInfo;
 }
@@ -96,14 +111,30 @@ export function inspectStreamHeader(header: Uint8Array): StreamHeaderInfo {
 /**
  * Low-level sealer: one object per stream. It owns the key and the chunk counter, so a nonce cannot be reused or skipped. Every chunk except
  * the last must be exactly `chunkSize` bytes; the last may be shorter or empty. Free it (or use `using`) when done.
+ *
+ * Chunk cipher: when the chunk size is 16 KiB or more ({@link NATIVE_AEAD_MIN_BYTES}) and the runtime has registered a native AES-256-GCM
+ * (Node.js), the chunks are encrypted with it; otherwise the WebAssembly cipher is used. The choice is made once, in {@link StreamSealer.start}.
+ * Either way the output bytes are the same, and the WebAssembly core stays in charge of the stream: for each chunk it checks that the stream is
+ * open and that the length is allowed, issues the nonce from its own counter, and advances the counter only after the chunk is encrypted.
+ * The native path holds a copy of the stream key, which {@link StreamSealer.free} wipes.
+ *
+ * @example
+ * ```ts
+ * using sealer = StreamSealer.start(pair.publicKey, { chunkSize: 4096 });
+ * const first = sealer.seal(chunk, false); // `chunk` is exactly 4096 bytes
+ * const final = sealer.seal(rest, true); // `rest` is 0 to 4096 bytes
+ * // `sealer.header` is what StreamOpener.start needs; `sealStream` adds the magic and the length framing around it.
+ * ```
  */
 export class StreamSealer implements Disposable {
   readonly #h: ReturnType<typeof makeSealer>;
   readonly #native: NativeChunks | null;
   /** The header bytes to send first (the recipient needs them to open the stream). */
   readonly header: Uint8Array;
+  /** Plaintext chunk size in bytes. */
   readonly chunkSize: number;
 
+  /** Wraps a started core cipher and selects the native or WebAssembly chunk cipher for it. */
   private constructor(h: ReturnType<typeof makeSealer>) {
     this.#h = h;
     this.#native = nativeChunks(h.cipher, h.chunkSize);
@@ -111,6 +142,14 @@ export class StreamSealer implements Disposable {
     this.chunkSize = h.chunkSize;
   }
 
+  /**
+   * Starts a stream to `publicKey`: encapsulates once, derives the stream key and builds the header.
+   * @param publicKey - The recipient's hybrid KEM key or `ML-KEM-1024` key.
+   * @param options - `aad` bound to every chunk (default none) and `chunkSize` (default 65,536 bytes; 1,024 to 16,777,216).
+   * @returns A sealer; send {@link StreamSealer.header} first.
+   * @throws {InvalidArgumentError} if `publicKey` is not a {@link PublicKey}, `chunkSize` is not an integer in range, or `aad` is not bytes.
+   * @throws {UnsupportedAlgorithmError} if the key is not a hybrid KEM key or `ML-KEM-1024`.
+   */
   static start(publicKey: PublicKey, options: SealStreamOptions = {}): StreamSealer {
     if (!(publicKey instanceof PublicKey)) throw new InvalidArgumentError('publicKey must be a PublicKey.');
     const chunkSize = options.chunkSize ?? DEFAULT_STREAM_CHUNK_SIZE;
@@ -118,7 +157,17 @@ export class StreamSealer implements Disposable {
     return new StreamSealer(makeSealer(publicKey, bytes(options.aad ?? new Uint8Array(), 'aad'), chunkSize));
   }
 
-  /** Seals the next chunk; pass `last = true` for the final one (exactly once). Returns the ciphertext (plaintext length + 16 bytes). */
+  /**
+   * Seals the next chunk; pass `last = true` for the final one (exactly once). Returns the ciphertext (plaintext length + 16 bytes).
+   *
+   * The core checks the length (exactly `chunkSize` bytes unless `last`, then 0 to `chunkSize`) and that the stream is still open. After the
+   * last chunk the sealer refuses further calls.
+   * @param plaintext - The chunk to seal.
+   * @param last - True for the final chunk of the stream.
+   * @returns The ciphertext followed by the 16-byte tag.
+   * @throws {InvalidArgumentError} if `plaintext` is not bytes, its length is not allowed, the stream is already finished, or the chunk counter
+   * is exhausted.
+   */
   seal(plaintext: Uint8Array, last = false): Uint8Array {
     const data = bytes(plaintext, 'plaintext');
     const native = this.#native;
@@ -131,32 +180,62 @@ export class StreamSealer implements Disposable {
     return out;
   }
 
+  /** Wipes the native key copy, if any, and releases the core cipher and its key. */
   free(): void {
     if (this.#native !== null) wipe(this.#native.key);
     this.#h.cipher.free();
   }
+  /** Calls {@link StreamSealer.free}, so the sealer can be declared with `using`. */
   [Symbol.dispose](): void {
     this.free();
   }
 }
 
+/** Starts a sealing cipher in the core and returns it with its header and chunk size. */
 function makeSealer(publicKey: PublicKey, aad: Uint8Array, chunkSize: number) {
   const cipher = call((w) => w.StreamCipher.startSealing(publicKey._wasm, aad, chunkSize));
   return { cipher, header: cipher.header, chunkSize: cipher.chunkSize };
 }
 
-/** Low-level opener: feed the ciphertext of each chunk in order, saying whether it is the last one. A failure ends the stream. */
+/**
+ * Low-level opener: feed the ciphertext of each chunk in order, saying whether it is the last one. A failure ends the stream.
+ *
+ * Chunk cipher: as for {@link StreamSealer}, a chunk size of 16 KiB or more on a runtime with a registered native AES-256-GCM (Node.js) uses
+ * it, and otherwise the WebAssembly cipher is used; the choice is made once, in {@link StreamOpener.start}. In both cases the core checks the
+ * ciphertext length and the stream state, owns the counter and issues the nonce. When the native cipher reports an authentication failure, the
+ * core opens the same chunk itself, so the error comes from the core and the stream ends exactly as it does on the WebAssembly path. The
+ * native path holds a copy of the stream key, which {@link StreamOpener.free} wipes.
+ *
+ * @example
+ * ```ts
+ * using opener = StreamOpener.start(pair.secretKey, header);
+ * const plain = opener.open(ciphertext, true); // a single-chunk stream
+ * ```
+ */
 export class StreamOpener implements Disposable {
   readonly #cipher: WasmStreamCipher;
   readonly #native: NativeChunks | null;
+  /** Plaintext chunk size in bytes, read from the stream header. */
   readonly chunkSize: number;
 
+  /** Wraps a started core cipher and selects the native or WebAssembly chunk cipher for it. */
   private constructor(cipher: WasmStreamCipher) {
     this.#cipher = cipher;
     this.chunkSize = cipher.chunkSize;
     this.#native = nativeChunks(cipher, cipher.chunkSize);
   }
 
+  /**
+   * Starts opening a stream: parses and validates the header, decapsulates, and derives the stream key.
+   * @param secretKey - The recipient's KEM secret key.
+   * @param header - The header bytes (the CBOR after the magic and length field), at most 65,536 bytes.
+   * @param options - `expectedAad`, the associated data the sender used (default none).
+   * @returns An opener ready for the first chunk.
+   * @throws {InvalidArgumentError} if `secretKey` is not a {@link SecretKey}, or `header` or `expectedAad` is not bytes.
+   * @throws {MalformedCiphertextError} if the header is longer than 65,536 bytes or is not a valid stream header.
+   * @throws {AlgorithmMismatchError} if the header's algorithm differs from the key's.
+   * @throws {UnsupportedAlgorithmError} if the header names an algorithm that streams do not support.
+   */
   static start(secretKey: SecretKey, header: Uint8Array, options: OpenStreamOptions = {}): StreamOpener {
     if (!(secretKey instanceof SecretKey)) throw new InvalidArgumentError('secretKey must be a SecretKey.');
     const h = bytes(header, 'header').slice();
@@ -166,7 +245,18 @@ export class StreamOpener implements Disposable {
     );
   }
 
-  /** Opens the next chunk. @throws {DecryptionAuthenticationError} if it was modified, reordered, dropped, truncated, or the key or AAD is wrong. */
+  /**
+   * Opens the next chunk.
+   *
+   * `last` must be true exactly for the final chunk: it is part of the nonce, so a stream cut short fails authentication. A ciphertext of a
+   * length the core does not allow ends the stream.
+   * @param ciphertext - One chunk's ciphertext and tag: exactly `chunkSize + 16` bytes, or 16 to `chunkSize + 16` bytes for the last chunk.
+   * @param last - True when this is the final chunk.
+   * @returns The plaintext of the chunk.
+   * @throws {DecryptionAuthenticationError} if it was modified, reordered, dropped, truncated, or the key or AAD is wrong.
+   * @throws {MalformedCiphertextError} if the ciphertext length is not allowed for this chunk.
+   * @throws {InvalidArgumentError} if `ciphertext` is not bytes or the stream has already ended.
+   */
   open(ciphertext: Uint8Array, last: boolean): Uint8Array {
     const data = bytes(ciphertext, 'ciphertext');
     const native = this.#native;
@@ -180,10 +270,12 @@ export class StreamOpener implements Disposable {
     return plain;
   }
 
+  /** Wipes the native key copy, if any, and releases the core cipher and its key. */
   free(): void {
     if (this.#native !== null) wipe(this.#native.key);
     this.#cipher.free();
   }
+  /** Calls {@link StreamOpener.free}, so the opener can be declared with `using`. */
   [Symbol.dispose](): void {
     this.free();
   }
@@ -199,8 +291,10 @@ export type ByteSource = AsyncIterable<Uint8Array> | Iterable<Uint8Array>;
 class ByteQueue {
   #pieces: Uint8Array[] = [];
   #offset = 0; // bytes already consumed from the first piece
+  /** Number of bytes currently queued. */
   length = 0;
 
+  /** Appends `piece` (without copying it); empty pieces are ignored. The caller must not change `piece` afterwards. */
   push(piece: Uint8Array): void {
     if (piece.length === 0) return;
     this.#pieces.push(piece);
@@ -249,7 +343,14 @@ class ByteQueue {
  * Encrypts a stream of byte chunks (any sizes) to `publicKey`. Yields the encrypted stream as an async sequence of byte pieces: the prelude
  * (magic, header), then one frame per chunk. Concatenate the pieces to store or send them. Input of any length, including none, is accepted.
  *
+ * Input is re-cut into chunks of `chunkSize` bytes. A full chunk is sealed only once more data has arrived behind it, so the final chunk, which
+ * holds the remaining 0 to `chunkSize` bytes, is always sealed as the last one. The sealer is freed when the generator finishes or is closed.
+ * @param publicKey - The recipient's hybrid KEM key or `ML-KEM-1024` key.
+ * @param source - The plaintext, as an async or sync iterable of byte arrays.
+ * @param options - `aad` and `chunkSize` (see {@link SealStreamOptions}).
+ * @returns An async generator of the encrypted pieces.
  * @throws {UnsupportedAlgorithmError} for a key that is not a hybrid KEM key or `ML-KEM-1024`.
+ * @throws {InvalidArgumentError} for a `chunkSize` that is not an integer from 1,024 to 16,777,216, or a piece of `source` that is not bytes.
  */
 export async function* sealStream(publicKey: PublicKey, source: ByteSource, options: SealStreamOptions = {}): AsyncGenerator<Uint8Array> {
   using sealer = StreamSealer.start(publicKey, options);
@@ -264,6 +365,7 @@ export async function* sealStream(publicKey: PublicKey, source: ByteSource, opti
   yield frame(sealer.seal(pending.take(pending.length), true));
 }
 
+/** Prefixes `ciphertext` with its length as a big-endian u32: one chunk frame of the wire format. */
 function frame(ciphertext: Uint8Array): Uint8Array {
   return concat([u32(ciphertext.length), ciphertext]);
 }
@@ -272,7 +374,16 @@ function frame(ciphertext: Uint8Array): Uint8Array {
  * Decrypts a stream produced by {@link sealStream}. The source may deliver the bytes in pieces of any size. Yields the plaintext chunk by chunk.
  * It throws on the first chunk that fails; a truncated, extended, reordered or modified stream never completes silently.
  *
+ * The prelude is read first (magic, then the header length, which must be 1 to 65,536); each frame length must be 16 to `chunkSize + 16`. A
+ * frame is the last one when the source has no byte after it. The opener is freed when the generator finishes, throws or is closed.
+ * @param secretKey - The recipient's KEM secret key.
+ * @param source - The encrypted stream, as an async or sync iterable of byte arrays of any sizes.
+ * @param options - `expectedAad`, the associated data the sender used (default none).
+ * @returns An async generator of the plaintext chunks.
  * @throws {DecryptionAuthenticationError} on authentication failure; {@link MalformedCiphertextError} for a malformed prelude or frame.
+ * @throws {AlgorithmMismatchError} if the header's algorithm differs from the key's.
+ * @throws {UnsupportedAlgorithmError} if the header names an algorithm that streams do not support.
+ * @throws {InvalidArgumentError} if `secretKey` is not a {@link SecretKey} or a piece of `source` is not bytes.
  */
 export async function* openStream(secretKey: SecretKey, source: ByteSource, options: OpenStreamOptions = {}): AsyncGenerator<Uint8Array> {
   const queue = new ByteQueue();
@@ -319,14 +430,31 @@ export async function* openStream(secretKey: SecretKey, source: ByteSource, opti
   }
 }
 
-/** Convenience: encrypts a whole buffer. Returns the complete encrypted stream as one array. */
+/**
+ * Convenience: encrypts a whole buffer. Returns the complete encrypted stream as one array.
+ * @param publicKey - The recipient's hybrid KEM key or `ML-KEM-1024` key.
+ * @param data - The plaintext.
+ * @param options - `aad` and `chunkSize` (see {@link SealStreamOptions}).
+ * @returns The encrypted stream (prelude and frames) in one array.
+ * @throws {UnsupportedAlgorithmError} for a key that is not a hybrid KEM key or `ML-KEM-1024`.
+ * @throws {InvalidArgumentError} for a `chunkSize` outside 1,024 to 16,777,216 or a `data` that is not bytes.
+ */
 export async function sealBytes(publicKey: PublicKey, data: Uint8Array, options: SealStreamOptions = {}): Promise<Uint8Array> {
   const parts: Uint8Array[] = [];
   for await (const piece of sealStream(publicKey, [bytes(data, 'data')], options)) parts.push(piece);
   return concat(parts);
 }
 
-/** Convenience: decrypts a whole buffer produced by {@link sealBytes}. */
+/**
+ * Convenience: decrypts a whole buffer produced by {@link sealBytes}.
+ * @param secretKey - The recipient's KEM secret key.
+ * @param data - The complete encrypted stream.
+ * @param options - `expectedAad`, the associated data the sender used (default none).
+ * @returns The plaintext in one array.
+ * @throws {DecryptionAuthenticationError} on authentication failure; {@link MalformedCiphertextError} for a malformed or truncated stream.
+ * @throws {AlgorithmMismatchError} if the stream's algorithm differs from the key's.
+ * @throws {InvalidArgumentError} if `secretKey` is not a {@link SecretKey} or `data` is not bytes.
+ */
 export async function openBytes(secretKey: SecretKey, data: Uint8Array, options: OpenStreamOptions = {}): Promise<Uint8Array> {
   const parts: Uint8Array[] = [];
   for await (const piece of openStream(secretKey, [bytes(data, 'data')], options)) parts.push(piece);

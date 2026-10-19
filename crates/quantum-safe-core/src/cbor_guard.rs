@@ -5,17 +5,30 @@
 //! this walk rejects anything outside that shape without allocating:
 //!
 //! * indefinite lengths, tags, and simple values other than false/true/null/floats;
-//! * nesting deeper than [`MAX_DEPTH`], any array or map with more than [`MAX_CONTAINER_LEN`] entries, more than [`MAX_ITEMS`] items overall;
+//! * nesting deeper than `MAX_DEPTH` (8), any array or map with more than `MAX_CONTAINER_LEN` (64) entries, more than `MAX_ITEMS` (4096) items overall;
 //! * maps whose keys are not text strings, and duplicate keys (a parser differential: Rust would take the first, quantum-safe-py the last);
 //! * trailing bytes after the single top-level item.
 //!
 //! None of quantum-safe-py's own writers produce any of these, so valid data is unaffected.
 
+/// Deepest container nesting accepted; the top-level item is depth 0.
 const MAX_DEPTH: usize = 8;
+/// Most entries accepted in one array or map.
 const MAX_CONTAINER_LEN: u64 = 64;
+/// Most items accepted in the whole input; a map key and its value count as two items.
 const MAX_ITEMS: usize = 4096;
 
 /// Returns `Err(reason)` if `data` is not a single, definite-length CBOR item of the allowed shape.
+///
+/// The walk reads each head byte and skips string payloads without building a value tree, so its memory
+/// use does not depend on the input. Integers and lengths must use their shortest encoding.
+///
+/// # Errors
+///
+/// Returns a static message naming the first violation found: truncated input, an indefinite or reserved
+/// length, a non-minimal integer or length, nesting over 8 levels, a container over
+/// 64 entries, more than 4096 items, a tag, an unsupported simple value, a
+/// map key that is not a text string, a duplicate map key, or bytes left after the item.
 pub fn validate_shape(data: &[u8]) -> Result<(), &'static str> {
     let mut p = Parser {
         data,
@@ -29,6 +42,8 @@ pub fn validate_shape(data: &[u8]) -> Result<(), &'static str> {
     Ok(())
 }
 
+/// Cursor over the input. `pos` only moves forward and never passes `data.len()`; `items` counts the items
+/// visited so far.
 struct Parser<'a> {
     data: &'a [u8],
     pos: usize,
@@ -36,6 +51,7 @@ struct Parser<'a> {
 }
 
 impl Parser<'_> {
+    /// Reads one byte and advances `pos`; errors at the end of the input.
     fn byte(&mut self) -> Result<u8, &'static str> {
         let b = *self.data.get(self.pos).ok_or("truncated CBOR")?;
         self.pos += 1;
@@ -69,6 +85,7 @@ impl Parser<'_> {
         Ok(value)
     }
 
+    /// Advances `pos` over `len` payload bytes, erroring if they extend past the end of the input.
     fn skip(&mut self, len: u64) -> Result<(), &'static str> {
         let len = usize::try_from(len).map_err(|_| "CBOR string longer than the input")?;
         let end = self
@@ -82,6 +99,7 @@ impl Parser<'_> {
         Ok(())
     }
 
+    /// Checks one item and everything nested in it, starting at `pos`, at nesting level `depth`.
     fn item(&mut self, depth: usize) -> Result<(), &'static str> {
         if depth > MAX_DEPTH {
             return Err("CBOR nested too deeply");

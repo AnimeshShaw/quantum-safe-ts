@@ -22,7 +22,9 @@ import { bytes } from './utils.js';
 export interface UpgradeResult {
   /** The new hybrid key pair (free it, or use `using`). */
   readonly keyPair: KeyPair;
+  /** The classical algorithm the key had, for example `X25519`. */
   readonly oldAlgorithm: string;
+  /** The hybrid algorithm of the new key, for example `X25519+ML-KEM-768`. */
   readonly newAlgorithm: string;
   /** Always `hybrid_transition`. */
   readonly migrationState: MigrationState;
@@ -30,30 +32,38 @@ export interface UpgradeResult {
   readonly notes: string;
 }
 
+/** Input to {@link Upgrader.upgradeKemKey}: an existing classical KEM key pair and the post-quantum KEM to add. */
 export interface UpgradeKemKeyInput {
   /** Raw classical secret. X25519: 32 bytes. P-256 and P-384: the PKCS#8 **PEM text** bytes (quantum-safe-py's layout). */
   classicalSecret: Uint8Array;
   /** Raw classical public key. X25519: 32 bytes. P-256: 65-byte, P-384: 97-byte uncompressed SEC1 point. */
   classicalPublic: Uint8Array;
+  /** The classical algorithm of the key. Default `X25519`. */
   classicalAlgorithm?: 'X25519' | 'P-256' | 'P-384';
   /** Post-quantum KEM to add. Default `ML-KEM-768`. */
   targetPqc?: 'ML-KEM-512' | 'ML-KEM-768' | 'ML-KEM-1024';
 }
 
+/** Input to {@link Upgrader.upgradeSigningKey}: an existing classical signing key pair and the post-quantum signature algorithm to add. */
 export interface UpgradeSigningKeyInput {
   /** Raw classical secret. Ed25519: 32 bytes. P-256 and P-384: the PKCS#8 PEM text bytes. */
   classicalSecret: Uint8Array;
   /** Raw classical public key. Ed25519: 32 bytes. P-256: 64-byte, P-384: 96-byte raw `x ‖ y` (no 0x04 tag). */
   classicalPublic: Uint8Array;
+  /** The classical algorithm of the key. Default `Ed25519`. */
   classicalAlgorithm?: 'Ed25519' | 'P-256' | 'P-384';
   /** Post-quantum signature algorithm to add. Default `ML-DSA-65`. */
   targetPqc?: 'ML-DSA-44' | 'ML-DSA-65' | 'ML-DSA-87';
 }
 
+/** Message of the {@link InvalidArgumentError} raised when the classical halves of an upgrade do not work together. */
 const MISMATCH =
   'The classical public key does not belong to the classical secret (or the pair is not a valid key). An upgrade with a mismatched pair would produce a hybrid key that can never decrypt or sign correctly, so it was refused.';
 
-/** Round-trips the new key; frees it and throws if it does not work. Catches a swapped, wrong or garbage classical half at upgrade time. */
+/**
+ * Round-trips the new key; frees it and throws if it does not work. Catches a swapped, wrong or garbage classical half at upgrade time.
+ * On success the key pair is left intact and open; on any failure it is freed and an {@link InvalidArgumentError} is thrown.
+ */
 function selfTestKem(keyPair: KeyPair, algorithm: string): void {
   try {
     const kem = new HybridKEM(algorithm as never);
@@ -74,6 +84,10 @@ function selfTestKem(keyPair: KeyPair, algorithm: string): void {
   }
 }
 
+/**
+ * Signs one byte with the new hybrid key and verifies it. On success the key pair is left intact and open; on any failure it is freed and an
+ * {@link InvalidArgumentError} with the mismatch message is thrown.
+ */
 function selfTestSigning(keyPair: KeyPair, algorithm: string): void {
   try {
     const signer = new HybridSign(algorithm as never);
@@ -84,6 +98,7 @@ function selfTestSigning(keyPair: KeyPair, algorithm: string): void {
   }
 }
 
+/** Packs a hybrid key as `u16 length of classical || classical || pqc` (big endian); `classical` may be at most 65,535 bytes. */
 function pack(classical: Uint8Array, pqc: Uint8Array): Uint8Array {
   if (classical.length > 0xffff) throw new InvalidArgumentError('classical component is too large to pack.');
   const out = new Uint8Array(2 + classical.length + pqc.length);
@@ -94,6 +109,7 @@ function pack(classical: Uint8Array, pqc: Uint8Array): Uint8Array {
   return out;
 }
 
+/** Splits bytes made by {@link pack} into copies of the classical and the post-quantum parts; too-short input throws {@link InvalidArgumentError}. */
 function unpack(raw: Uint8Array): [Uint8Array, Uint8Array] {
   if (raw.length < 2) throw new InvalidArgumentError('Not a packed hybrid key.');
   const n = (raw[0]! << 8) | raw[1]!;
@@ -101,12 +117,27 @@ function unpack(raw: Uint8Array): [Uint8Array, Uint8Array] {
   return [raw.slice(2, 2 + n), raw.slice(2 + n)];
 }
 
-/** Upgrades classical keys to hybrid post-quantum keys. */
+/**
+ * Upgrades classical keys to hybrid post-quantum keys.
+ *
+ * @example
+ * ```ts
+ * const result = Upgrader.upgradeKemKey({ classicalSecret, classicalPublic }); // X25519 + ML-KEM-768
+ * using pair = result.keyPair;
+ * console.log(result.newAlgorithm, result.migrationState); // "X25519+ML-KEM-768" "hybrid_transition"
+ * ```
+ */
 export const Upgrader = {
   /**
    * Adds a fresh post-quantum KEM key to an existing classical KEM key. The classical key bytes are kept **unchanged** inside the
    * hybrid key, so the same X25519/P-256 identity continues. Both halves are required by this library's own `HybridKEM`.
-   * @throws {InvalidArgumentError} for wrong key lengths. @throws {UnsupportedAlgorithmError} for an unapproved pairing.
+   *
+   * The new key is round-tripped (encapsulate, then decapsulate) before it is returned, which catches a classical public key that does not
+   * belong to the secret.
+   * @param input - The classical key bytes, the classical algorithm (default `X25519`) and the post-quantum KEM (default `ML-KEM-768`).
+   * @returns The hybrid key pair (free it, or use `using`), the old and new algorithm names, the state `hybrid_transition` and notes.
+   * @throws {InvalidArgumentError} for wrong key lengths, for a classical key pair that fails the round trip, or for input that is not bytes.
+   * @throws {UnsupportedAlgorithmError} for an unapproved pairing.
    */
   upgradeKemKey(input: UpgradeKemKeyInput): UpgradeResult {
     const classical = input.classicalAlgorithm ?? 'X25519';
@@ -151,6 +182,12 @@ export const Upgrader = {
   /**
    * Adds a fresh post-quantum signing key to an existing classical signing key. The classical key is retained unchanged. New signatures
    * carry both sub-signatures and verifiers must accept both; existing classical-only signatures do **not** verify as hybrid signatures.
+   *
+   * The new key signs and verifies one byte before it is returned, which catches a classical public key that does not belong to the secret.
+   * @param input - The classical key bytes, the classical algorithm (default `Ed25519`) and the post-quantum algorithm (default `ML-DSA-65`).
+   * @returns The hybrid key pair (free it, or use `using`), the old and new algorithm names, the state `hybrid_transition` and notes.
+   * @throws {InvalidArgumentError} for wrong key lengths, for a classical key pair that fails the self-test, or for input that is not bytes.
+   * @throws {UnsupportedAlgorithmError} for an unapproved pairing.
    */
   upgradeSigningKey(input: UpgradeSigningKeyInput): UpgradeResult {
     const classical = input.classicalAlgorithm ?? 'Ed25519';
@@ -192,6 +229,11 @@ export const Upgrader = {
   /**
    * Removes the classical half of a hybrid key pair, producing a PQC-only pair in `pqc_only` state. **One-way**: classical clients can no
    * longer use the result. Log the action in your migration audit trail.
+   *
+   * The classical secret bytes are wiped from the temporary copies made here. The input key pair is not modified or freed; free it
+   * separately.
+   * @param keyPair - A packed hybrid key pair (a name of the form `<classical>+<pqc>`, not `X-Wing`).
+   * @returns A new key pair holding only the post-quantum keys, with the algorithm name of the post-quantum half and the state `pqc_only`.
    * @throws {InvalidArgumentError} if the key pair is not hybrid.
    */
   stripClassicalComponent(keyPair: KeyPair): KeyPair {
@@ -214,13 +256,22 @@ export const Upgrader = {
     }
   },
 
-  /** True if the key is still `classical_only` and should be upgraded. Accepts a key pair or a state. */
+  /**
+   * True if the key is still `classical_only` and should be upgraded. Accepts a key pair or a state.
+   * @param keyOrState - A key pair (its public key's migration state is used) or a {@link MigrationState}.
+   * @returns Whether the state is `classical_only`.
+   */
   checkNeedsUpgrade(keyOrState: KeyPair | MigrationState): boolean {
     const state = typeof keyOrState === 'string' ? keyOrState : keyOrState.publicKey.migrationState;
     return state === 'classical_only';
   },
 
-  /** Describes a key's migration status for reports and dashboards. Never includes secret material. */
+  /**
+   * Describes a key's migration status for reports and dashboards. Never includes secret material.
+   * @param keyPair - The key pair to describe; only its public key is read.
+   * @returns The algorithm, state, whether it is a packed hybrid, whether it needs an upgrade, the public-key fingerprint and size in bytes,
+   * and a recommendation for the next step.
+   */
   describeKey(keyPair: KeyPair): {
     algorithm: string;
     migrationState: MigrationState;
@@ -258,6 +309,7 @@ function assemble(algorithm: string, publicRaw: Uint8Array, secretRaw: Uint8Arra
   return assembleFrom(pub, sec);
 }
 
+/** Builds a KeyPair from a public and a secret key and frees both inputs, whether or not the build succeeds. */
 function assembleFrom(pub: PublicKey, sec: SecretKey): KeyPair {
   try {
     return KeyPair.fromKeys(pub, sec);
@@ -271,32 +323,45 @@ function assembleFrom(pub: PublicKey, sec: SecretKey): KeyPair {
 // Migration state machine
 // ---------------------------------------------------------------------------------------------
 
+/** The states reachable by a forward transition from each state. */
 const FORWARD: Record<MigrationState, readonly MigrationState[]> = {
   classical_only: ['hybrid_transition'],
   hybrid_transition: ['pqc_preferred'],
   pqc_preferred: ['pqc_only'],
   pqc_only: [],
 };
+/** The states reachable by a backward transition from each state (these need `allowBackward` and a reason). */
 const BACKWARD: Partial<Record<MigrationState, readonly MigrationState[]>> = {
   hybrid_transition: ['classical_only'],
   pqc_preferred: ['hybrid_transition'],
   // pqc_only -> anything is intentionally not allowed without a manual override
 };
+/** Every migration state, in order of progress. */
 const STATES: readonly MigrationState[] = ['classical_only', 'hybrid_transition', 'pqc_preferred', 'pqc_only'];
-const isState = (v: unknown): v is MigrationState => typeof v === 'string' && (STATES as readonly string[]).includes(v);
+/** Type guard: true when `v` is one of the four migration state names. */
+const isState =(v: unknown): v is MigrationState => typeof v === 'string' && (STATES as readonly string[]).includes(v);
 
 /** An immutable record of one migration transition. */
 export interface MigrationRecord {
+  /** A random UUID (version 4 layout) identifying this record. */
   readonly recordId: string;
+  /** The key this transition belongs to. */
   readonly keyId: string;
+  /** The state before the transition. */
   readonly fromState: MigrationState;
+  /** The state after the transition. */
   readonly toState: MigrationState;
+  /** The key algorithm after the transition. */
   readonly algorithm: string;
   /** Unix seconds. */
   readonly timestamp: number;
+  /** Who made the change (default `system`). */
   readonly actor: string;
+  /** Why the change was made; non-empty for a backward transition. */
   readonly reason: string;
+  /** Free-form JSON-serializable details supplied by the caller. */
   readonly metadata: Readonly<Record<string, unknown>>;
+  /** True when `toState` is a forward step from `fromState`. */
   readonly isForward: boolean;
 }
 
@@ -307,8 +372,11 @@ export interface MigrationRecord {
  * across processes and machines that share the store. If it is absent, transitions are only serialised inside one process.
  */
 export interface MigrationStore {
+  /** Returns the value stored under `key`, or `undefined` when there is none. */
   get(key: string): string | undefined | Promise<string | undefined>;
+  /** Stores `value` under `key`, replacing any existing value. */
   set(key: string, value: string): void | Promise<void>;
+  /** Lists every key in the store. */
   keys(): Iterable<string> | Promise<Iterable<string>>;
   /**
    * Optional but strongly recommended. Atomically sets `key` to `value` only if its current value is exactly `expected`
@@ -323,15 +391,22 @@ export interface MigrationStore {
 /** In-memory store, for tests and single-process tools. Atomic within the process. */
 export class MemoryMigrationStore implements MigrationStore {
   readonly #m = new Map<string, string>();
+  /** Returns the value stored under `key`, or `undefined` when there is none. */
   get(key: string): string | undefined {
     return this.#m.get(key);
   }
+  /** Stores `value` under `key`, replacing any existing value. */
   set(key: string, value: string): void {
     this.#m.set(key, value);
   }
+  /** Returns a snapshot array of every key. */
   keys(): string[] {
     return [...this.#m.keys()];
   }
+  /**
+   * Sets `key` to `value` only if its current value is exactly `expected` (`undefined` meaning the key must not exist).
+   * @returns Whether the write happened.
+   */
   compareAndSet(key: string, expected: string | undefined, value: string): boolean {
     if (this.#m.get(key) !== expected) return false;
     this.#m.set(key, value);
@@ -341,20 +416,25 @@ export class MemoryMigrationStore implements MigrationStore {
 
 /** Options for {@link MigrationStateManager.transition}. */
 export interface TransitionOptions {
+  /** The key to move; a non-empty string. */
   keyId: string;
   /** Expected current state: an optimistic-concurrency check against stale callers. */
   fromState: MigrationState;
+  /** The state to move to. */
   toState: MigrationState;
   /** Key algorithm after the transition. */
   algorithm: string;
+  /** Who made the change. Default `system`. */
   actor?: string;
   /** Required (non-empty) for backward transitions. */
   reason?: string;
+  /** Free-form JSON-serializable details stored in the record. Default empty. */
   metadata?: Record<string, unknown>;
   /** Must be true to permit a backward transition. */
   allowBackward?: boolean;
 }
 
+/** A random UUID in the version 4 layout, from the platform's secure random source. */
 const randomId = (): string => {
   const b = globalThis.crypto.getRandomValues(new Uint8Array(16));
   b[6] = (b[6]! & 0x0f) | 0x40; // UUID v4, same shape as quantum-safe-py's record ids
@@ -365,10 +445,21 @@ const randomId = (): string => {
 
 /** Store-key prefix of one key's history document. Exported for store implementations and tooling. */
 export const MIGRATION_DOC_PREFIX = 'qs-migration/v1/';
+/** How many times `transition` re-reads and retries after losing a compare-and-set race. */
 const MAX_ATTEMPTS = 32;
+/** Most records one key's history may hold, for writes through `transition` and for reading a stored document. */
 const MAX_HISTORY = 10_000;
 
-/** @internal Validates an untrusted value as a migration record (used for stored documents and imports). */
+/**
+ * @internal Validates an untrusted value as a migration record (used for stored documents and imports).
+ *
+ * Requires string `recordId`, `keyId`, `algorithm`, `actor` and `reason`, known `fromState` and `toState`, a finite `timestamp`, a `metadata`
+ * object, and (when `expectKey` is given) a matching `keyId`. `isForward` is recomputed from the two states, whatever the input says.
+ * @param v - The value to validate.
+ * @param expectKey - The key id the record must belong to.
+ * @returns A new record object built from the validated fields.
+ * @throws {InvalidArgumentError} naming the first invalid field.
+ */
 export function parseMigrationRecord(v: unknown, expectKey?: string): MigrationRecord {
   const r = v as Record<string, unknown> | null;
   const bad = (why: string): never => {
@@ -396,6 +487,10 @@ export function parseMigrationRecord(v: unknown, expectKey?: string): MigrationR
   };
 }
 
+/**
+ * Parses a stored history document `{ v: 1, history: [...] }` for `keyId` into validated records. Invalid JSON, another version, a
+ * non-array history, a history over 10,000 records or an invalid record throws {@link InvalidArgumentError}.
+ */
 function parseDoc(raw: string, keyId: string): MigrationRecord[] {
   let doc: unknown;
   try {
@@ -410,6 +505,7 @@ function parseDoc(raw: string, keyId: string): MigrationRecord[] {
   return d.history.map((x) => parseMigrationRecord(x, keyId));
 }
 
+/** The JSON text of a history document, `{ "v": 1, "history": [...] }`, the inverse of `parseDoc`. */
 const serialiseDoc = (history: readonly MigrationRecord[]): string => JSON.stringify({ v: 1, history });
 
 /**
@@ -423,11 +519,21 @@ const serialiseDoc = (history: readonly MigrationRecord[]): string => JSON.strin
  * **Concurrency.** Each key's whole history is one document, written with a single compare-and-set. With a store that implements
  * `compareAndSet` atomically, concurrent transitions from any number of processes are safe: exactly one wins and the others get a
  * stale-state error. Without it, the manager only serialises inside this process (see {@link MigrationStateManager.crossProcessSafe}).
+ *
+ * Each key's history is stored under `MIGRATION_DOC_PREFIX + keyId` as JSON, at most 10,000 records per key.
+ *
+ * @example
+ * ```ts
+ * const manager = new MigrationStateManager(new MemoryMigrationStore());
+ * await manager.transition({ keyId: 'orders', fromState: 'classical_only', toState: 'hybrid_transition', algorithm: 'X25519+ML-KEM-768' });
+ * await manager.getCurrentState('orders'); // "hybrid_transition"
+ * ```
  */
 export class MigrationStateManager {
   readonly #store: MigrationStore;
   readonly #tails = new Map<string, Promise<unknown>>();
 
+  /** @param store - The storage backend. Give it an atomic `compareAndSet` for safety across processes. */
   constructor(store: MigrationStore) {
     this.#store = store;
   }
@@ -437,7 +543,18 @@ export class MigrationStateManager {
     return typeof this.#store.compareAndSet === 'function';
   }
 
-  /** Records a transition. @throws {InvalidArgumentError} for invalid, stale or contended transitions. */
+  /**
+   * Records a transition.
+   *
+   * The transition must be a legal step from `fromState`. A key with no history accepts any `fromState` as its starting point; a key with
+   * history must currently be in `fromState`. A backward step needs `allowBackward: true` and a non-empty `reason`. With
+   * `compareAndSet` the write is retried up to 32 times after losing a race; without it the write is a plain `set`.
+   * @param opts - The key, the expected and new states, the key's algorithm after the change, and optional actor, reason and metadata.
+   * @returns The record that was stored.
+   * @throws {InvalidArgumentError} for invalid, stale or contended transitions: an empty `keyId`, an unknown state, an illegal step, a backward
+   * step without `allowBackward` or a reason, a current state other than `fromState`, a corrupt stored history, a history that already holds
+   * 10,000 records, or 32 lost compare-and-set races in a row.
+   */
   async transition(opts: TransitionOptions): Promise<MigrationRecord> {
     if (typeof opts.keyId !== 'string' || opts.keyId.length === 0) throw new InvalidArgumentError('keyId must be a non-empty string.');
     if (!isState(opts.fromState) || !isState(opts.toState)) throw new InvalidArgumentError('Unknown migration state.');
@@ -491,6 +608,11 @@ export class MigrationStateManager {
   /**
    * Imports a complete, previously exported history for a key that has no records yet (used by `importFromPyStore`).
    * The chain is validated: each record's `fromState` must equal the previous `toState` and every step must be a legal transition.
+   * Without `compareAndSet` the check for existing history and the write are two separate store calls.
+   * @param keyId - The key the records belong to; every record's `keyId` must equal it.
+   * @param records - The history, oldest first.
+   * @throws {InvalidArgumentError} for an empty list, an invalid record, an illegal step, a broken chain, or a key that already has history
+   * (including one created concurrently).
    */
   async importHistory(keyId: string, records: readonly MigrationRecord[]): Promise<void> {
     if (records.length === 0) throw new InvalidArgumentError('Nothing to import.');
@@ -514,15 +636,26 @@ export class MigrationStateManager {
     });
   }
 
+  /**
+   * The latest record of `keyId`, or `undefined` when the key has no history.
+   * @throws {InvalidArgumentError} if the stored document is corrupt.
+   */
   async getCurrentRecord(keyId: string): Promise<MigrationRecord | undefined> {
     return (await this.getHistory(keyId)).at(-1);
   }
 
+  /**
+   * The current state of `keyId` (the `toState` of its latest record), or `undefined` when the key has no history.
+   * @throws {InvalidArgumentError} if the stored document is corrupt.
+   */
   async getCurrentState(keyId: string): Promise<MigrationState | undefined> {
     return (await this.getCurrentRecord(keyId))?.toState;
   }
 
-  /** Full history, oldest first. */
+  /**
+   * Full history, oldest first.
+   * @throws {InvalidArgumentError} if the stored document is corrupt.
+   */
   async getHistory(keyId: string): Promise<MigrationRecord[]> {
     const raw = await this.#store.get(MIGRATION_DOC_PREFIX + keyId);
     return raw === undefined ? [] : parseDoc(raw, keyId);
@@ -535,19 +668,28 @@ export class MigrationStateManager {
     return out.sort();
   }
 
-  /** Key ids currently in `state`, sorted. A full scan. */
+  /**
+   * Key ids currently in `state`, sorted. A full scan.
+   * @throws {InvalidArgumentError} if a stored document is corrupt.
+   */
   async keysByState(state: MigrationState): Promise<string[]> {
     const out: string[] = [];
     for (const id of await this.keyIds()) if ((await this.getCurrentState(id)) === state) out.push(id);
     return out;
   }
 
-  /** Key ids that are still `classical_only`. */
+  /**
+   * Key ids that are still `classical_only`.
+   * @throws {InvalidArgumentError} if a stored document is corrupt.
+   */
   async needsMigration(): Promise<string[]> {
     return this.keysByState('classical_only');
   }
 
-  /** Counts of keys per state. */
+  /**
+   * Counts of keys per state; every state is present, with 0 when no key is in it.
+   * @throws {InvalidArgumentError} if a stored document is corrupt.
+   */
   async migrationProgress(): Promise<Record<MigrationState, number>> {
     const counts: Record<MigrationState, number> = { classical_only: 0, hybrid_transition: 0, pqc_preferred: 0, pqc_only: 0 };
     for (const id of await this.keyIds()) {
@@ -557,7 +699,10 @@ export class MigrationStateManager {
     return counts;
   }
 
-  /** Runs `fn` after every earlier operation on the same key finishes (in-process mutex). */
+  /**
+   * Runs `fn` after every earlier operation on the same key finishes (in-process mutex). A failed earlier operation does not block later
+   * ones, and the key's queue entry is removed once it drains.
+   */
   #serialise<T>(keyId: string, fn: () => Promise<T>): Promise<T> {
     const prev = this.#tails.get(keyId) ?? Promise.resolve();
     const run = prev.then(fn, fn);

@@ -92,22 +92,42 @@ export const ORIGINAL_HYBRID_SIGNATURE = 'Ed25519+ML-DSA-65' as const satisfies 
 /** Default pure signature. */
 export const DEFAULT_SIGNATURE = 'ML-DSA-65' as const satisfies SignatureAlgorithm;
 
+/** Parsed KEM suite list, filled by the first {@link kemSuites} call and reused afterwards. */
 let kemCache: SuiteInfo[] | null = null;
+/** Parsed signature suite list, filled by the first {@link sigSuites} call and reused afterwards. */
 let sigCache: SuiteInfo[] | null = null;
 
-/** Lists every key-encapsulation suite this build supports. */
+/**
+ * Lists every key-encapsulation suite this build supports.
+ * The list comes from the WASM core on the first call and is cached for the lifetime of the module.
+ * @returns One {@link SuiteInfo} per KEM algorithm string.
+ * @throws {NotInitializedError} if `init()` has not completed and the list is not cached yet.
+ * @example
+ * ```ts
+ * const names = kemSuites().filter((s) => s.meetsCnsa2).map((s) => s.name);
+ * ```
+ */
 export function kemSuites(): readonly SuiteInfo[] {
   kemCache ??= JSON.parse(call((w) => w.kemSuites())) as SuiteInfo[];
   return kemCache;
 }
 
-/** Lists every signature suite this build supports. */
+/**
+ * Lists every signature suite this build supports.
+ * The list comes from the WASM core on the first call and is cached for the lifetime of the module.
+ * @returns One {@link SuiteInfo} per signature algorithm string.
+ * @throws {NotInitializedError} if `init()` has not completed and the list is not cached yet.
+ */
 export function sigSuites(): readonly SuiteInfo[] {
   sigCache ??= JSON.parse(call((w) => w.sigSuites())) as SuiteInfo[];
   return sigCache;
 }
 
-/** Version of the bundled WASM core. */
+/**
+ * Version of the bundled WASM core.
+ * @returns The version string reported by the core.
+ * @throws {NotInitializedError} if `init()` has not completed.
+ */
 export function coreVersion(): string {
   return call((w) => w.version());
 }

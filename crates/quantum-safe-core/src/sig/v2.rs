@@ -13,13 +13,15 @@
 //!   halves are not (their inputs are different byte strings, and a v1 signing oracle that signs attacker-chosen contexts could be made to emit a v2 half).
 //!
 //! `M2 = u8(len(algo)) || algo || u8(len(ctx)) || ctx || message`, where `algo` is the full v2 identifier (for example `ML-DSA-65-v2`).
-//! ML-DSA signs `M2` with FIPS 204 context [`LABEL`]. The classical half signs `LABEL || 0x00 || M2` (Ed25519, or ECDSA P-256 with SHA-256,
+//! ML-DSA signs `M2` with FIPS 204 context [`LABEL`]. The classical half signs `LABEL || 0x00 || M2` (Ed25519, or ECDSA P-256 with SHA-256 or P-384 with SHA-384,
 //! raw `r || s`, low-S only). A hybrid signature is `classical signature || ML-DSA signature`, both of fixed length. ML-DSA signing is always
 //! hedged (32 fresh random bytes inside ML-DSA, per FIPS 204).
 
 use super::*;
 
+/// Suffix that marks a v2 algorithm identifier.
 pub const SUFFIX: &str = "-v2";
+/// Domain-separation label: the FIPS 204 context of the ML-DSA half, and the prefix of the classical half's input.
 pub const LABEL: &[u8] = b"quantum-safe-sig-v2";
 
 /// `Some(base suite name)` when `algorithm` is a supported v2 identifier (ML-DSA and the approved hybrids; SLH-DSA has no v2).
@@ -55,6 +57,7 @@ pub(crate) fn signed_input(algorithm: &str, context: &[u8], message: &[u8]) -> V
     v
 }
 
+/// The classical half's signing input: `LABEL || 0x00 || M2`.
 fn classical_input(m2: &[u8]) -> Vec<u8> {
     let mut v = Vec::with_capacity(LABEL.len() + 1 + m2.len());
     v.extend_from_slice(LABEL);
@@ -63,6 +66,7 @@ fn classical_input(m2: &[u8]) -> Vec<u8> {
     v
 }
 
+/// Signs `input` with the classical half: Ed25519 as in v1, ECDSA as raw `r || s` normalised to low-S.
 fn classical_sign_v2(c: ClassicalSig, sk: &[u8], input: &[u8]) -> Result<Vec<u8>, SigError> {
     match c {
         ClassicalSig::Ed25519 => classical_sign(c, sk, input),
@@ -81,6 +85,8 @@ fn classical_sign_v2(c: ClassicalSig, sk: &[u8], input: &[u8]) -> Result<Vec<u8>
     }
 }
 
+/// Verifies the classical half. ECDSA signatures must be raw `r || s` in low-S form; a high-S signature is
+/// `Ok(false)`. A public key of the wrong length or off the curve is `MalformedKey`.
 fn classical_verify_v2(c: ClassicalSig, pk: &[u8], input: &[u8], sig: &[u8]) -> Result<bool, SigError> {
     match c {
         ClassicalSig::Ed25519 => classical_verify(c, pk, input, sig),
@@ -129,6 +135,13 @@ const fn classical_sig_len(c: ClassicalSig) -> usize {
     }
 }
 
+/// Generate a key pair for a v2 identifier (`<suite>-v2`).
+///
+/// The key bytes are those of the base suite; only the algorithm string differs.
+///
+/// # Errors
+///
+/// [`SigError::UnsupportedAlgorithm`] when `algorithm` is not a supported v2 identifier.
 pub fn generate_keypair(algorithm: &str) -> Result<SigKeyPair, SigError> {
     let base = base_of(algorithm).ok_or_else(|| SigError::UnsupportedAlgorithm(algorithm.to_string()))?;
     // The same key material as the base suite, tagged `<base>-v2`.
@@ -138,6 +151,18 @@ pub fn generate_keypair(algorithm: &str) -> Result<SigKeyPair, SigError> {
     Ok(kp)
 }
 
+/// Sign `message` in the v2 format. `secret.algorithm` must be a v2 identifier.
+///
+/// The signature blob is the ML-DSA signature, or for a hybrid `classical signature || ML-DSA signature`.
+/// `opts.deterministic` has no effect: v2 has no random prefix.
+///
+/// # Errors
+///
+/// - [`SigError::UnsupportedAlgorithm`] when the key's algorithm is not a supported v2 identifier.
+/// - [`SigError::ContextTooLong`] when `context` is over 255 bytes.
+/// - [`SigError::EmptyMessage`] when `message` is empty.
+/// - [`SigError::MalformedKey`] when the secret key has the wrong length or does not parse.
+/// - [`SigError::SigningFailed`] when the OS RNG or the signing primitive fails.
 pub fn sign(
     secret: &SecretKey,
     message: &[u8],
@@ -176,6 +201,17 @@ pub fn sign(
 }
 
 /// Failures of the signature collapse to `VerificationFailed`; an unusable public key is `MalformedKey`.
+///
+/// A hybrid blob must be exactly the classical signature length plus the ML-DSA signature length, and
+/// both halves are evaluated before they are combined.
+///
+/// # Errors
+///
+/// - [`SigError::UnsupportedAlgorithm`] when `algorithm` is not a supported v2 identifier.
+/// - [`SigError::AlgorithmMismatch`] when `public.algorithm` differs from `algorithm`.
+/// - [`SigError::MalformedKey`] when the public key has the wrong length or does not parse.
+/// - [`SigError::VerificationFailed`] for an empty message, a context over 255 bytes, a blob of the wrong
+///   length, or a signature that does not verify.
 pub fn verify_parts(
     algorithm: &str,
     message: &[u8],

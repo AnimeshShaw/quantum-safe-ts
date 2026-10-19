@@ -5,20 +5,30 @@
  * {@link KNOWLEDGE_DATE}. Components it has no record for are marked UNKNOWN, never READY. Counterpart of `qs-audit sbom` in quantum-safe-py.
  */
 
+/**
+ * Post-quantum readiness of a package: `READY` (provides post-quantum algorithms), `PARTIAL`, `NOT_READY` (classical public-key
+ * cryptography only), `NOT_APPLICABLE` (no public-key primitive) or `UNKNOWN` (no record, or support not verified).
+ */
 export type Readiness = 'READY' | 'PARTIAL' | 'NOT_READY' | 'NOT_APPLICABLE' | 'UNKNOWN';
 
+/** Readiness assessment of one npm package. */
 export interface ComponentAssessment {
   /** npm package name, for example `@noble/post-quantum`. */
   name: string;
+  /** Version the SBOM lists for the component, if it lists one. */
   version: string | undefined;
+  /** Assessed readiness. */
   readiness: Readiness;
+  /** Why the package got this readiness. */
   reason: string;
+  /** Suggested next step. */
   action: string;
 }
 
 /** Date the knowledge base was last reviewed. Treat anything older as stale. */
 export const KNOWLEDGE_DATE = '2026-10-02';
 
+/** Knowledge-base record for one package; `before` replaces the main fields for versions whose major version is below `majorAtLeast`. */
 interface Entry {
   readiness: Readiness;
   reason: string;
@@ -28,13 +38,16 @@ interface Entry {
   before?: { readiness: Readiness; reason: string; action: string };
 }
 
+/** Builds a `NOT_READY` record for a package that offers classical public-key cryptography only. */
 const classical = (what: string): Entry => ({
   readiness: 'NOT_READY',
   reason: `${what}: classical public-key cryptography only (quantum-vulnerable).`,
   action: 'Plan a migration to a hybrid or post-quantum alternative (for example quantum-safe-ts) and inventory where it is used.',
 });
+/** Builds a `READY` record for a package that provides post-quantum algorithms. */
 const pq = (reason: string): Entry => ({ readiness: 'READY', reason, action: 'No action required for the library itself. Review how your code uses it.' });
 
+/** Readiness records by npm package name. */
 const KNOWLEDGE: Readonly<Record<string, Entry>> = {
   'quantum-safe-ts': pq('Provides ML-KEM, ML-DSA, SLH-DSA, hybrids and migration tooling.'),
   '@noble/post-quantum': pq('Provides ML-KEM, ML-DSA, SLH-DSA and hybrids.'),
@@ -91,9 +104,20 @@ const KNOWLEDGE: Readonly<Record<string, Entry>> = {
   argon2: { readiness: 'NOT_APPLICABLE', reason: 'Password hashing. Not a public-key primitive.', action: 'None for quantum readiness.' },
 };
 
+/** Largest number of components `enrichSbom` visits (nested components included) before it throws. */
 const MAX_COMPONENTS = 200_000;
 
-/** npm package name from a CycloneDX component: prefers the purl, falls back to group/name. Returns undefined for non-npm components. */
+/**
+ * npm package name from a CycloneDX component: prefers the purl, falls back to group/name. Returns undefined for non-npm components.
+ *
+ * A `pkg:npm/` purl gives its percent-decoded name without the version; a purl of any other type gives `undefined`. Without a purl the
+ * `name` is used, prefixed with `group/` when the group starts with `@`; a component with no usable name gives `undefined`.
+ * @param component - A CycloneDX component object.
+ * @returns The npm package name, or `undefined`.
+ * @example
+ * npmNameOf({ purl: 'pkg:npm/%40noble/post-quantum@0.5.0' }); // '@noble/post-quantum'
+ * npmNameOf({ group: '@noble', name: 'curves' }); // '@noble/curves'
+ */
 export function npmNameOf(component: Record<string, unknown>): string | undefined {
   const purl = typeof component.purl === 'string' ? component.purl : undefined;
   if (purl?.startsWith('pkg:npm/')) {
@@ -113,12 +137,24 @@ export function npmNameOf(component: Record<string, unknown>): string | undefine
   return group?.startsWith('@') ? `${group}/${name}` : name;
 }
 
+/** Major version from a version string such as `6.1.0` or `v6.1.0`; `undefined` if it does not start with digits and a dot. */
 function major(version: string | undefined): number | undefined {
   const m = /^v?(\d+)\./.exec(version ?? '');
   return m ? Number(m[1]) : undefined;
 }
 
-/** Assesses one npm package by name (and optionally version). */
+/**
+ * Assesses one npm package by name (and optionally version).
+ *
+ * A name with no record gets `UNKNOWN`. A record with a version cut-off (`openpgp`) gives its earlier-version assessment when the version's
+ * major number is below the cut-off; a missing or unparseable version gets the main record.
+ * @param name - npm package name, matched exactly.
+ * @param version - Package version, for example `6.1.0`.
+ * @returns The assessment, with the name and version echoed.
+ * @example
+ * assessComponent('jsonwebtoken', '9.0.2').readiness; // 'NOT_READY'
+ * assessComponent('openpgp', '5.11.0').readiness; // 'NOT_READY'
+ */
 export function assessComponent(name: string, version?: string): ComponentAssessment {
   const entry = Object.prototype.hasOwnProperty.call(KNOWLEDGE, name) ? KNOWLEDGE[name]! : undefined;
   if (!entry) {
@@ -137,17 +173,25 @@ export function assessComponent(name: string, version?: string): ComponentAssess
   return { name, version, readiness: entry.readiness, reason: entry.reason, action: entry.action };
 }
 
+/** Result of {@link enrichSbom}. */
 export interface EnrichResult {
   /** A copy of the input SBOM with properties added. The input is not modified. */
   bom: Record<string, unknown>;
+  /** One assessment per npm component, in document order (nested components after their parent). */
   assessments: ComponentAssessment[];
+  /** Number of assessed components per readiness value. */
   summary: Record<Readiness, number>;
 }
 
 /**
  * Enriches a CycloneDX JSON SBOM. Adds `quantum-safe:pqc-readiness`, `quantum-safe:reason` and `quantum-safe:action` properties to each
  * npm component, and a document-level note. Existing properties are kept.
- * @throws {Error} if the input is not a CycloneDX document.
+ * @param input - Parsed CycloneDX JSON document (an object whose `bomFormat` is `CycloneDX`).
+ * @returns The enriched copy, the per-component assessments and the count per readiness value.
+ * @throws {Error} if the input is not a CycloneDX document, or has more than 200,000 components.
+ * @example
+ * const { bom, summary } = enrichSbom(JSON.parse(readFileSync('sbom.json', 'utf8')));
+ * summary.NOT_READY; // number of classical-only packages
  */
 export function enrichSbom(input: unknown): EnrichResult {
   if (typeof input !== 'object' || input === null || (input as { bomFormat?: unknown }).bomFormat !== 'CycloneDX') {

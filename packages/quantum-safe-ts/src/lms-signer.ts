@@ -49,6 +49,7 @@ export type LmsKeyProtection =
   | { key: Uint8Array }
   | { unprotected: true };
 
+/** Options for {@link LmsSigner.create}. */
 export interface LmsSignerCreateOptions {
   /** Directory that will hold the key (`key.json`, `tree.bin`). Created if missing; must not already hold a key. */
   directory: string;
@@ -62,6 +63,7 @@ export interface LmsSignerCreateOptions {
   lockTimeoutMs?: number;
 }
 
+/** Options for {@link LmsSigner.open}. */
 export interface LmsSignerOpenOptions {
   /** The passphrase, for a key created with `{ passphrase }`. */
   passphrase?: string | Uint8Array;
@@ -71,22 +73,33 @@ export interface LmsSignerOpenOptions {
   lockTimeoutMs?: number;
 }
 
+/** RFC 8554 LMS type code for each tree height. */
 const LMS_TYPE: Readonly<Record<number, number>> = { 5: 5, 10: 6, 15: 7, 20: 8 };
+/** RFC 8554 LM-OTS type code for each Winternitz parameter. */
 const OTS_TYPE: Readonly<Record<number, number>> = { 1: 1, 2: 2, 4: 3, 8: 4 };
+/** Number of hash chains `p` in an LM-OTS key for each Winternitz parameter (RFC 8554 Table 1). */
 const OTS_P: Readonly<Record<number, number>> = { 1: 265, 2: 133, 4: 67, 8: 34 };
+/** Left shift `ls` applied to the LM-OTS checksum for each Winternitz parameter (RFC 8554 Table 1). */
 const OTS_LS: Readonly<Record<number, number>> = { 1: 7, 2: 6, 4: 4, 8: 0 };
+/** Hash output and seed length in bytes. */
 const N = 32;
+/** RFC 8554 domain-separation constants: message hash, one-time public key, tree leaf, tree interior node. */
 const D_MESG = 0x8181;
 const D_PBLC = 0x8080;
 const D_LEAF = 0x8282;
 const D_INTR = 0x8383;
+/** Value of the `format` field of `key.json`. */
 const FORMAT = 'quantum-safe-ts-lms-key';
 
 // ---------------------------------------------------------------------------------------------------------------------------------
 // Runtime guard
 // ---------------------------------------------------------------------------------------------------------------------------------
 
-/** @internal Throws unless this is Node.js (or a runtime that reports itself as such) and not a browser or Worker global scope. */
+/**
+ * @internal Throws unless this is Node.js (or a runtime that reports itself as such) and not a browser or Worker global scope.
+ * @param g - The global object to inspect (default `globalThis`); a parameter so tests can pass a stand-in.
+ * @throws {UnsupportedAlgorithmError} if `process.versions.node` is missing, or `window`, `WorkerGlobalScope` or `document` is defined.
+ */
 export function assertNodeRuntime(g: Record<string, unknown> = globalThis as Record<string, unknown>): void {
   const proc = g.process as { versions?: { node?: string } } | undefined;
   const isNode = typeof proc?.versions?.node === 'string';
@@ -102,17 +115,21 @@ export function assertNodeRuntime(g: Record<string, unknown> = globalThis as Rec
 // LMS / LM-OTS primitives (RFC 8554)
 // ---------------------------------------------------------------------------------------------------------------------------------
 
+/** SHA-256 of the concatenation of `parts`. */
 const sha = (...parts: Uint8Array[]): Uint8Array => {
   const h = createHash('sha256');
   for (const p of parts) h.update(p);
   return new Uint8Array(h.digest());
 };
+/** `v` as four big-endian bytes (RFC 8554 `u32str`). */
 const u32 = (v: number): Uint8Array => {
   const b = new Uint8Array(4);
   new DataView(b.buffer).setUint32(0, v >>> 0, false);
   return b;
 };
+/** `v` as two big-endian bytes (RFC 8554 `u16str`). */
 const u16 = (v: number): Uint8Array => Uint8Array.of((v >> 8) & 0xff, v & 0xff);
+/** Joins `parts` into one new array, in order. */
 const concat = (...parts: Uint8Array[]): Uint8Array => {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
   let o = 0;
@@ -122,11 +139,14 @@ const concat = (...parts: Uint8Array[]): Uint8Array => {
   }
   return out;
 };
+/** Lowercase hexadecimal text of `b`. */
 const hex = (b: Uint8Array): string => Buffer.from(b).toString('hex');
+/** Decodes lowercase hex `s` that must be exactly `len` bytes long; any other input throws {@link SigningError} naming `what` as damaged. */
 const fromHex = (s: string, len: number, what: string): Uint8Array => {
   if (typeof s !== 'string' || !/^[0-9a-f]*$/.test(s) || s.length !== len * 2) throw new SigningError(`The LMS key file is damaged (${what}).`);
   return new Uint8Array(Buffer.from(s, 'hex'));
 };
+/** Constant-time equality; false when the lengths differ. */
 const same = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.length && timingSafeEqual(a, b);
 
 /** The `i`-th w-bit coefficient of a byte string (RFC 8554 Algorithm 2). */
@@ -134,6 +154,7 @@ function coef(s: Uint8Array, i: number, w: number): number {
   return ((s[(i * w) >> 3] ?? 0) >> (8 - w * ((i % (8 / w)) + 1))) & ((1 << w) - 1);
 }
 
+/** The LM-OTS checksum of the 256-bit digest `q` for Winternitz parameter `w`, shifted left by `ls` and cut to 16 bits (RFC 8554 Algorithm 2). */
 function checksum(q: Uint8Array, w: number): number {
   const ls = OTS_LS[w] as number;
   let sum = 0;
@@ -144,6 +165,11 @@ function checksum(q: Uint8Array, w: number): number {
 /** One chain step `H(I || u32(q) || u16(i) || u8(j) || tmp)` on a reusable 55-byte buffer. */
 class Chain {
   readonly #buf = Buffer.alloc(16 + 4 + 2 + 1 + N);
+  /**
+   * @param i16 - The 16-byte key identifier `I`.
+   * @param q - The leaf number.
+   * @param index - The chain number `i` within the one-time key.
+   */
   constructor(i16: Uint8Array, q: number, index: number) {
     this.#buf.set(i16, 0);
     this.#buf.writeUInt32BE(q >>> 0, 16);
@@ -161,6 +187,7 @@ class Chain {
   }
 }
 
+/** The start of chain `i` of leaf `q`: `SHA-256(I || u32(q) || u16(i) || 0xff || seed)`, the seed-derived value of RFC 8554 Appendix A. */
 const secretX = (i16: Uint8Array, q: number, i: number, seed: Uint8Array): Uint8Array =>
   sha(i16, u32(q), u16(i), Uint8Array.of(0xff), seed);
 
@@ -173,7 +200,9 @@ function otsPublicKey(i16: Uint8Array, seed: Uint8Array, q: number, w: number): 
   return new Uint8Array(h.digest());
 }
 
+/** Hash of the leaf at node number `r` from its LM-OTS public key `k`. */
 const leafHash = (i16: Uint8Array, r: number, k: Uint8Array): Uint8Array => sha(i16, u32(r), u16(D_LEAF), k);
+/** Hash of the interior node number `r` from its left child `l` and right child `rt`. */
 const nodeHash = (i16: Uint8Array, r: number, l: Uint8Array, rt: Uint8Array): Uint8Array => sha(i16, u32(r), u16(D_INTR), l, rt);
 
 /** Nodes of the Merkle tree, 1-based: node `r` is at `[r * 32, r * 32 + 32)`; slot 0 is unused. */
@@ -187,7 +216,11 @@ function buildTree(i16: Uint8Array, seed: Uint8Array, height: number, w: number)
   return t;
 }
 
-/** Signs with leaf `q` and returns the LMS signature `u32(q) || lmots || u32(lmsType) || path`. */
+/**
+ * Signs with leaf `q` and returns the LMS signature `u32(q) || lmots || u32(lmsType) || path`, where `lmots` is `u32(otsType) || C || y[0..p-1]`
+ * with a fresh random 32-byte `C`, and `path` holds the `height` sibling nodes from the leaf upward. It reads `tree` and never changes it.
+ * The caller has already made leaf `q` durable as used.
+ */
 function lmsSign(
   i16: Uint8Array,
   seed: Uint8Array,
@@ -243,16 +276,29 @@ function lmsRoot(i16: Uint8Array, height: number, w: number, message: Uint8Array
 // Durable state
 // ---------------------------------------------------------------------------------------------------------------------------------
 
+/** How the seed is stored in `key.json`: in clear (`none`), under a scrypt-derived key (`passphrase`) or under a supplied key (`key`). */
 type Protection = 'none' | 'passphrase' | 'key';
 
+/**
+ * The contents of `key.json`. After creation only `next` changes, and `mac` changes with it; the fields listed in `headerBytes` are
+ * authenticated by `mac` and are the associated data of the sealed seed. Byte values are lowercase hex.
+ */
 interface KeyFile {
+  /** Always {@link FORMAT}. */
   format: string;
+  /** File format version (2). */
   version: number;
+  /** Tree height. */
   height: number;
+  /** Winternitz parameter. */
   winternitz: number;
+  /** The 16-byte key identifier `I`. */
   I: string;
+  /** The 60-byte HSS public key (`u32(1) || LMS public key`). */
   publicKey: string;
+  /** SHA-256 of `tree.bin`. */
   treeSha256: string;
+  /** How the seed is stored. */
   protection: Protection;
   /** protection 'none': the seed in hex. */
   seed?: string;
@@ -260,18 +306,24 @@ interface KeyFile {
   sealed?: { nonce: string; ciphertext: string };
   /** protection 'passphrase': the scrypt parameters. */
   kdf?: { name: 'scrypt'; salt: string; log2N: number; r: number; p: number };
+  /** The index of the next one-time key to use (0 for a new key; `2^height` when exhausted). */
   next: number;
   /** HMAC-SHA256 over the header and `next`, keyed from the seed. */
   mac: string;
 }
 
+/** scrypt block size `r` and parallelism `p` written to and required of every passphrase-protected key. */
 const KDF_R = 8;
 const KDF_P = 1;
+/** Default, smallest and largest scrypt cost exponent (`N = 2^log2N`) accepted for a passphrase. */
 const KDF_DEFAULT_LOG2N = 17;
 const KDF_MIN_LOG2N = 14;
 const KDF_MAX_LOG2N = 22;
+/** Memory limit passed to scrypt, in bytes. */
 const KDF_MAXMEM = 512 * 1024 * 1024;
+/** Empty HKDF salt. */
 const NO_SALT = new Uint8Array(0);
+/** UTF-8 bytes of `s`. */
 const utf8 = (s: string): Uint8Array => new Uint8Array(Buffer.from(s, 'utf8'));
 
 /** The fields that never change after creation, as the authenticated header (also the AES-GCM associated data). */
@@ -279,12 +331,18 @@ function headerBytes(k: KeyFile): Uint8Array {
   return utf8(JSON.stringify([k.format, k.version, k.height, k.winternitz, k.I, k.publicKey, k.treeSha256, k.protection, k.kdf ?? null]));
 }
 
+/** HKDF-SHA-256 with an empty salt: derives 32 bytes from `ikm` for the purpose named by `info`. */
 const hkdf = (ikm: Uint8Array, info: string): Uint8Array => new Uint8Array(crypto.hkdfSync('sha256', ikm, NO_SALT, info, 32));
 
+/** The hex HMAC-SHA-256 under `macKey` of the header of `k` and the counter value `next`. */
 function stateMac(macKey: Uint8Array, k: KeyFile, next: number): string {
   return crypto.createHmac('sha256', macKey).update(headerBytes(k)).update(utf8(`:${next}`)).digest('hex');
 }
 
+/**
+ * Encrypts `seed` with AES-256-GCM under a key derived from `master`, using a fresh random 12-byte nonce and the header of `k` as associated
+ * data. Returns the nonce and `ciphertext || tag` as hex.
+ */
 function sealSeed(master: Uint8Array, k: KeyFile, seed: Uint8Array): { nonce: string; ciphertext: string } {
   const nonce = new Uint8Array(crypto.randomBytes(12));
   const cipher = crypto.createCipheriv('aes-256-gcm', hkdf(master, 'qs-lms-seed-v1'), nonce);
@@ -293,6 +351,7 @@ function sealSeed(master: Uint8Array, k: KeyFile, seed: Uint8Array): { nonce: st
   return { nonce: hex(nonce), ciphertext: hex(ct) };
 }
 
+/** Decrypts the seed of `k` under `master`. A wrong key or passphrase, or any change to the sealed data or the header, throws {@link SigningError}. */
 function unsealSeed(master: Uint8Array, k: KeyFile): Uint8Array {
   const wrong = 'The key could not be unsealed: the passphrase or key is wrong, or the key file was modified.';
   try {
@@ -307,6 +366,11 @@ function unsealSeed(master: Uint8Array, k: KeyFile): Uint8Array {
   }
 }
 
+/**
+ * Returns the master secret for the key file `k`: the supplied 32-byte key itself (not a copy) for `key` protection, or the scrypt output for
+ * `passphrase` protection (a string passphrase is NFC-normalised and UTF-8 encoded first). Missing or malformed credentials throw
+ * {@link InvalidArgumentError}.
+ */
 function deriveMaster(k: KeyFile, creds: { passphrase?: string | Uint8Array; key?: Uint8Array }): Uint8Array {
   if (k.protection === 'key') {
     if (!(creds.key instanceof Uint8Array) || creds.key.length !== 32) {
@@ -324,10 +388,12 @@ function deriveMaster(k: KeyFile, creds: { passphrase?: string | Uint8Array; key
   );
 }
 
+/** Blocks the calling thread for `ms` milliseconds. */
 const sleepSync = (ms: number): void => {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 };
 
+/** Flushes the directory entry of `dir` to disk; errors are ignored because directories cannot be opened for fsync on Windows. */
 function fsyncDirectory(dir: string): void {
   let fd: number | undefined;
   try {
@@ -340,6 +406,10 @@ function fsyncDirectory(dir: string): void {
   }
 }
 
+/**
+ * Replaces `path` with `data` so that a crash leaves either the old or the new content: writes `<path>.tmp` with `mode`, fsyncs it, renames
+ * it over `path`, then fsyncs the directory. Filesystem errors propagate.
+ */
 function writeFileDurable(path: string, data: Uint8Array | string, mode: number): void {
   const tmp = `${path}.tmp`;
   const fd = fs.openSync(tmp, 'w', mode);
@@ -356,6 +426,22 @@ function writeFileDurable(path: string, data: Uint8Array | string, mode: number)
 /**
  * An LMS signing key whose state is kept in a directory. Create it once with {@link LmsSigner.create}; reopen it later with
  * {@link LmsSigner.open}. Several processes may sign with the same directory on one host: each takes the lock to reserve an index.
+ *
+ * The directory holds `key.json` (parameters, public key, sealed seed, counter and its HMAC), `tree.bin` (every node of the Merkle tree, so
+ * a signature needs no recomputation of the tree) and, briefly during `sign`, `key.json.lock`. The tree and the seed stay in memory while
+ * the object is in use; call {@link LmsSigner.dispose} to wipe the seed.
+ *
+ * @example
+ * ```ts
+ * import { LmsSigner } from 'quantum-safe-ts/lms-signer';
+ * import { Lms } from 'quantum-safe-ts';
+ *
+ * const signer = LmsSigner.create({ directory: './lms-key', protection: { passphrase: 'correct horse' }, height: 10 });
+ * const signature = signer.sign(firmwareDigest);
+ * Lms.verify(signer.publicKey, firmwareDigest, signature);
+ * signer.dispose();
+ * // later: LmsSigner.open('./lms-key', { passphrase: 'correct horse' })
+ * ```
  */
 export class LmsSigner {
   readonly #dir: string;
@@ -369,6 +455,7 @@ export class LmsSigner {
   readonly #lockTimeout: number;
   #disposed = false;
 
+  /** Holds a verified key: the directory, the parsed key file, the seed, the identifier, the tree, the public key and the lock timeout. */
   private constructor(
     dir: string,
     key: KeyFile,
@@ -389,7 +476,19 @@ export class LmsSigner {
     this.#lockTimeout = lockTimeout;
   }
 
-  /** Generates a new key in `options.directory`. Refuses if a key is already there. */
+  /**
+   * Generates a new key in `options.directory`. Refuses if a key is already there.
+   *
+   * Builds the whole Merkle tree (slow for large heights), writes `tree.bin` and then `key.json`, each durably with mode 0600, and returns a
+   * signer holding the new key. Filesystem errors from creating the directory or writing the files propagate unchanged.
+   * @param options - Directory, protection (required), `height` (default 10), `winternitz` (default 8) and `lockTimeoutMs` (default 5,000).
+   * @returns The signer for the new key; read {@link LmsSigner.publicKey} to publish it.
+   * @throws {UnsupportedAlgorithmError} when not running in Node.js, or for `height` 25.
+   * @throws {InvalidArgumentError} for an empty `directory`, a `height` or `winternitz` outside the supported values, a `protection` that does
+   * not name exactly one of `passphrase` (non-empty), `key` (32 bytes) or `unprotected: true`, or a `scryptLog2N` that is not an integer from
+   * 14 to 22.
+   * @throws {SigningError} if `key.json` or `tree.bin` already exists in the directory.
+   */
   static create(options: LmsSignerCreateOptions): LmsSigner {
     assertNodeRuntime();
     const { directory } = options;
@@ -449,7 +548,19 @@ export class LmsSigner {
     return new LmsSigner(directory, key, seed, i16, tree, publicKey, options.lockTimeoutMs ?? 5_000);
   }
 
-  /** Opens an existing key. Refuses a damaged or inconsistent directory. */
+  /**
+   * Opens an existing key. Refuses a damaged or inconsistent directory.
+   *
+   * Reads `key.json`, unseals the seed, checks the counter's HMAC, then loads `tree.bin` and checks it against the recorded digest and the
+   * public key's root.
+   * @param directory - The directory given to {@link LmsSigner.create}.
+   * @param options - `passphrase` or `key`, matching the protection the key was created with, and `lockTimeoutMs` (default 5,000).
+   * @returns The signer for the stored key.
+   * @throws {UnsupportedAlgorithmError} when not running in Node.js.
+   * @throws {InvalidArgumentError} for an empty `directory`, or a missing or malformed passphrase or key for the stored protection.
+   * @throws {SigningError} if the state cannot be read, is damaged, was modified outside the signer, cannot be unsealed (wrong passphrase or
+   * key), or does not match `tree.bin`.
+   */
   static open(directory: string, options: LmsSignerOpenOptions = {}): LmsSigner {
     assertNodeRuntime();
     if (typeof directory !== 'string' || directory === '') throw new InvalidArgumentError('directory must be a non-empty string');
@@ -482,6 +593,11 @@ export class LmsSigner {
     return new LmsSigner(directory, key, seed, i16, tree, publicKey, options.lockTimeoutMs ?? 5_000);
   }
 
+  /**
+   * Reads and structurally validates `key.json` in `directory`: known format and version, supported parameters, well-typed fields, a counter in
+   * range, and a complete protection record. Throws {@link SigningError} for an unreadable, damaged or unknown-format file. It does not
+   * check the MAC.
+   */
   static #readKey(directory: string): KeyFile {
     let key: KeyFile;
     try {
@@ -520,7 +636,7 @@ export class LmsSigner {
     return key;
   }
 
-  /** The HSS public key (`u32(1) || LMS public key`, 60 bytes), the form {@link Lms.verify} takes. */
+  /** The HSS public key (`u32(1) || LMS public key`, 60 bytes), the form {@link Lms.verify} takes. Each read returns a new copy. */
   get publicKey(): Uint8Array {
     return this.#publicKey.slice();
   }
@@ -535,13 +651,20 @@ export class LmsSigner {
     return 1 << this.#height;
   }
 
-  /** Signatures still available, read from the durable state. */
+  /**
+   * Signatures still available, read from the durable state.
+   * @throws {SigningError} if the signer was disposed, or the state file cannot be read, is damaged, belongs to another key, or was modified
+   * outside the signer.
+   */
   get remaining(): number {
     if (this.#disposed) throw new SigningError('This LmsSigner was disposed; open the key again.');
     return this.capacity - this.#readVerified().next;
   }
 
-  /** The state file, checked: same key as this object, and its authentication code matches. */
+  /**
+   * The state file, checked: same key as this object, and its authentication code matches. Throws {@link SigningError} otherwise.
+   * It takes no lock; `#reserve` calls it while holding the lock.
+   */
   #readVerified(): KeyFile {
     const key = LmsSigner.#readKey(this.#dir);
     if (key.publicKey !== hex(this.#publicKey) || key.I !== hex(this.#i)) {
@@ -553,7 +676,12 @@ export class LmsSigner {
     return key;
   }
 
-  /** Reserves the next index durably and returns it. */
+  /**
+   * Reserves the next index durably and returns it. Takes `key.json.lock` (exclusive create, retrying every 5 ms until `lockTimeoutMs`),
+   * re-reads and verifies the state, writes the incremented counter and its MAC through `writeFileDurable`, and removes the lock in all cases.
+   * The index is recorded as used before it is returned, so a failure after this point can waste an index but never repeat one.
+   * Throws {@link SigningError} if the lock cannot be taken in time, the state is invalid, the key is exhausted, or the write fails.
+   */
   #reserve(): number {
     const lock = join(this.#dir, 'key.json.lock');
     const keyFile = join(this.#dir, 'key.json');
@@ -609,7 +737,13 @@ export class LmsSigner {
    * Signs `message` and returns an HSS signature (`u32(0) || LMS signature`) that `Lms.verify(publicKey, message, signature)` accepts.
    * Consumes one one-time key, durably, before the signature exists.
    *
+   * The signature is checked against the tree root before it is returned. A failure after the index was reserved (for example the self-check)
+   * still counts that index as used.
+   * @param message - The bytes to sign (any length).
+   * @returns The HSS signature, 48 + 32 * (p + height) bytes, with `p` = 265, 133, 67 or 34 for Winternitz 1, 2, 4 or 8.
    * @throws {SigningError} if the state cannot be read or written, the key is exhausted, or the signature fails its own check.
+   * @throws {InvalidArgumentError} if `message` is not a `Uint8Array`.
+   * @throws {UnsupportedAlgorithmError} when not running in Node.js.
    */
   sign(message: Uint8Array): Uint8Array {
     assertNodeRuntime();
@@ -624,7 +758,10 @@ export class LmsSigner {
     return concat(u32(0), lmsSig);
   }
 
-  /** Overwrites the secret seed held in memory. The key on disk is untouched; use `open` to sign again. */
+  /**
+   * Overwrites the secret seed held in memory. The key on disk is untouched; use `open` to sign again.
+   * After this call `sign` and `remaining` throw {@link SigningError}; the public key stays readable.
+   */
   dispose(): void {
     this.#disposed = true;
     this.#seed.fill(0);

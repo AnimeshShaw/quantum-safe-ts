@@ -21,7 +21,15 @@ import { bytes, utf8 } from './utils.js';
  *
  * @param password The password (string, or bytes you control and should wipe afterwards).
  * @param salt At least 8 bytes; use 16+ random bytes per user.
+ * @returns A 32-byte {@link SecretBytes}; free it (or use `using`) when done.
  * @throws {KdfError} for a too-short salt.
+ * @throws {InvalidArgumentError} if `password` is neither a string nor bytes, or `salt` is not bytes.
+ * @throws {NotInitializedError} if `init()` has not completed.
+ * @example
+ * ```ts
+ * using master = await deriveMasterKey('correct horse battery staple', salt);
+ * const authKey = master.deriveKey(32, utf8('myapp-auth-v1'));
+ * ```
  */
 export async function deriveMasterKey(password: string | Uint8Array, salt: Uint8Array): Promise<SecretBytes> {
   const pw = typeof password === 'string' ? utf8(password) : bytes(password, 'password');

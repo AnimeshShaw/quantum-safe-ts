@@ -19,10 +19,25 @@ import { ERRORS, LLMS_TXT, findError, recommend } from './knowledge.js';
 
 export { ERRORS, recommend } from './knowledge.js';
 
+/** Largest number of findings `audit_path` returns in one call. */
 const MAX_FINDINGS = 200;
+/** Severity names from most to least serious; the position in this list is the rank used for `minSeverity`. */
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'] as const;
 
-/** Resolves `userPath` strictly inside `root` (symlink-safe). Throws if it escapes or does not exist. */
+/**
+ * Resolves `userPath` strictly inside `root` (symlink-safe). Throws if it escapes or does not exist.
+ *
+ * A relative `userPath` is taken relative to the real path of `root`; an absolute one is accepted when it lies inside `root`. The path is
+ * resolved through symlinks before the containment check, so a link that points outside the root is refused.
+ * @param root - Directory that bounds access.
+ * @param userPath - Path requested by the caller.
+ * @returns The real (symlink-resolved) absolute path.
+ * @throws {Error} `Path does not exist inside the allowed root.` if the path does not exist; `Path is outside the allowed root.` if its
+ * real path is not inside `root`. Also throws if `root` itself cannot be resolved.
+ * @example
+ * resolveInside('/srv/project', 'src'); // '/srv/project/src'
+ * resolveInside('/srv/project', '../etc'); // throws Error('Path is outside the allowed root.')
+ */
 export function resolveInside(root: string, userPath: string): string {
   const realRoot = realpathSync(root);
   const candidate = isAbsolute(userPath) ? userPath : resolve(realRoot, userPath);
@@ -37,30 +52,68 @@ export function resolveInside(root: string, userPath: string): string {
  * File names and parser errors come from the scanned (possibly hostile) repository. Allow only a conservative character set and length per
  * path; anything else becomes a numbered placeholder. This limits what a file name can smuggle into an agent's context; it cannot make
  * arbitrary words safe, so the tool output also says that file names are untrusted data.
+ *
+ * Backslashes are converted to `/`. A path of at most 120 characters made only of letters, digits and `_ . @ / + # -` is returned;
+ * any other path becomes `[path-with-unusual-characters-<index>]`.
+ * @param p - File path taken from a scan result.
+ * @param index - Position used to number the placeholder.
+ * @returns The normalised path, or the placeholder.
+ * @example
+ * safePath('src\\keys.ts', 0); // 'src/keys.ts'
+ * safePath('a b.ts', 3); // '[path-with-unusual-characters-3]'
  */
 export function safePath(p: string, index: number): string {
   const normalised = p.split(String.fromCharCode(92)).join('/');
   return normalised.length <= 120 && /^[A-Za-z0-9_.@/+#-]+$/.test(normalised) ? normalised : `[path-with-unusual-characters-${index}]`;
 }
 
+/**
+ * Passes a scan error message through when it is at most 160 characters of letters, digits, spaces and `_ . @ / + # : ( ) ' -`,
+ * with no run of two whitespace characters; otherwise returns `[scan problem <index>: details withheld]`.
+ */
 function safeError(e: string, index: number): string {
   return e.length <= 160 && /^[A-Za-z0-9_.@/+#:()' -]+$/.test(e) && !/\s{2,}/.test(e) ? e : `[scan problem ${index}: details withheld]`;
 }
 
+/** Wraps a value as MCP text content: a string as is, anything else as indented JSON. */
 function text(value: unknown) {
   return { content: [{ type: 'text' as const, text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }] };
 }
 
+/** Wraps a message as MCP text content flagged `isError`. */
 function failure(message: string) {
   return { isError: true, content: [{ type: 'text' as const, text: message }] };
 }
 
+/** Options for {@link createServer}. */
 export interface ServerOptions {
   /** Directory `audit_path` may read. Default: `process.env.QS_MCP_ROOT` or the working directory. */
   root?: string;
+  /** Server version reported to MCP clients. Default: `0.1.3`. */
   version?: string;
 }
 
+/**
+ * Creates the MCP server named `quantum-safe`, with the tools `audit_path`, `list_rules`, `explain_rule`, `recommend_suite` and
+ * `explain_error` and the resource `quantum-safe-ts://llms.txt`. The caller connects it to a transport.
+ *
+ * Tool results are text content holding indented JSON. A failure is returned with `isError` set, not thrown:
+ * - `audit_path` scans a file or directory inside the root with the default policy (CNSA 2.0 hashes only when `cnsa2` is set) and returns
+ *   `filesScanned`; `summary` (counts per severity over all findings); `wouldFailCi` (true when any finding is `high` or above);
+ *   `findingsReturned`, `findingsTotal` and `truncated` (at most 200 findings, after the optional `minSeverity` filter); `findings`
+ *   (`rule`, `severity`, `file`, `line`, `message`, `migrateTo`); `scanComplete` (no scan errors); `errors` (first 20, sanitised) and
+ *   `limits`. A path that does not exist or lies outside the root gives an error result.
+ * - `list_rules` returns every rule as `id`, `severity`, `title` and `quantumVulnerable`.
+ * - `explain_rule` returns the full rule for an id such as `QSJ010` (case-insensitive), or an error result for an unknown id.
+ * - `recommend_suite` returns the recommendation of {@link recommend} for a use case; `requireCnsa2` defaults to false and
+ *   `interoperateWith` to `none`.
+ * - `explain_error` returns the entry for an error code or class name (see `findError`), or an error result listing the known codes.
+ * @param options - Root directory and version; see {@link ServerOptions}.
+ * @returns The configured server.
+ * @example
+ * const server = createServer({ root: process.cwd() });
+ * await server.connect(new StdioServerTransport());
+ */
 export function createServer(options: ServerOptions = {}): McpServer {
   const root = options.root ?? process.env.QS_MCP_ROOT ?? process.cwd();
   const server = new McpServer({ name: 'quantum-safe', version: options.version ?? '0.1.3' });

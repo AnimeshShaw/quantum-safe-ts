@@ -14,6 +14,9 @@ use std::fmt::Display;
 
 /// A stable, machine-readable error classification.
 pub trait Kinded: Display {
+    /// The tag thrown to JavaScript as the `kind` property of the `Error`, for example `"decryption_failed"`
+    /// or `"malformed_key"`. Several core variants can share a tag; wrapped errors (`Kem`, `Kdf`, `Aead`)
+    /// return the tag of the error they wrap.
     fn kind(&self) -> &'static str;
 }
 

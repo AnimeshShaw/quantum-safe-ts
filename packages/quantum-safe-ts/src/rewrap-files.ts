@@ -25,20 +25,29 @@ import { Envelope, SealedMessage } from './envelope.js';
 import { InvalidArgumentError } from './errors.js';
 import type { PublicKey, SecretKey } from './keys.js';
 
+/**
+ * The outcome for one file: `rewrapped` (written), `skipped` (not an envelope), `already_migrated` (already under the new key),
+ * `would_rewrap` (dry run: it would be written) or `failed`.
+ */
 export type RewrapStatus = 'rewrapped' | 'skipped' | 'already_migrated' | 'would_rewrap' | 'failed';
 
 /** What happened to one file. */
 export interface RewrapItem {
   /** Path relative to the source directory, with `/` separators. */
   name: string;
+  /** What happened to the file. */
   status: RewrapStatus;
+  /** The envelope's KEM algorithm before the run, or `null` if the file is not an envelope. */
   fromAlgorithm: string | null;
+  /** The envelope's KEM algorithm after the run (or in the existing copy), or `null` when none was produced. */
   toAlgorithm: string | null;
   /** `true` or `false` when `newSecretKey` was given and the copy was compared; otherwise `null`. */
   verified: boolean | null;
+  /** A short reason for `failed` and `skipped` items, never containing key or plaintext data; otherwise `null`. */
   error: string | null;
 }
 
+/** Options for {@link rewrapDirectory}. */
 export interface RewrapOptions {
   /** The secret key the envelopes are sealed to today. */
   oldSecretKey: SecretKey;
@@ -61,8 +70,16 @@ export interface RewrapOptions {
 
 /** The outcome of a run: names, algorithms and counts; never a key or a plaintext. */
 export class RewrapReport {
+  /** One entry per file considered, in the order they were visited (sorted by name within each directory). */
   readonly items: RewrapItem[] = [];
+  /** When the report was created, as an ISO 8601 timestamp. */
   readonly startedAt = new Date().toISOString();
+  /**
+   * @param newAlgorithm - The KEM algorithm of the new public key.
+   * @param dryRun - Whether the run wrote nothing.
+   * @param inPlace - Whether files were replaced in the source directory.
+   * @param aadChecked - Whether the caller supplied the AAD to expect (`expectedAad`).
+   */
   constructor(
     readonly newAlgorithm: string,
     readonly dryRun: boolean,
@@ -70,6 +87,10 @@ export class RewrapReport {
     readonly aadChecked: boolean,
   ) {}
 
+  /**
+   * Counts of items by outcome: `rewrapped`, `skipped` and `failed` (always present), and `would_rewrap` (present only when some item has
+   * that status). An `already_migrated` item is counted under `skipped`.
+   */
   get counts(): Record<string, number> {
     const out: Record<string, number> = { rewrapped: 0, skipped: 0, failed: 0 };
     for (const item of this.items) {
@@ -86,6 +107,10 @@ export class RewrapReport {
     return (this.counts.failed ?? 0) === 0 && this.items.every((i) => !(i.status === 'rewrapped' && i.verified === false));
   }
 
+  /**
+   * The report as a plain object with snake_case keys (`started_at`, `new_algorithm`, `dry_run`, `in_place`, `aad_checked`, `counts`, `items`),
+   * which `JSON.stringify` uses. It contains names, algorithms, statuses and error reasons, never keys or plaintext.
+   */
   toJSON(): Record<string, unknown> {
     return {
       started_at: this.startedAt,
@@ -105,7 +130,15 @@ export class RewrapReport {
     };
   }
 
-  /** A CycloneDX 1.6 document: the algorithms migrated from and to, with counts and status. */
+  /**
+   * A CycloneDX 1.6 document: the algorithms migrated from and to, with counts and status.
+   *
+   * It has one `migrated-from` component per source algorithm of the `rewrapped` and `would_rewrap` items (with the number of items), and one
+   * `migrated-to` component for the new algorithm (with the number of `rewrapped` items). Source algorithms other than the new algorithm are
+   * marked quantum-vulnerable. A fresh serial number and timestamp are generated on each call.
+   * @param applicationName - The name of the subject application in the document (default `envelope-store`).
+   * @returns The document as a plain object, ready for `JSON.stringify`.
+   */
   toCbom(applicationName = 'envelope-store'): Record<string, unknown> {
     const counts = this.counts;
     const fromCounts = new Map<string, number>();
@@ -160,6 +193,7 @@ export class RewrapReport {
   }
 }
 
+/** The SHA-256 of `b` as lowercase hex; used to compare plaintexts without keeping both. */
 const sha256 = (b: Uint8Array): string => createHash('sha256').update(b).digest('hex');
 
 /** The envelope in `raw` and how it was encoded, or `null`. Anything that is not an envelope is skipped, not fatal. */
@@ -178,10 +212,16 @@ function parse(raw: Uint8Array): { sealed: SealedMessage; encoding: 'bytes' | 'h
   }
 }
 
+/** Serialises `sealed` in the encoding the input file used: raw CBOR bytes, or the hex text as ASCII bytes. */
 function encode(sealed: SealedMessage, encoding: 'bytes' | 'hex'): Uint8Array {
   return encoding === 'hex' ? new Uint8Array(Buffer.from(sealed.toHex(), 'ascii')) : sealed.toBytes();
 }
 
+/**
+ * Writes `data` to `path` so readers see the old or the new file, never a partial one: creates the parent directories, writes a
+ * `.<uuid>.tmp` file in the same directory, fsyncs it, renames it over `path`, and removes the temporary file if anything fails.
+ * Filesystem errors propagate.
+ */
 async function writeAtomic(path: string, data: Uint8Array): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const tmp = join(dirname(path), `.${randomUUID()}.tmp`);
@@ -199,6 +239,10 @@ async function writeAtomic(path: string, data: Uint8Array): Promise<void> {
   }
 }
 
+/**
+ * Yields the path of every regular file under `dir`, relative to `base` and with `/` separators. Each directory is read in name order
+ * and subdirectories are visited where they appear; symbolic links and other non-regular entries are not yielded.
+ */
 async function* walk(dir: string, base = dir): AsyncGenerator<string> {
   const entries = await readdir(dir, { withFileTypes: true });
   entries.sort((a, b) => a.name.localeCompare(b.name));
@@ -212,8 +256,24 @@ async function* walk(dir: string, base = dir): AsyncGenerator<string> {
 /**
  * Re-wraps every envelope under `source` from `options.oldSecretKey` to `options.newPublicKey`.
  *
- * @param destination Directory to write, mirroring relative paths. Required unless `options.inPlace`.
+ * Files are visited recursively. Temporary files named `.<anything>.tmp` (left by an interrupted run) are ignored. A file that is not a
+ * `SealedMessage` as raw CBOR or as hex text is reported as `skipped`. A written file keeps its input encoding (raw or hex) and its AAD.
+ * Resuming: with a destination, an existing output is `already_migrated` when it is an envelope of the new algorithm (and, with
+ * `newSecretKey`, opens under it), otherwise the item `failed` and the output is left alone; in place, a file is recognised as already
+ * migrated only when `newSecretKey` is given and opens it.
+ *
+ * @param source - Directory to read.
+ * @param destination - Directory to write, mirroring relative paths. Required unless `options.inPlace`.
+ * @param options - Keys, AAD policy, `inPlace`, `dryRun` and a path `filter` (see {@link RewrapOptions}).
+ * @returns A report with one item per file considered.
  * @throws {InvalidArgumentError} for an unusable argument combination. A bad file never throws: it is reported.
+ * @example
+ * ```ts
+ * import { rewrapDirectory } from 'quantum-safe-ts/rewrap';
+ *
+ * const report = await rewrapDirectory('./vault', './vault-v2', { oldSecretKey, newPublicKey, newSecretKey });
+ * if (!report.ok) console.error(JSON.stringify(report));
+ * ```
  */
 export async function rewrapDirectory(source: string, destination: string | null, options: RewrapOptions): Promise<RewrapReport> {
   const src = resolve(source);
@@ -230,6 +290,7 @@ export async function rewrapDirectory(source: string, destination: string | null
     if (dst === src) throw new InvalidArgumentError('destination is the source directory; pass inPlace: true to replace files there.');
   }
   const report = new RewrapReport(options.newPublicKey.algorithm, options.dryRun === true, inPlace, options.expectedAad !== undefined);
+  /** The AAD to require for a file: the caller's value (or function of the relative path), else the AAD the message already carries. */
   const aadFor = (rel: string, sealed: SealedMessage): Uint8Array => {
     const e = options.expectedAad;
     if (e === undefined) return sealed.aad;

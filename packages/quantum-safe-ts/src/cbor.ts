@@ -5,26 +5,52 @@
  */
 import { InvalidArgumentError } from './errors.js';
 
-/** Marks a number that must be written as a CBOR float even when it is integral (for example a Unix timestamp). */
+/**
+ * Marks a number that must be written as a CBOR float even when it is integral (for example a Unix timestamp).
+ * The encoder writes it as an 8-byte double (initial byte `0xfb`).
+ */
 export class CborFloat {
+  /** @param value - The number to write as a double. */
   constructor(readonly value: number) {}
 }
 
+/** Deepest nesting of arrays and maps, for both encoding and decoding. */
 const MAX_DEPTH = 32;
+/** Most data items one decode may read, and the largest array or map length it accepts. */
 const MAX_ITEMS = 100_000;
 
+/**
+ * A value this codec can encode or decode: `null`, booleans, numbers, text, byte strings, arrays, maps with text keys, and {@link CborFloat}.
+ * A decoded float comes back as a plain `number`.
+ */
 export type CborValue = null | boolean | number | string | Uint8Array | CborValue[] | { [key: string]: CborValue } | CborFloat;
 
+/** Throws {@link InvalidArgumentError} with the message `Malformed CBOR (<why>).`; used for every encoding and decoding failure. */
 const bad = (why: string): never => {
   throw new InvalidArgumentError(`Malformed CBOR (${why}).`);
 };
 
+/**
+ * Encodes `value` as CBOR.
+ *
+ * Safe integers are written as CBOR integers in the shortest form, other finite numbers and {@link CborFloat} values as 8-byte doubles,
+ * text as UTF-8, and maps with their keys in `Object.keys` order.
+ * @param value - The value to encode.
+ * @returns The CBOR bytes.
+ * @throws {InvalidArgumentError} if a number is not finite or the value is nested more than 32 levels deep.
+ * @example
+ * ```ts
+ * const bytes = cborEncode({ id: 'k1', created: new CborFloat(1_700_000_000), tags: ['a', 'b'] });
+ * const value = cborDecode(bytes);
+ * ```
+ */
 export function cborEncode(value: CborValue): Uint8Array {
   const out: number[] = [];
   encode(value, out, 0);
   return Uint8Array.from(out);
 }
 
+/** Appends the initial byte and argument for major type `major` and length or value `n` to `out`, in the shortest form (up to 8 argument bytes). */
 function head(major: number, n: number, out: number[]): void {
   if (n < 24) out.push((major << 5) | n);
   else if (n < 0x100) out.push((major << 5) | 24, n);
@@ -38,6 +64,7 @@ function head(major: number, n: number, out: number[]): void {
   }
 }
 
+/** Appends the encoding of `v` to `out`; `depth` counts the nesting so far and is limited to {@link MAX_DEPTH}. */
 function encode(v: CborValue, out: number[], depth: number): void {
   if (depth > MAX_DEPTH) bad('too deeply nested');
   if (v === null) out.push(0xf6);
@@ -76,6 +103,19 @@ function encode(v: CborValue, out: number[], depth: number): void {
   }
 }
 
+/**
+ * Decodes exactly one CBOR item from `data`.
+ *
+ * Integers (any width, up to the safe-integer range), half, single and double floats, text, byte strings, arrays, maps with text keys,
+ * booleans and `null` are accepted. Maps come back as objects without a prototype. Tags, indefinite lengths, simple values other than
+ * false, true and null, non-text map keys, duplicate keys, non-finite floats, invalid UTF-8 and trailing bytes are refused. Integers are
+ * not required to be in their shortest form.
+ * @param data - The CBOR bytes.
+ * @param maxBytes - Largest accepted input length in bytes (default 16 MiB).
+ * @returns The decoded value.
+ * @throws {InvalidArgumentError} for input that is not bytes, is too large, truncated, nested more than 32 levels, holds more than 100,000
+ * items, or is otherwise outside the accepted subset.
+ */
 export function cborDecode(data: Uint8Array, maxBytes = 16 * 1024 * 1024): CborValue {
   if (!(data instanceof Uint8Array)) bad('input is not bytes');
   if (data.length > maxBytes) bad('input too large');
@@ -85,12 +125,15 @@ export function cborDecode(data: Uint8Array, maxBytes = 16 * 1024 * 1024): CborV
   return v;
 }
 
+/** Decoder state: the input `d`, the read offset `i`, and the number of items read so far (`items`). */
 type Reader = { d: Uint8Array; i: number; items: number };
 
+/** Fails with a "truncated" error unless `n` more bytes are available at the read offset. */
 function need(r: Reader, n: number): void {
   if (n < 0 || r.i + n > r.d.length) bad('truncated');
 }
 
+/** Reads the argument for additional information `info` (the value itself below 24, else 1, 2, 4 or 8 big-endian bytes) and returns it as a safe integer. */
 function readUint(r: Reader, info: number): number {
   if (info < 24) return info;
   const size = info === 24 ? 1 : info === 25 ? 2 : info === 26 ? 4 : info === 27 ? 8 : -1;
@@ -102,6 +145,7 @@ function readUint(r: Reader, info: number): number {
   return n;
 }
 
+/** Reads one item at the current offset. Each call counts against the 100,000-item budget; `depth` is limited to {@link MAX_DEPTH}. */
 function decode(r: Reader, depth: number): CborValue {
   if (depth > MAX_DEPTH) bad('too deeply nested');
   if (++r.items > MAX_ITEMS) bad('too many items');

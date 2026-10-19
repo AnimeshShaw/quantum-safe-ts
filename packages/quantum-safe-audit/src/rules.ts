@@ -10,20 +10,36 @@
  *  - info:     inventory of classical-crypto libraries, and post-quantum usage (a good sign)
  */
 
+/** Severity of a finding, from most to least serious: `critical`, `high`, `medium`, `low`, `info`. */
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
+/** Numeric rank of each {@link Severity} (`info` 0, `low` 1, `medium` 2, `high` 3, `critical` 4); a larger number is more serious. */
 export const SEVERITY_ORDER: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 
+/** CycloneDX cryptographic `primitive` category of an algorithm. */
 export type Primitive = 'pke' | 'signature' | 'key-agree' | 'kem' | 'block-cipher' | 'hash' | 'other';
 
+/**
+ * One entry of the rule catalog: a detection target and the CycloneDX description of the asset it stands for.
+ *
+ * - `id` is the stable identifier (`QSJ` followed by three digits) used in findings, policies and `qs-audit-ignore` comments.
+ * - `severity` is the {@link Severity} given to every finding of the rule.
+ * - `replacement` states what to migrate to, naming quantum-safe-ts APIs where one exists.
+ * - `example` is an optional minimal code snippet showing the replacement.
+ * - `references` lists the URLs of the standards or guidance behind the rule.
+ */
 export interface Rule {
+  /** Rule identifier, for example `QSJ010`. */
   readonly id: string;
+  /** Short name of the rule; it is the base of every finding message. */
   readonly title: string;
+  /** Severity given to findings of this rule. */
   readonly severity: Severity;
   /** Algorithm name as it should appear in an inventory. */
   readonly algorithm: string;
   /** CycloneDX `primitive` value. */
   readonly primitive: Primitive;
+  /** ASN.1 object identifier of the algorithm, used in the CBOM when present. */
   readonly oid?: string;
   /** Approximate classical security level in bits. */
   readonly classicalLevel?: number;
@@ -31,17 +47,20 @@ export interface Rule {
   readonly quantumLevel: number;
   /** True if a cryptographically relevant quantum computer breaks the algorithm outright. */
   readonly quantumVulnerable: boolean;
+  /** Why the algorithm matters, in a sentence or two. */
   readonly description: string;
   /** What to migrate to (names quantum-safe-ts APIs where one exists). */
   readonly replacement: string;
   /** Minimal replacement example. */
   readonly example?: string;
+  /** URLs of the standards or guidance behind the rule; the first is used as the SARIF help link. */
   readonly references: readonly string[];
 }
 
 const NIST_IR_8547 = 'https://csrc.nist.gov/pubs/ir/8547/ipd';
 const CNSA2 = 'https://media.defense.gov/2025/May/30/2003728741/-1/-1/0/CSA_CNSA_2.0_ALGORITHMS.PDF';
 
+/** The rule catalog, in the order the CLI lists it. Each entry follows the structure described at {@link Rule}. */
 export const RULES: readonly Rule[] = [
   {
     id: 'QSJ001',
@@ -302,6 +321,13 @@ export const RULES: readonly Rule[] = [
 
 const BY_ID = new Map(RULES.map((r) => [r.id, r]));
 
+/**
+ * Looks up a rule by its identifier.
+ * @param id - Rule identifier, matched exactly and case-sensitively (for example `QSJ010`).
+ * @returns The rule, or `undefined` if no rule has that identifier.
+ * @example
+ * ruleById('QSJ010')?.title; // 'Elliptic-curve signatures (ECDSA / secp256k1 / P-curves)'
+ */
 export function ruleById(id: string): Rule | undefined {
   return BY_ID.get(id);
 }

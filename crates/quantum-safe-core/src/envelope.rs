@@ -1,7 +1,15 @@
 //! Authenticated-encryption envelope, matching
-//! `quantum_safe.protocols.envelope` exactly. This file is built in two
-//! passes: AAD construction here (Task 5), then `SealedMessage` + CBOR +
-//! `seal`/`open` in Task 6.
+//! `quantum_safe.protocols.envelope` exactly.
+//!
+//! [`seal`] encapsulates to a recipient KEM public key, derives a one-time AES-256 key from the shared
+//! secret, and encrypts with AES-256-GCM; [`open`] reverses it. Two versions exist:
+//!
+//! - v1 (quantum-safe-py compatible): any hybrid KEM suite, key derived with HKDF-SHA256;
+//! - v2 (CNSA 2.0 profile): pure ML-KEM-1024, key derived with HKDF-SHA384.
+//!
+//! The AES-GCM associated data binds the version, the algorithm name and the caller's AAD (see
+//! [`build_aad`]). [`SealedMessage`] is the CBOR-encoded result. [`seal_plan`] and [`open_plan`] expose
+//! the steps before the AES-GCM call so a caller can run the cipher itself.
 
 use crate::aead::{self, AeadError};
 use crate::kdf;
@@ -13,38 +21,57 @@ use ciborium::value::Value;
 use thiserror::Error;
 use zeroize::Zeroizing;
 
+/// Version byte of the quantum-safe-py compatible envelope (hybrid KEM suites, HKDF-SHA256).
 pub const ENVELOPE_VERSION: u8 = 1;
 /// Envelope v2: the CNSA 2.0 profile (pure ML-KEM-1024, HKDF-SHA384, AES-256-GCM). quantum-safe-py (0.3.2 or later) reads and writes it too.
 pub const ENVELOPE_VERSION_CNSA2: u8 = 2;
 /// The only KEM suite v2 envelopes use.
 pub const CNSA2_ENVELOPE_ALGORITHM: &str = "ML-KEM-1024";
+/// HKDF `info` for the v1 AES key.
 const ENC_KEY_INFO: &[u8] = b"qs-envelope-enc-v1";
+/// HKDF `info` for the v2 AES key.
 const ENC_KEY_INFO_V2: &[u8] = b"qs-envelope-enc-v2-cnsa2";
 
+/// Errors returned by sealing, opening and the CBOR encoding of a [`SealedMessage`].
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum EnvelopeError {
+    /// The algorithm name is longer than 255 bytes, so its length does not fit the AAD's length byte.
     #[error("algorithm name of {len} bytes is too long to encode in a single length byte (max 255)")]
     AlgorithmNameTooLong { len: usize },
+    /// Writing the CBOR failed; the field holds the encoder's message.
     #[error("CBOR encoding failed: {0}")]
     CborEncode(String),
+    /// The input is over 10 MB, has a shape the CBOR guard refuses, is not valid CBOR, or is not a map;
+    /// the field holds the reason.
     #[error("CBOR decoding failed: {0}")]
     CborDecode(String),
+    /// A required field (`v`, `algo`, `kct`, `n` or `ct`) is absent or has the wrong CBOR type; the field
+    /// holds its name.
     #[error("sealed message is missing required field '{0}'")]
     MissingField(&'static str),
+    /// The KEM step failed (see [`KemError`]).
     #[error("KEM operation failed: {0}")]
     Kem(#[from] KemError),
+    /// Deriving the AES key failed (see [`KdfError`]).
     #[error("key derivation failed: {0}")]
     Kdf(#[from] KdfError),
+    /// AES-GCM decryption failed (see [`AeadError`]): wrong key, wrong AAD or tampered data.
     #[error("AEAD operation failed: {0}")]
     Aead(#[from] AeadError),
+    /// The message nonce is not 12 bytes.
     #[error("nonce must be exactly {expected} bytes, got {actual}")]
     BadNonceLength { expected: usize, actual: usize },
+    /// The CBOR version is outside 0 to 255.
     #[error("envelope version {0} is out of range for a single byte (0-255)")]
     InvalidVersion(i64),
+    /// The algorithm is neither a hybrid KEM suite (v1) nor ML-KEM-1024 (v2), or the message's version
+    /// does not match its algorithm.
     #[error("envelope suite '{0}' is not supported (v1 needs a hybrid KEM; v2 needs ML-KEM-1024)")]
     UnsupportedSuite(String),
+    /// The version byte is neither 1 nor 2.
     #[error("envelope version {0} is not supported")]
     UnsupportedVersion(u8),
+    /// The message's algorithm differs from the secret key's.
     #[error("sealed message algorithm does not match the secret key algorithm")]
     AlgorithmMismatch,
 }
@@ -54,6 +81,11 @@ pub enum EnvelopeError {
 /// `algorithm` must be ASCII (as quantum-safe-py encodes it with
 /// `.encode("ascii")`) and no longer than 255 bytes, since its length is
 /// encoded in a single byte.
+///
+/// # Errors
+///
+/// [`EnvelopeError::AlgorithmNameTooLong`] when `algorithm` is longer than 255 bytes. ASCII is not
+/// checked here.
 pub fn build_aad(version: u8, algorithm: &str, extra: &[u8]) -> Result<Vec<u8>, EnvelopeError> {
     let algo_bytes = algorithm.as_bytes();
     if algo_bytes.len() > 255 {
@@ -69,19 +101,30 @@ pub fn build_aad(version: u8, algorithm: &str, extra: &[u8]) -> Result<Vec<u8>, 
     Ok(aad)
 }
 
+/// A sealed message: everything the recipient needs to open it, other than the secret key.
 pub struct SealedMessage {
+    /// Envelope version: 1 or 2.
     pub version: u8,
+    /// KEM suite name, e.g. `"X25519+ML-KEM-768"`.
     pub algorithm: String,
+    /// KEM ciphertext in the suite's wire layout.
     pub kem_ct: Vec<u8>,
+    /// AES-GCM nonce; 12 bytes in a valid message.
     pub nonce: Vec<u8>,
+    /// AES-GCM output, `ciphertext || 16-byte tag`.
     pub ciphertext: Vec<u8>,
+    /// The caller's AAD, authenticated but stored in the clear. Empty when the CBOR has no `aad` field.
     pub aad: Vec<u8>,
 }
 
 impl SealedMessage {
     /// CBOR map with keys "v","algo","kct","n","ct","aad" — matching
     /// `SealedMessage.to_bytes()` in quantum-safe-py (`cbor2.dumps` of a
-    /// dict with the same five keys).
+    /// dict with the same six keys).
+    ///
+    /// # Errors
+    ///
+    /// [`EnvelopeError::CborEncode`] if the CBOR writer fails.
     pub fn to_cbor(&self) -> Result<Vec<u8>, EnvelopeError> {
         let value = Value::Map(vec![
             (
@@ -99,6 +142,17 @@ impl SealedMessage {
         Ok(out)
     }
 
+    /// Parses the CBOR written by [`SealedMessage::to_cbor`].
+    ///
+    /// The size limit and the CBOR guard run before decoding. A missing `aad` becomes an empty vector;
+    /// every other field is required. The nonce length is not checked here ([`open_plan`] checks it).
+    ///
+    /// # Errors
+    ///
+    /// - [`EnvelopeError::CborDecode`] for input over 10 MB, a shape the CBOR guard refuses, invalid CBOR,
+    ///   or a top-level value that is not a map.
+    /// - [`EnvelopeError::MissingField`] for an absent or mistyped `v`, `algo`, `kct`, `n` or `ct`.
+    /// - [`EnvelopeError::InvalidVersion`] when `v` does not fit in one byte.
     pub fn from_cbor(data: &[u8]) -> Result<Self, EnvelopeError> {
         if data.len() > crate::keys::MAX_PAYLOAD_BYTES {
             return Err(EnvelopeError::CborDecode(
@@ -151,9 +205,13 @@ impl SealedMessage {
 /// faster AES-256-GCM (Node's native crypto) can encrypt with these values itself and get the same
 /// bytes, then assemble the message with [`SealPlan::into_message`].
 pub struct SealPlan {
+    /// Envelope version chosen from the suite: 1 or 2.
     pub version: u8,
+    /// KEM suite name of the recipient key.
     pub algorithm: String,
+    /// KEM ciphertext for the recipient.
     pub kem_ct: Vec<u8>,
+    /// Random 12-byte nonce.
     pub nonce: [u8; aead::NONCE_LEN],
     /// The AAD passed to AES-GCM: version || algorithm length || algorithm || caller AAD.
     pub built_aad: Vec<u8>,
@@ -179,6 +237,18 @@ impl SealPlan {
 
 /// The key step of [`seal`]: KEM-encapsulate to the recipient, derive the AES key from the shared
 /// secret, generate a random 12-byte nonce and build the AAD.
+///
+/// # Errors
+///
+/// - [`EnvelopeError::UnsupportedSuite`] when the key's algorithm is not a hybrid KEM suite or
+///   ML-KEM-1024.
+/// - [`EnvelopeError::Kem`] when encapsulation fails, e.g. a malformed public key.
+/// - [`EnvelopeError::Kdf`] if key derivation fails.
+/// - [`EnvelopeError::AlgorithmNameTooLong`] if the algorithm name exceeds 255 bytes.
+///
+/// # Panics
+///
+/// Panics if the operating system RNG is unavailable.
 pub fn seal_plan(recipient_public_key: &kem::PublicKey, aad: &[u8]) -> Result<SealPlan, EnvelopeError> {
     let version = version_for(&recipient_public_key.algorithm)?;
     let (kem_ct, shared_secret) = kem::encapsulate(recipient_public_key)?;
@@ -202,6 +272,16 @@ pub fn seal_plan(recipient_public_key: &kem::PublicKey, aad: &[u8]) -> Result<Se
 /// Matches `Envelope.seal`: KEM-encapsulate to the recipient, derive the AES
 /// key from the shared secret, generate a random 12-byte nonce, and
 /// AES-256-GCM-encrypt with the version+algorithm+caller-aad bound in as AAD.
+///
+/// The `aad` is stored in the message and authenticated, not encrypted.
+///
+/// # Errors
+///
+/// The errors of [`seal_plan`]. Encryption itself does not fail.
+///
+/// # Panics
+///
+/// Panics if the operating system RNG is unavailable.
 pub fn seal(
     plaintext: &[u8],
     recipient_public_key: &kem::PublicKey,
@@ -223,6 +303,8 @@ fn version_for(algorithm: &str) -> Result<u8, EnvelopeError> {
     }
 }
 
+// Derives the 32-byte AES key: HKDF-SHA256 with the v1 info for version 1, HKDF-SHA384 with the v2 info
+// for version 2. Any other version is `UnsupportedVersion`.
 fn derive_enc_key(version: u8, shared_secret: &[u8]) -> Result<Zeroizing<[u8; 32]>, EnvelopeError> {
     let okm = Zeroizing::new(match version {
         ENVELOPE_VERSION => kdf::derive_key(shared_secret, ENC_KEY_INFO, aead::KEY_LEN)?,
@@ -236,6 +318,7 @@ fn derive_enc_key(version: u8, shared_secret: &[u8]) -> Result<Zeroizing<[u8; 32
 
 /// What `open` needs for the AES-256-GCM step: the one-time key, the nonce and the AAD to authenticate.
 pub struct OpenPlan {
+    /// The message's 12-byte nonce.
     pub nonce: [u8; aead::NONCE_LEN],
     /// The AAD passed to AES-GCM: version || algorithm length || algorithm || the message's AAD.
     pub built_aad: Vec<u8>,
@@ -245,6 +328,20 @@ pub struct OpenPlan {
 
 /// The key step of [`open`]: checks the message against the key, decapsulates, re-derives the AES key
 /// and rebuilds the AAD. The caller (or [`open`]) then decrypts `sealed.ciphertext` with them.
+///
+/// The checks run in this order: nonce length, version and suite agreement, algorithm against the secret
+/// key, then decapsulation.
+///
+/// # Errors
+///
+/// - [`EnvelopeError::BadNonceLength`] when the nonce is not 12 bytes.
+/// - [`EnvelopeError::UnsupportedSuite`] when the algorithm is not a hybrid KEM suite or ML-KEM-1024, or
+///   when the version is 1 or 2 but not the one that suite uses.
+/// - [`EnvelopeError::UnsupportedVersion`] when the version is neither 1 nor 2 (for a supported suite).
+/// - [`EnvelopeError::AlgorithmMismatch`] when the message's algorithm differs from the secret key's.
+/// - [`EnvelopeError::Kem`] when decapsulation fails, e.g. a wrong-length KEM ciphertext.
+/// - [`EnvelopeError::Kdf`] if key derivation fails.
+/// - [`EnvelopeError::AlgorithmNameTooLong`] if the algorithm name exceeds 255 bytes.
 pub fn open_plan(
     sealed: &SealedMessage,
     recipient_secret_key: &kem::SecretKey,
@@ -287,6 +384,11 @@ pub fn open_plan(
 
 /// Matches `Envelope.open`: KEM-decapsulate, re-derive the same AES key,
 /// rebuild the same AAD, then AES-256-GCM-decrypt+verify.
+///
+/// # Errors
+///
+/// The errors of [`open_plan`], plus [`EnvelopeError::Aead`] when the GCM tag does not verify (wrong
+/// key, modified ciphertext, nonce or AAD).
 pub fn open(sealed: &SealedMessage, recipient_secret_key: &kem::SecretKey) -> Result<Vec<u8>, EnvelopeError> {
     let plan = open_plan(sealed, recipient_secret_key)?;
     Ok(aead::decrypt(

@@ -10,16 +10,22 @@ use std::fmt;
 /// Post-quantum KEM parameter sets (FIPS 203).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Pqc {
+    /// ML-KEM-512 (NIST level 1).
     MlKem512,
+    /// ML-KEM-768 (NIST level 3).
     MlKem768,
+    /// ML-KEM-1024 (NIST level 5).
     MlKem1024,
 }
 
 /// Classical halves of a hybrid KEM.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Classical {
+    /// X25519 key agreement; public keys are 32 bytes.
     X25519,
+    /// NIST P-256 ECDH; public keys are 65-byte uncompressed points.
     P256,
+    /// NIST P-384 ECDH; public keys are 97-byte uncompressed points.
     P384,
 }
 
@@ -36,7 +42,7 @@ pub enum KemSuite {
     XWing,
 }
 
-/// NIST PQC security category (FIPS 203 §8).
+/// NIST PQC security category (FIPS 203 §8), as the category number 1 to 5.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NistLevel(pub u8);
 
@@ -44,9 +50,11 @@ pub struct NistLevel(pub u8);
 pub const DEFAULT_KEM: &str = "X25519+ML-KEM-768";
 /// The hybrid at CNSA 2.0's ML-KEM parameter set, kept for quantum-safe-py compatibility. CNSA 2.0 does not prescribe hybrids (NSA's FAQ); pure `ML-KEM-1024` is the compliant choice.
 pub const CNSA2_KEM: &str = "X25519+ML-KEM-1024";
+/// Canonical algorithm string of the X-Wing suite.
 pub const XWING_NAME: &str = "X-Wing";
 
 impl Pqc {
+    /// Canonical name, e.g. `"ML-KEM-768"`.
     pub fn name(self) -> &'static str {
         match self {
             Pqc::MlKem512 => "ML-KEM-512",
@@ -54,6 +62,7 @@ impl Pqc {
             Pqc::MlKem1024 => "ML-KEM-1024",
         }
     }
+    /// Parses a canonical name; `None` if it is not one of the three ML-KEM names.
     pub fn from_name(s: &str) -> Option<Self> {
         match s {
             "ML-KEM-512" => Some(Pqc::MlKem512),
@@ -70,6 +79,7 @@ impl Pqc {
             Pqc::MlKem1024 => (1568, 3168, 1568),
         }
     }
+    /// NIST category of the parameter set: 1, 3 or 5.
     pub fn nist_level(self) -> NistLevel {
         match self {
             Pqc::MlKem512 => NistLevel(1),
@@ -80,6 +90,7 @@ impl Pqc {
 }
 
 impl Classical {
+    /// Canonical name: `"X25519"`, `"P-256"` or `"P-384"`.
     pub fn name(self) -> &'static str {
         match self {
             Classical::X25519 => "X25519",
@@ -87,6 +98,7 @@ impl Classical {
             Classical::P384 => "P-384",
         }
     }
+    /// Parses a canonical name; `None` if it is not one of the three classical names.
     pub fn from_name(s: &str) -> Option<Self> {
         match s {
             "X25519" => Some(Classical::X25519),
@@ -107,6 +119,8 @@ impl Classical {
 }
 
 /// Approved classical/PQC pairings, mirroring `HYBRID_COMBINATIONS` in quantum-safe-py.
+///
+/// X25519 pairs with every ML-KEM set, P-256 with ML-KEM-512 and ML-KEM-768, and P-384 with ML-KEM-1024.
 pub fn is_approved_hybrid(c: Classical, p: Pqc) -> bool {
     match c {
         Classical::X25519 => true,
@@ -138,6 +152,7 @@ impl KemSuite {
         }
     }
 
+    /// True for every suite except pure ML-KEM, so X-Wing counts as hybrid.
     pub fn is_hybrid(self) -> bool {
         !matches!(self, KemSuite::Pure(_))
     }

@@ -11,23 +11,44 @@
 
 /** AES-256-GCM with a 12-byte nonce and a 16-byte tag. */
 export interface NativeAead {
-  /** Encrypts `plaintext`; returns `ciphertext || tag`. */
+  /**
+   * Encrypts `plaintext`; returns `ciphertext || tag`.
+   * @param key - 32-byte AES-256 key.
+   * @param nonce - 12-byte nonce.
+   * @param aad - Associated data to authenticate.
+   * @param plaintext - Bytes to encrypt.
+   * @returns The ciphertext followed by the 16-byte tag.
+   */
   encrypt(key: Uint8Array, nonce: Uint8Array, aad: Uint8Array, plaintext: Uint8Array): Uint8Array;
-  /** Decrypts `ciphertext || tag`; returns `null` when authentication fails (never throws for bad data). */
+  /**
+   * Decrypts `ciphertext || tag`; returns `null` when authentication fails (never throws for bad data).
+   * @param key - 32-byte AES-256 key.
+   * @param nonce - 12-byte nonce.
+   * @param aad - Associated data to authenticate.
+   * @param ciphertextWithTag - The ciphertext followed by the 16-byte tag.
+   * @returns The plaintext, or `null` when authentication fails.
+   */
   decrypt(key: Uint8Array, nonce: Uint8Array, aad: Uint8Array, ciphertextWithTag: Uint8Array): Uint8Array | null;
 }
 
 /** Below this many bytes the WebAssembly path is used: the extra calls to fetch the key cost more than the faster cipher saves. */
 export const NATIVE_AEAD_MIN_BYTES = 16 * 1024;
 
+/** The implementation registered by the entry point, or `null` when none is available. */
 let registered: NativeAead | null = null;
 
-/** @internal Registers (or, with `null`, removes) the native implementation. Called by the Node.js entry point. */
+/**
+ * @internal Registers (or, with `null`, removes) the native implementation. Called by the Node.js entry point.
+ * @param impl - The AES-256-GCM implementation, or `null` to remove it.
+ */
 export function setNativeAead(impl: NativeAead | null): void {
   registered = impl;
 }
 
-/** @internal The registered implementation, if any. */
+/**
+ * @internal The registered implementation, if any.
+ * @returns The registered {@link NativeAead}, or `null` when the WebAssembly path is the only one.
+ */
 export function nativeAead(): NativeAead | null {
   return registered;
 }

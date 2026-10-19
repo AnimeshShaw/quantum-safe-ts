@@ -1,7 +1,7 @@
 //! Digital signatures, matching `quantum_safe.signatures` byte for byte:
 //!
 //! - pure ML-DSA-44/65/87 (`Sign`) and SLH-DSA (FIPS 205);
-//! - hybrid `Ed25519+ML-DSA-{44,65,87}` and `P-256+ML-DSA-{44,65}` (`HybridSign`).
+//! - hybrid `Ed25519+ML-DSA-{44,65,87}`, `P-256+ML-DSA-{44,65}` and `P-384+ML-DSA-87` (`HybridSign`).
 //!
 //! **Construction (verified against quantum-safe-py 0.3.0 with liboqs).** quantum-safe-py does
 //! *not* use FIPS 204/205's native context parameter. Every sub-signature is a plain
@@ -19,7 +19,10 @@
 //! Key layouts: ML-DSA secret keys are the *expanded* FIPS 204 encoding (2560/4032/4896 B, as
 //! liboqs emits). Hybrid keys use `u16_be(len(classical)) || classical || pqc`. Ed25519:
 //! 32 B keys. P-256 signing: public key = raw `x || y` (64 B, no 0x04 tag), secret key =
-//! PKCS#8 PEM text bytes, signature = DER ECDSA-SHA256.
+//! PKCS#8 PEM text bytes, signature = DER ECDSA-SHA256. P-384 follows the same layout (96 B public
+//! key) with ECDSA-SHA384.
+//!
+//! [`v2`] holds the `<suite>-v2` format and [`standard`] the plain FIPS 204 ML-DSA mode.
 
 use crate::kem::{PublicKey, SecretKey};
 use crate::keys::MigrationState;
@@ -31,32 +34,47 @@ use zeroize::Zeroizing;
 
 /// Number of random bytes prepended in hedged mode (`HEDGED_RANDOMNESS_BYTES`).
 pub const HEDGE_BYTES: usize = 32;
+/// Longest signing context in bytes; its length is stored in one byte.
 pub const MAX_CONTEXT_LEN: usize = 255;
+/// Value of the `v` field in a [`SignedMessage`]'s CBOR.
 pub const SIGNED_MESSAGE_VERSION: i64 = 1;
 /// Mirrors the 10 MB cap in quantum-safe-py's serialization layer.
 pub const MAX_PAYLOAD_BYTES: usize = 10 * 1024 * 1024;
 
+/// Default hybrid signature suite.
 pub const DEFAULT_HYBRID_SIG: &str = "Ed25519+ML-DSA-65";
+/// Default pure signature suite.
 pub const DEFAULT_SIG: &str = "ML-DSA-65";
 /// The hybrid at CNSA 2.0's ML-DSA parameter set, kept for quantum-safe-py compatibility. CNSA 2.0 does not prescribe hybrids; pure `ML-DSA-87` is the compliant choice.
 pub const CNSA2_SIG: &str = "Ed25519+ML-DSA-87";
 
+/// Errors returned by key generation, signing, verification and [`SignedMessage`] parsing.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum SigError {
+    /// The algorithm string is not a signature suite (or `-v2` identifier) this library supports; the
+    /// field holds the string.
     #[error("unsupported or unapproved signature algorithm '{0}'")]
     UnsupportedAlgorithm(String),
+    /// The public key's algorithm differs from the message's.
     #[error("key algorithm does not match the signed message / expected algorithm")]
     AlgorithmMismatch,
+    /// A key has the wrong length for its suite or fails to parse.
     #[error("key bytes are malformed or have the wrong length")]
     MalformedKey,
+    /// The context is longer than [`MAX_CONTEXT_LEN`]; the field is its length.
     #[error("context must be at most {MAX_CONTEXT_LEN} bytes, got {0}")]
     ContextTooLong(usize),
+    /// The message to sign (or in a parsed [`SignedMessage`]) is empty.
     #[error("message cannot be empty")]
     EmptyMessage,
+    /// The OS RNG failed or the signing primitive returned an error.
     #[error("signing failed")]
     SigningFailed,
+    /// The signature does not verify, or its blob is malformed.
     #[error("signature verification failed")]
     VerificationFailed,
+    /// A [`SignedMessage`] CBOR payload is invalid; the field says how, and the message reads
+    /// "SignedMessage" followed by that text.
     #[error("SignedMessage {0}")]
     Format(String),
 }
@@ -65,13 +83,19 @@ pub enum SigError {
 // Registry
 // ---------------------------------------------------------------------------
 
+/// ML-DSA parameter sets (FIPS 204).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MlDsaLevel {
+    /// ML-DSA-44.
     L44,
+    /// ML-DSA-65.
     L65,
+    /// ML-DSA-87.
     L87,
 }
 
+/// The twelve SLH-DSA parameter sets (FIPS 205): SHAKE and SHA2 variants at 128, 192 and 256 bits, each
+/// in a small-signature (`s`) and a fast-signing (`f`) form.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SlhParam {
     Shake128s,
@@ -88,20 +112,29 @@ pub enum SlhParam {
     Sha2_256f,
 }
 
+/// Classical halves of a hybrid signature.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ClassicalSig {
+    /// Ed25519.
     Ed25519,
+    /// ECDSA over P-256 with SHA-256.
     P256,
+    /// ECDSA over P-384 with SHA-384.
     P384,
 }
 
+/// A complete signature suite as addressed by its canonical algorithm string.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SigSuite {
+    /// Pure ML-DSA, e.g. `"ML-DSA-65"`.
     MlDsa(MlDsaLevel),
+    /// Pure SLH-DSA, e.g. `"SLH-DSA-SHAKE-128f"`.
     Slh(SlhParam),
+    /// Classical + ML-DSA, e.g. `"Ed25519+ML-DSA-65"`.
     Hybrid(ClassicalSig, MlDsaLevel),
 }
 
+/// Per SLH-DSA parameter set: `(param, canonical name, public key bytes, secret key bytes, signature bytes)`.
 const SLH_TABLE: [(SlhParam, &str, usize, usize, usize); 12] = [
     (SlhParam::Shake128s, "SLH-DSA-SHAKE-128s", 32, 64, 7856),
     (SlhParam::Shake128f, "SLH-DSA-SHAKE-128f", 32, 64, 17088),
@@ -118,6 +151,7 @@ const SLH_TABLE: [(SlhParam, &str, usize, usize, usize); 12] = [
 ];
 
 impl MlDsaLevel {
+    /// Canonical name, e.g. `"ML-DSA-65"`.
     pub fn name(self) -> &'static str {
         match self {
             MlDsaLevel::L44 => "ML-DSA-44",
@@ -125,6 +159,7 @@ impl MlDsaLevel {
             MlDsaLevel::L87 => "ML-DSA-87",
         }
     }
+    /// Parses a canonical name; `None` for anything else.
     pub fn from_name(s: &str) -> Option<Self> {
         match s {
             "ML-DSA-44" => Some(Self::L44),
@@ -141,6 +176,7 @@ impl MlDsaLevel {
             MlDsaLevel::L87 => (2592, 4896, 4627),
         }
     }
+    /// NIST category of the parameter set: 2, 3 or 5.
     pub fn nist_level(self) -> u8 {
         match self {
             MlDsaLevel::L44 => 2,
@@ -151,6 +187,7 @@ impl MlDsaLevel {
 }
 
 impl SlhParam {
+    /// Canonical name, e.g. `"SLH-DSA-SHAKE-128s"`.
     pub fn name(self) -> &'static str {
         SLH_TABLE
             .iter()
@@ -158,6 +195,7 @@ impl SlhParam {
             .map(|r| r.1)
             .expect("table covers every variant")
     }
+    /// Parses a canonical name; `None` for anything else.
     pub fn from_name(s: &str) -> Option<Self> {
         SLH_TABLE.iter().find(|r| r.1 == s).map(|r| r.0)
     }
@@ -177,6 +215,7 @@ impl SlhParam {
             SlhParam::Shake128s | SlhParam::Shake128f | SlhParam::Shake256s
         )
     }
+    /// NIST category of the parameter set: 1 (128-bit), 3 (192-bit) or 5 (256-bit).
     pub fn nist_level(self) -> u8 {
         match self.sizes().0 {
             32 => 1,
@@ -184,12 +223,15 @@ impl SlhParam {
             _ => 5,
         }
     }
+    /// Security parameter `n` in bytes: half the public key size (16, 24 or 32). It is also the length of the
+    /// optional randomness passed when signing.
     fn n(self) -> usize {
         self.sizes().0 / 2
     }
 }
 
 impl ClassicalSig {
+    /// Canonical name: `"Ed25519"`, `"P-256"` or `"P-384"`.
     pub fn name(self) -> &'static str {
         match self {
             ClassicalSig::Ed25519 => "Ed25519",
@@ -197,6 +239,7 @@ impl ClassicalSig {
             ClassicalSig::P384 => "P-384",
         }
     }
+    /// Parses a canonical name; `None` for anything else.
     pub fn from_name(s: &str) -> Option<Self> {
         match s {
             "Ed25519" => Some(Self::Ed25519),
@@ -208,6 +251,8 @@ impl ClassicalSig {
 }
 
 /// Approved hybrid pairings, mirroring `HYBRID_SIGNATURE_COMBINATIONS`.
+///
+/// Ed25519 pairs with every ML-DSA level, P-256 with ML-DSA-44 and ML-DSA-65, and P-384 with ML-DSA-87.
 pub fn is_approved_hybrid(c: ClassicalSig, l: MlDsaLevel) -> bool {
     match c {
         ClassicalSig::Ed25519 => true,
@@ -217,6 +262,8 @@ pub fn is_approved_hybrid(c: ClassicalSig, l: MlDsaLevel) -> bool {
 }
 
 impl SigSuite {
+    /// Parses a canonical algorithm string. `None` for anything unknown, for an unapproved hybrid pairing,
+    /// and for a `-v2` identifier (see [`v2::base_of`]).
     pub fn parse(name: &str) -> Option<Self> {
         if let Some((c, p)) = name.split_once('+') {
             let (c, l) = (ClassicalSig::from_name(c)?, MlDsaLevel::from_name(p)?);
@@ -228,6 +275,7 @@ impl SigSuite {
         SlhParam::from_name(name).map(SigSuite::Slh)
     }
 
+    /// Canonical algorithm string.
     pub fn name(self) -> String {
         match self {
             SigSuite::MlDsa(l) => l.name().to_string(),
@@ -236,10 +284,12 @@ impl SigSuite {
         }
     }
 
+    /// True for classical + ML-DSA suites.
     pub fn is_hybrid(self) -> bool {
         matches!(self, SigSuite::Hybrid(..))
     }
 
+    /// `HybridTransition` for hybrid suites, `PqcOnly` for pure ones.
     pub fn migration_state(self) -> MigrationState {
         if self.is_hybrid() {
             MigrationState::HybridTransition
@@ -256,6 +306,8 @@ impl SigSuite {
         )
     }
 
+    /// All suites this library can instantiate (without `-v2` identifiers): the pure ML-DSA sets, the approved
+    /// hybrids, then the twelve SLH-DSA sets.
     pub fn all() -> Vec<SigSuite> {
         let mut v = Vec::new();
         for l in [MlDsaLevel::L44, MlDsaLevel::L65, MlDsaLevel::L87] {
@@ -310,12 +362,18 @@ fn validate_expanded_mldsa_sk(level: MlDsaLevel, sk: &[u8]) -> bool {
     }
 }
 
+// Expands to a module `$m` for one ML-DSA level (`$ty`, `$level`) with two groups of functions:
+// the quantum-safe-py construction (`keygen`, `sign`, `sign_ctx`, `verify`, `verify_ctx`: expanded secret
+// keys) and standards mode (`std_*`: 32-byte seeds). Callers check key and signature lengths first;
+// signing always draws 32 fresh random bytes (hedged), and verification returns `Ok(false)` for an
+// unparsable signature or an over-long context.
 macro_rules! mldsa_level {
     ($m:ident, $ty:ty, $level:expr) => {
         mod $m {
             use super::*;
             use ml_dsa::{ExpandedSigningKey, Signature, VerifyingKey};
 
+            /// Generates a key pair from a random seed, returning `(expanded secret key, public key)`.
             pub fn keygen() -> (Zeroizing<Vec<u8>>, Vec<u8>) {
                 let mut seed_bytes = Zeroizing::new([0u8; 32]);
                 getrandom::fill(&mut seed_bytes[..]).expect("OS RNG must be available");
@@ -355,10 +413,13 @@ macro_rules! mldsa_level {
                 Ok(sig.encode().as_slice().to_vec())
             }
 
+            /// Verifies with an empty context; see `verify_ctx`.
             pub fn verify(pk: &[u8], msg: &[u8], sig: &[u8]) -> Result<bool, SigError> {
                 verify_ctx(pk, msg, &[], sig)
             }
 
+            /// Verifies `sig` over `msg` with FIPS 204 context `ctx`. `MalformedKey` for an unusable public key;
+            /// an unparsable signature or a context over 255 bytes gives `Ok(false)`.
             pub fn verify_ctx(pk: &[u8], msg: &[u8], ctx: &[u8], sig: &[u8]) -> Result<bool, SigError> {
                 let enc =
                     ml_dsa::EncodedVerifyingKey::<$ty>::try_from(pk).map_err(|_| SigError::MalformedKey)?;
@@ -374,6 +435,7 @@ macro_rules! mldsa_level {
 
             // --- standards mode (FIPS 204 / RFC 9964): seed keys, native context, no prefix ---
 
+            /// Generates a random 32-byte seed and its public key, returning `(seed, public key)`.
             pub fn std_keygen() -> (Zeroizing<Vec<u8>>, Vec<u8>) {
                 let mut seed = Zeroizing::new([0u8; 32]);
                 getrandom::fill(&mut seed[..]).expect("OS RNG must be available");
@@ -381,12 +443,14 @@ macro_rules! mldsa_level {
                 (Zeroizing::new(seed.to_vec()), pk)
             }
 
+            /// The public key for a 32-byte seed; `MalformedKey` if the seed is not 32 bytes.
             pub fn std_public(seed: &[u8]) -> Result<Vec<u8>, SigError> {
                 let seed: [u8; 32] = seed.try_into().map_err(|_| SigError::MalformedKey)?;
                 let esk = ExpandedSigningKey::<$ty>::from_seed(&ml_dsa::Seed::from(seed));
                 Ok(esk.verifying_key().encode().as_slice().to_vec())
             }
 
+            /// Signs `msg` with FIPS 204 context `ctx` (at most 255 bytes) from a 32-byte seed.
             pub fn std_sign(seed: &[u8], msg: &[u8], ctx: &[u8]) -> Result<Vec<u8>, SigError> {
                 if ctx.len() > MAX_CONTEXT_LEN {
                     return Err(SigError::ContextTooLong(ctx.len()));
@@ -401,6 +465,7 @@ macro_rules! mldsa_level {
                 Ok(sig.encode().as_slice().to_vec())
             }
 
+            /// Verifies a standards-mode signature; failure modes as for `verify_ctx`.
             pub fn std_verify(pk: &[u8], msg: &[u8], ctx: &[u8], sig: &[u8]) -> Result<bool, SigError> {
                 let enc =
                     ml_dsa::EncodedVerifyingKey::<$ty>::try_from(pk).map_err(|_| SigError::MalformedKey)?;
@@ -421,6 +486,7 @@ mldsa_level!(mldsa44, ml_dsa::MlDsa44, MlDsaLevel::L44);
 mldsa_level!(mldsa65, ml_dsa::MlDsa65, MlDsaLevel::L65);
 mldsa_level!(mldsa87, ml_dsa::MlDsa87, MlDsaLevel::L87);
 
+/// Generates an ML-DSA key pair, returning `(expanded secret key, public key)`.
 fn mldsa_keygen(l: MlDsaLevel) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
     match l {
         MlDsaLevel::L44 => mldsa44::keygen(),
@@ -429,6 +495,7 @@ fn mldsa_keygen(l: MlDsaLevel) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
     }
 }
 
+/// Signs `msg` with an empty FIPS 204 context.
 fn mldsa_sign(l: MlDsaLevel, sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SigError> {
     match l {
         MlDsaLevel::L44 => mldsa44::sign(sk, msg),
@@ -437,6 +504,7 @@ fn mldsa_sign(l: MlDsaLevel, sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SigError>
     }
 }
 
+/// Signs `msg` with FIPS 204 context `ctx`.
 fn mldsa_sign_ctx(l: MlDsaLevel, sk: &[u8], msg: &[u8], ctx: &[u8]) -> Result<Vec<u8>, SigError> {
     match l {
         MlDsaLevel::L44 => mldsa44::sign_ctx(sk, msg, ctx),
@@ -445,6 +513,8 @@ fn mldsa_sign_ctx(l: MlDsaLevel, sk: &[u8], msg: &[u8], ctx: &[u8]) -> Result<Ve
     }
 }
 
+/// Verifies with FIPS 204 context `ctx`. A public key of the wrong length is `MalformedKey`; a signature of
+/// the wrong length is `Ok(false)`.
 fn mldsa_verify_ctx(l: MlDsaLevel, pk: &[u8], msg: &[u8], ctx: &[u8], sig: &[u8]) -> Result<bool, SigError> {
     if pk.len() != l.sizes().0 {
         return Err(SigError::MalformedKey);
@@ -459,6 +529,7 @@ fn mldsa_verify_ctx(l: MlDsaLevel, pk: &[u8], msg: &[u8], ctx: &[u8], sig: &[u8]
     }
 }
 
+/// Verifies with an empty FIPS 204 context; length handling as for `mldsa_verify_ctx`.
 fn mldsa_verify(l: MlDsaLevel, pk: &[u8], msg: &[u8], sig: &[u8]) -> Result<bool, SigError> {
     if pk.len() != l.sizes().0 {
         return Err(SigError::MalformedKey);
@@ -500,6 +571,8 @@ impl rand_core06::RngCore for SysRng06 {
 }
 impl rand_core06::CryptoRng for SysRng06 {}
 
+// Expands to a module `$m` with `keygen`, `sign` and `verify` for one SLH-DSA parameter set `$ty`. Signing
+// uses an empty FIPS 205 context and `n` fresh random bytes as the optional randomness.
 macro_rules! slh_param {
     ($m:ident, $ty:ty) => {
         mod $m {
@@ -545,6 +618,7 @@ slh_param!(sha2_192f, slh_dsa::Sha2_192f);
 slh_param!(sha2_256s, slh_dsa::Sha2_256s);
 slh_param!(sha2_256f, slh_dsa::Sha2_256f);
 
+/// Generates an SLH-DSA key pair, returning `(secret key, public key)`.
 fn slh_keygen(p: SlhParam) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
     match p {
         SlhParam::Shake128s => shake128s::keygen(),
@@ -562,6 +636,7 @@ fn slh_keygen(p: SlhParam) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
     }
 }
 
+/// Signs `msg`; a secret key of the wrong length is `MalformedKey`.
 fn slh_sign(p: SlhParam, sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SigError> {
     if sk.len() != p.sizes().1 {
         return Err(SigError::MalformedKey);
@@ -583,6 +658,8 @@ fn slh_sign(p: SlhParam, sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SigError> {
     }
 }
 
+/// Verifies `sig`; a public key of the wrong length is `MalformedKey`, a signature of the wrong length is
+/// `Ok(false)`.
 fn slh_verify(p: SlhParam, pk: &[u8], msg: &[u8], sig: &[u8]) -> Result<bool, SigError> {
     if pk.len() != p.sizes().0 {
         return Err(SigError::MalformedKey);
@@ -613,6 +690,8 @@ fn slh_verify(p: SlhParam, pk: &[u8], msg: &[u8], sig: &[u8]) -> Result<bool, Si
 use ed25519_dalek::{Signer as _, Verifier as _};
 use p256::pkcs8::{DecodePrivateKey, EncodePrivateKey};
 
+/// Generates the classical half of a hybrid key, returning `(secret, public)`. Ed25519 secrets are 32-byte
+/// seeds; P-256 and P-384 secrets are PKCS#8 PEM text bytes and their public keys are raw `x || y`.
 fn classical_sig_keygen(c: ClassicalSig) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
     match c {
         ClassicalSig::Ed25519 => {
@@ -644,6 +723,7 @@ fn classical_sig_keygen(c: ClassicalSig) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
     }
 }
 
+/// Signs `msg` with the classical half: Ed25519, or DER-encoded ECDSA (SHA-256 for P-256, SHA-384 for P-384).
 fn classical_sign(c: ClassicalSig, sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, SigError> {
     match c {
         ClassicalSig::Ed25519 => {
@@ -669,6 +749,8 @@ fn classical_sign(c: ClassicalSig, sk: &[u8], msg: &[u8]) -> Result<Vec<u8>, Sig
     }
 }
 
+/// Verifies the classical half. A public key of the wrong length or off the curve is `MalformedKey`; a
+/// signature that does not parse is `Ok(false)`. Ed25519 uses strict verification.
 fn classical_verify(c: ClassicalSig, pk: &[u8], msg: &[u8], sig: &[u8]) -> Result<bool, SigError> {
     match c {
         ClassicalSig::Ed25519 => {
@@ -719,16 +801,23 @@ fn classical_verify(c: ClassicalSig, pk: &[u8], msg: &[u8], sig: &[u8]) -> Resul
 /// `quantum_safe.types.signatures.SignedMessage`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SignedMessage {
+    /// The signed message.
     pub message: Vec<u8>,
+    /// The signature blob in the format of `algorithm`.
     pub signature: Vec<u8>,
+    /// Canonical algorithm string, including the `-v2` tag for v2 signatures.
     pub algorithm: String,
+    /// The signing context, at most 255 bytes; part of the signed input.
     pub context: Vec<u8>,
+    /// Fingerprint of the signer's key, as supplied at signing time. Metadata only; not covered by the signature.
     pub signer_fingerprint: String,
     /// Unix timestamp (seconds). Metadata only; not covered by the signature.
     pub signed_at: f64,
+    /// True when the algorithm is a hybrid suite. Metadata only; verification uses `algorithm`.
     pub is_hybrid: bool,
 }
 
+/// Looks up a text key in a decoded CBOR map; the first match wins.
 fn map_get<'a>(entries: &'a [(Value, Value)], key: &str) -> Option<&'a Value> {
     entries.iter().find_map(|(k, v)| match k {
         Value::Text(t) if t == key => Some(v),
@@ -737,6 +826,7 @@ fn map_get<'a>(entries: &'a [(Value, Value)], key: &str) -> Option<&'a Value> {
 }
 
 impl SignedMessage {
+    /// Serializes as the CBOR map `{v, msg, sig, algo, ctx, fp, ts, hybrid}`.
     pub fn to_cbor(&self) -> Vec<u8> {
         let value = Value::Map(vec![
             (
@@ -759,6 +849,17 @@ impl SignedMessage {
         out
     }
 
+    /// Parses the CBOR written by [`SignedMessage::to_cbor`]. Nothing here verifies the signature.
+    ///
+    /// `ctx`, `fp`, `ts` and `hybrid` are optional and default to empty, empty, 0.0 and false.
+    ///
+    /// # Errors
+    ///
+    /// - [`SigError::Format`] for input over 10 MB, a shape the CBOR guard refuses, undecodable CBOR, a
+    ///   top-level value that is not a map, a version other than 1, a missing `algo`, `msg` or `sig`, an
+    ///   empty signature, or a mistyped `ctx`.
+    /// - [`SigError::EmptyMessage`] when `msg` is empty.
+    /// - [`SigError::ContextTooLong`] when `ctx` is over 255 bytes.
     pub fn from_cbor(data: &[u8]) -> Result<Self, SigError> {
         let fmt = |s: &str| SigError::Format(s.to_string());
         if data.len() > MAX_PAYLOAD_BYTES {
@@ -822,21 +923,38 @@ impl SignedMessage {
 
 #[derive(Clone, Debug, Default)]
 pub struct SignOptions {
-    /// Prepend 32 random bytes (default in quantum-safe-py). Set `false` for deterministic input.
+    /// When `false` (the default), 32 random bytes are prepended to the signed input and stored in the
+    /// signature blob, as quantum-safe-py does by default. When `true`, that prefix is omitted. Only the
+    /// prefix is affected: ML-DSA and SLH-DSA signing still draw fresh randomness. `-v2` signatures have
+    /// no prefix and ignore this field.
     pub deterministic: bool,
+    /// Stored in the [`SignedMessage`]; not signed.
     pub signer_fingerprint: String,
+    /// Unix timestamp in seconds stored in the [`SignedMessage`]; not signed.
     pub signed_at: f64,
 }
 
+/// A matching signature public key and secret key.
 pub struct SigKeyPair {
+    /// The public key.
     pub public: PublicKey,
+    /// The secret key.
     pub secret: SecretKey,
 }
 
+/// Resolves an algorithm string to a suite or `UnsupportedAlgorithm`.
 fn suite_of(algorithm: &str) -> Result<SigSuite, SigError> {
     SigSuite::parse(algorithm).ok_or_else(|| SigError::UnsupportedAlgorithm(algorithm.to_string()))
 }
 
+/// Generate a key pair for `algorithm`, a signature suite or a `-v2` identifier.
+///
+/// Hybrid keys are `u16_be(len(classical)) || classical || pqc`. A `-v2` pair holds the same key bytes as
+/// its base suite with the algorithm string tagged `-v2`.
+///
+/// # Errors
+///
+/// [`SigError::UnsupportedAlgorithm`] when `algorithm` is not a supported suite.
 pub fn generate_keypair(algorithm: &str) -> Result<SigKeyPair, SigError> {
     if v2::base_of(algorithm).is_some() {
         return v2::generate_keypair(algorithm);
@@ -867,6 +985,7 @@ pub fn generate_keypair(algorithm: &str) -> Result<SigKeyPair, SigError> {
     })
 }
 
+/// Builds the v1 signature blob `len(rand_prefix) (1 byte) || rand_prefix || payload`.
 fn pack_sig_blob(rand_prefix: &[u8], payload: &[u8]) -> Vec<u8> {
     let mut v = Vec::with_capacity(1 + rand_prefix.len() + payload.len());
     v.push(rand_prefix.len() as u8);
@@ -875,6 +994,8 @@ fn pack_sig_blob(rand_prefix: &[u8], payload: &[u8]) -> Vec<u8> {
     v
 }
 
+/// Splits a v1 signature blob into `(rand_prefix, payload)`; `None` if it is empty or shorter than its
+/// prefix length says.
 fn unpack_sig_blob(blob: &[u8]) -> Option<(&[u8], &[u8])> {
     let (&n, rest) = blob.split_first()?;
     let n = n as usize;
@@ -894,6 +1015,7 @@ fn signing_input(context: &[u8], rand_prefix: &[u8], message: &[u8]) -> Vec<u8> 
     v
 }
 
+/// CBOR payload of a v1 hybrid signature: `{classical_sig, pqc_sig, classical_algo, pqc_algo}`.
 fn hybrid_payload(classical_sig: &[u8], pqc_sig: &[u8], c: ClassicalSig, l: MlDsaLevel) -> Vec<u8> {
     let value = Value::Map(vec![
         (
@@ -909,6 +1031,8 @@ fn hybrid_payload(classical_sig: &[u8], pqc_sig: &[u8], c: ClassicalSig, l: MlDs
     out
 }
 
+/// Parses a v1 hybrid payload into `(classical_sig, pqc_sig, classical_algo, pqc_algo)`. `None` unless it
+/// is a map of exactly those four entries with the right types; the size limit and CBOR guard apply first.
 fn parse_hybrid_payload(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>, String, String)> {
     if data.len() > MAX_PAYLOAD_BYTES {
         return None;
@@ -938,6 +1062,19 @@ fn parse_hybrid_payload(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>, String, String
 
 /// Sign `message` with `secret`. Both `Sign` and `HybridSign` semantics, selected by the
 /// key's algorithm.
+///
+/// A `-v2` secret key produces a v2 signature (see [`v2`]). Otherwise the signature blob is
+/// `len(rand_prefix) || rand_prefix || payload`; for a hybrid the payload is CBOR holding both
+/// signatures, and both halves sign the same input. `signed_at` and `signer_fingerprint` are copied from
+/// `opts` into the result unsigned.
+///
+/// # Errors
+///
+/// - [`SigError::UnsupportedAlgorithm`] when the key's algorithm is not a supported suite.
+/// - [`SigError::ContextTooLong`] when `context` is over 255 bytes.
+/// - [`SigError::EmptyMessage`] when `message` is empty.
+/// - [`SigError::MalformedKey`] when the secret key has the wrong length or does not parse.
+/// - [`SigError::SigningFailed`] when the OS RNG or the signing primitive fails.
 pub fn sign(
     secret: &SecretKey,
     message: &[u8],
@@ -984,6 +1121,17 @@ pub fn sign(
 
 /// Verify raw parts. All failure modes of the *signature* collapse to `VerificationFailed`
 /// (no oracle); an unusable *public key* is reported as `MalformedKey`.
+///
+/// For a hybrid, both halves are verified before the results are combined, and the algorithm names inside
+/// the payload must match the suite.
+///
+/// # Errors
+///
+/// - [`SigError::UnsupportedAlgorithm`] when `algorithm` is not a supported suite.
+/// - [`SigError::AlgorithmMismatch`] when `public.algorithm` differs from `algorithm`.
+/// - [`SigError::MalformedKey`] when the public key has the wrong length or does not parse.
+/// - [`SigError::VerificationFailed`] when the context is over 255 bytes, the blob is malformed, or the
+///   signature does not verify.
 pub fn verify_parts(
     algorithm: &str,
     message: &[u8],
@@ -1029,6 +1177,11 @@ pub fn verify_parts(
     }
 }
 
+/// Verify a [`SignedMessage`] against `public`; shorthand for [`verify_parts`] on its fields.
+///
+/// # Errors
+///
+/// As for [`verify_parts`].
 pub fn verify(signed: &SignedMessage, public: &PublicKey) -> Result<(), SigError> {
     verify_parts(
         &signed.algorithm,
@@ -1047,6 +1200,7 @@ pub mod v2;
 pub mod standard {
     use super::*;
 
+    /// Generates a random 32-byte seed (the secret key) and its public key, returning `(seed, public key)`.
     pub fn keygen(level: MlDsaLevel) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
         match level {
             MlDsaLevel::L44 => mldsa44::std_keygen(),
@@ -1055,6 +1209,11 @@ pub mod standard {
         }
     }
 
+    /// The public key for a 32-byte seed.
+    ///
+    /// # Errors
+    ///
+    /// [`SigError::MalformedKey`] when `seed` is not 32 bytes.
     pub fn public_from_seed(level: MlDsaLevel, seed: &[u8]) -> Result<Vec<u8>, SigError> {
         match level {
             MlDsaLevel::L44 => mldsa44::std_public(seed),
@@ -1063,6 +1222,13 @@ pub mod standard {
         }
     }
 
+    /// Signs `msg` with FIPS 204 `ML-DSA.Sign`, passing `ctx` as the native context. Signing is hedged.
+    ///
+    /// # Errors
+    ///
+    /// - [`SigError::ContextTooLong`] when `ctx` is over 255 bytes.
+    /// - [`SigError::MalformedKey`] when `seed` is not 32 bytes.
+    /// - [`SigError::SigningFailed`] when the OS RNG fails.
     pub fn sign(level: MlDsaLevel, seed: &[u8], msg: &[u8], ctx: &[u8]) -> Result<Vec<u8>, SigError> {
         match level {
             MlDsaLevel::L44 => mldsa44::std_sign(seed, msg, ctx),
@@ -1071,6 +1237,14 @@ pub mod standard {
         }
     }
 
+    /// Verifies a signature made by [`sign`] (or any FIPS 204 signer using context `ctx`).
+    ///
+    /// Returns `Ok(false)` for a signature of the wrong length or one that does not verify, including a
+    /// context over 255 bytes.
+    ///
+    /// # Errors
+    ///
+    /// [`SigError::MalformedKey`] when the public key has the wrong length.
     pub fn verify(
         level: MlDsaLevel,
         pk: &[u8],

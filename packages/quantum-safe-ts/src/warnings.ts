@@ -23,27 +23,42 @@ export type QuantumSafeWarningCode = 'QS_CONTEXT_OMITTED' | 'QS_AAD_OMITTED' | '
 
 /** One advisory. */
 export interface QuantumSafeWarning {
+  /** Which advisory this is. */
   readonly code: QuantumSafeWarningCode;
+  /** What to change; never contains a secret, a context or an AAD value. */
   readonly message: string;
 }
 
+/** Receiver of warnings installed with {@link warnings.onWarning}. */
 type Handler = (warning: QuantumSafeWarning) => void;
 
+/** Codes that are currently silenced. */
 const silenced = new Set<string>();
+/** Keys (`code@call site`) already emitted; each is emitted once. */
 const seenSites = new Set<string>();
+/** Custom delivery function, or `null` for the default (`process.emitWarning` or `console.warn`). */
 let handler: Handler | null = null;
 
 /** Controls for the library's developer advisories. */
 export const warnings = {
-  /** Stops emitting `code`. */
+  /**
+   * Stops emitting `code`.
+   * @param codes - One or more warning codes.
+   */
   silence(...codes: QuantumSafeWarningCode[]): void {
     for (const c of codes) silenced.add(c);
   },
-  /** Resumes emitting `code`. */
+  /**
+   * Resumes emitting `code`.
+   * @param codes - One or more warning codes.
+   */
   unsilence(...codes: QuantumSafeWarningCode[]): void {
     for (const c of codes) silenced.delete(c);
   },
-  /** Delivers warnings to `fn` instead of `process.emitWarning` / `console.warn`. Pass `null` to restore the default. */
+  /**
+   * Delivers warnings to `fn` instead of `process.emitWarning` / `console.warn`. Pass `null` to restore the default.
+   * @param fn - Receives each emitted {@link QuantumSafeWarning}, or `null` for the default delivery.
+   */
   onWarning(fn: Handler | null): void {
     handler = fn;
   },
@@ -56,9 +71,13 @@ export const warnings = {
 } as const;
 
 // A frame belongs to the library itself when it is inside this package's built or source files.
+/** Matches stack lines that belong to this package, so that `callSite()` can skip them. */
 const OWN_FRAME = /quantum-safe-ts[\\/](?:packages[\\/]quantum-safe-ts[\\/])?(?:dist|src)[\\/]|node_modules[\\/]quantum-safe-ts[\\/]/;
 
-/** The first stack frame outside the library: where the application made the call. */
+/**
+ * The first stack frame outside the library: where the application made the call.
+ * @returns The trimmed stack line, or `'unknown'` when every frame belongs to the library.
+ */
 function callSite(): string {
   const stack = new Error().stack ?? '';
   for (const line of stack.split('\n').slice(1)) {
@@ -69,7 +88,13 @@ function callSite(): string {
   return 'unknown';
 }
 
-/** @internal Emits `message` for `code` once per application call site. */
+/**
+ * @internal Emits `message` for `code` once per application call site.
+ * Does nothing when `code` is silenced or the call site has already produced this code. Delivery goes to the handler from
+ * {@link warnings.onWarning}, else to `process.emitWarning`, else to `console.warn`.
+ * @param code - Warning code.
+ * @param message - Text for the developer; must not contain secrets.
+ */
 export function warnOnce(code: QuantumSafeWarningCode, message: string): void {
   if (silenced.has(code)) return;
   const key = `${code}@${callSite()}`;

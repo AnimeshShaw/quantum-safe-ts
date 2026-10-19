@@ -1,4 +1,17 @@
 #!/usr/bin/env node
+/**
+ * Command-line entry point of quantum-safe-audit.
+ *
+ * Commands: `scan`, `cbom`, `sbom`, `rules` and `explain` (see the help text below for options). The process exit code is:
+ * - 0: the command succeeded. For `scan`, no finding is at or above `--fail-on`; `cbom` always exits 0 when the scan was complete;
+ *   `--help` and `--version` exit 0.
+ * - 1: `scan` (including `scan --format cbom`) found a finding at or above `--fail-on` (default `high`) in a complete scan.
+ * - 2: a usage or I/O error: a flag without its value, no command (the help is printed), an unknown command, rule, `--fail-on` value or
+ *   `--format`, an unreadable policy, a missing or invalid SBOM; or an incomplete scan (a file skipped or not analysable, or no file
+ *   scanned) unless `--allow-incomplete` is given. An incomplete scan exits 2 even when findings would have exited 1.
+ *
+ * Exceptions not caught here (for example a failure to write the `--output` file) end the process with Node's uncaught-exception code.
+ */
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { buildCbom } from './cbom.js';
@@ -9,8 +22,10 @@ import type { Severity } from './rules.js';
 import { loadPolicy, scanPaths } from './walk.js';
 import type { Policy } from './walk.js';
 
+/** Version printed by `--version` and recorded in SARIF and CBOM output. */
 const VERSION = '0.1.3';
 
+/** Help text printed by `--help`, and after a usage error. */
 const HELP = `quantum-safe-audit: find classical (quantum-vulnerable) cryptography in JavaScript/TypeScript projects
 
 Usage:
@@ -41,11 +56,20 @@ Exit codes: 0 ok; 1 findings at or above --fail-on; 2 usage or I/O error.
 Suppress a finding in code with:  // qs-audit-ignore QSJ010 reason   (same or next line)
 This tool reports what the source names. It is an inventory, not a compliance verdict.`;
 
+/** Parsed command line: flags by name (without the leading dashes), and the remaining positional arguments in order. */
 interface Parsed {
   flags: Record<string, string | boolean | string[]>;
   positional: string[];
 }
 
+/**
+ * Splits `argv` into flags and positional arguments.
+ * `-h` and `-v` set `help` and `version`. A `--name` flag in the boolean set (`cnsa2`, `no-provided`, `json`, `help`, `version`,
+ * `allow-incomplete`, `no-config`, `no-inline-ignore`, `no-default-excludes`) takes no value; any other `--name` takes the text after `=`
+ * or else the next argument, so an unrecognised flag consumes the argument that follows it. `--exclude` and `--ignore-rule` collect
+ * every occurrence into a list.
+ * @throws {Error} If a flag that takes a value is the last argument.
+ */
 function parseArgs(argv: string[]): Parsed {
   const flags: Parsed['flags'] = {};
   const positional: string[] = [];
@@ -74,6 +98,11 @@ function parseArgs(argv: string[]): Parsed {
   return { flags, positional };
 }
 
+/**
+ * Runs the command named by `process.argv` and returns the exit code (see the module comment); the caller passes it to `process.exit`.
+ * The result goes to stdout, or to the `--output` file; diagnostics and the SBOM readiness summary go to stderr. Policy settings come from
+ * `--policy`, else `./.qs-audit.json` when present (unless `--no-config`), and command-line flags are applied on top of them.
+ */
 function main(): number {
   let parsed: Parsed;
   try {

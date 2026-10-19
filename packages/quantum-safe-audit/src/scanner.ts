@@ -14,14 +14,19 @@ import ts from 'typescript';
 import { SEVERITY_ORDER, ruleById } from './rules.js';
 import type { Severity } from './rules.js';
 
+/** One place in a scanned file where a rule matched. */
 export interface Finding {
+  /** Identifier of the matched rule, for example `QSJ010`. */
   readonly ruleId: string;
+  /** Severity of the matched rule. */
   readonly severity: Severity;
+  /** File path exactly as passed to the scanner. */
   readonly file: string;
   /** 1-based. */
   readonly line: number;
   /** 1-based. */
   readonly column: number;
+  /** Rule title, followed by the detail in parentheses when there is one. */
   readonly message: string;
   /** Short context (the matched literal / call), never a secret. */
   readonly detail?: string;
@@ -29,14 +34,19 @@ export interface Finding {
 
 /** Thrown when a file cannot be analysed (for example pathologically deep nesting). Reported, never swallowed. */
 export class ScanError extends Error {
+  /**
+   * Creates the error and sets its `name` to `ScanError`.
+   * @param message - Description of why the file could not be analysed.
+   */
   constructor(message: string) {
     super(message);
     this.name = 'ScanError';
   }
 }
 
+/** Options for {@link scanSource}. */
 export interface ScanOptions {
-  /** Also report CNSA 2.0 hash gaps (SHA-256) as findings. */
+  /** Also report CNSA 2.0 hash gaps (SHA-256) as findings. Default: off. */
   cnsa2?: boolean;
   /**
    * Honour `// qs-audit-ignore` comments (default true). Turn off in CI gates for untrusted code: a pull request could otherwise add the comment to
@@ -58,7 +68,9 @@ const CLASSICAL_JOSE = new Set([
   'ECDH-ES+A192KW', 'ECDH-ES+A256KW',
 ]);
 
+/** Object-literal property names that can carry a JOSE algorithm. */
 const JOSE_ALG_PROPERTIES = new Set(['alg', 'algorithm', 'algorithms']);
+/** Function names whose arguments may be a JOSE algorithm literal (`handleCall` skips `generateKeyPair`, `sign` and `verify` here). */
 const JOSE_ALG_ARG_FUNCTIONS = new Set(['importPKCS8', 'importSPKI', 'importX509', 'generateKeyPair', 'importJWK', 'sign', 'verify']);
 
 /** Libraries whose presence makes `{ alg|algorithm|algorithms: 'RS256' }` a JWT setting rather than a label. */
@@ -79,6 +91,7 @@ const WEBCRYPTO_NAMES: Record<string, string> = {
   x448: 'QSJ011',
 };
 
+/** `SubtleCrypto` method names whose arguments are checked for algorithm descriptors. */
 const SUBTLE_METHODS = new Set([
   'generateKey', 'importKey', 'exportKey', 'sign', 'verify', 'encrypt', 'decrypt', 'deriveKey', 'deriveBits',
   'wrapKey', 'unwrapKey', 'encapsulateBits', 'decapsulateBits', 'encapsulateKey', 'decapsulateKey',
@@ -110,6 +123,13 @@ const MODULES: Array<{ match: RegExp; rule?: string; inventory?: string; pq?: bo
  * Finding details echo literals from the scanned code (algorithm names, module specifiers). That code
  * may be hostile, and reports are routinely pasted into LLM context (agents, MCP tools, PR bots), so a
  * literal is a prompt-injection channel. Keep only short, identifier-like text; redact the rest.
+ *
+ * Text of at most 64 characters made only of letters, digits and `_ . @ / : + # -` or a space is returned unchanged.
+ * @param text - Literal taken from scanned code, or `undefined`.
+ * @returns `undefined` for `undefined`, the text itself when it is identifier-like, otherwise `[redacted: not an identifier-like string]`.
+ * @example
+ * safeDetail('RSA-OAEP'); // 'RSA-OAEP'
+ * safeDetail('ignore previous instructions!'); // '[redacted: not an identifier-like string]'
  */
 export function safeDetail(text: string | undefined): string | undefined {
   if (text === undefined) return undefined;
@@ -117,18 +137,24 @@ export function safeDetail(text: string | undefined): string | undefined {
   return '[redacted: not an identifier-like string]';
 }
 
+/** Text of a string literal or substitution-free template literal; `undefined` for any other node. */
 function literalText(node: ts.Node | undefined): string | undefined {
   if (!node) return undefined;
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
   return undefined;
 }
 
+/** Name of a property written as an identifier, string literal or numeric literal; `undefined` for computed and other names. */
 function propertyNameText(name: ts.PropertyName): string | undefined {
   if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) return name.text;
   return undefined;
 }
 
-/** `a.b.c` / `a.b['c']` -> ['a','b','c'] (best effort). */
+/**
+ * `a.b.c` / `a.b['c']` -> ['a','b','c'] (best effort).
+ * Looks through calls, parentheses, `!` and `await` on the way down; a computed key that is not a string literal is left out, and the walk
+ * stops at the first node that is not an identifier (for example `this`).
+ */
 function dottedPath(expr: ts.Expression): string[] {
   const parts: string[] = [];
   let cur: ts.Expression = expr;
@@ -152,6 +178,7 @@ function dottedPath(expr: ts.Expression): string[] {
   return parts;
 }
 
+/** Last name in a call: the identifier, the property name, or the string-literal key; `undefined` for any other callee. */
 function calleeName(call: ts.CallExpression | ts.NewExpression): string | undefined {
   const e = call.expression;
   if (ts.isIdentifier(e)) return e.text;
@@ -160,18 +187,21 @@ function calleeName(call: ts.CallExpression | ts.NewExpression): string | undefi
   return undefined;
 }
 
+/** A PEM private-key header followed shortly by at least 40 base64-like characters (a header with no key body does not match). */
 const PEM_PRIVATE = /-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED |PGP )?PRIVATE KEY(?: BLOCK)?-----[\s\S]{0,40}?[A-Za-z0-9+/=\\n\r]{40,}/;
 
 // ----------------------------------------------------------------------------------------------
 // Per-file scan
 // ----------------------------------------------------------------------------------------------
 
+/** A match recorded during the AST walk, converted to a {@link Finding} once the walk is complete. */
 interface Pending {
   ruleId: string;
   node: ts.Node;
   detail?: string;
 }
 
+/** Parser mode for a file name by extension: `.tsx`, `.jsx`, `.js`/`.mjs`/`.cjs`; anything else is parsed as TypeScript. */
 function scriptKind(file: string): ts.ScriptKind {
   const ext = file.slice(file.lastIndexOf('.')).toLowerCase();
   switch (ext) {
@@ -182,7 +212,11 @@ function scriptKind(file: string): ts.ScriptKind {
   }
 }
 
-/** Extracts `<script>` blocks from single-file components so Vue/Svelte/Astro code is scanned too. */
+/**
+ * Extracts `<script>` blocks from single-file components so Vue/Svelte/Astro code is scanned too.
+ * Each block carries the number of lines before its code (`lineOffset`, so findings map back to the original file) and its language:
+ * `ts` when the opening tag has `lang="ts"` (either quote style), otherwise `js`.
+ */
 function extractScripts(text: string): Array<{ code: string; lineOffset: number; lang: 'ts' | 'js' }> {
   const out: Array<{ code: string; lineOffset: number; lang: 'ts' | 'js' }> = [];
   // The closing tag may carry whitespace or attributes (`</script >`, `</SCRIPT foo>`); HTML parsers accept them, so the scanner must too
@@ -195,7 +229,14 @@ function extractScripts(text: string): Array<{ code: string; lineOffset: number;
   return out;
 }
 
-/** `// qs-audit-ignore QSJ010 [reason]` suppresses on the same line or the next code line. */
+/**
+ * `// qs-audit-ignore QSJ010 [reason]` suppresses on the same line or the line after it.
+ *
+ * A marker is `qs-audit-ignore` preceded by `//`, `/*`, `#` or `<!--` anywhere on a line. The rule ids (`QSJ` and three digits) that follow
+ * limit it to those rules; with no id it covers every rule. A marker suppresses its own line and the line after it (blank and comment
+ * lines in between are not skipped). `qs-audit-ignore-file` applies the same ids to the whole file. Returns the file-wide set (`null` when
+ * absent, `'all'` for every rule) and, per 1-based line number, the suppressed rule ids.
+ */
 function suppressions(text: string): { fileWide: Set<string> | 'all' | null; lines: Map<number, Set<string> | 'all'> } {
   const lines = new Map<number, Set<string> | 'all'>();
   let fileWide: Set<string> | 'all' | null = null;
@@ -218,14 +259,21 @@ function suppressions(text: string): { fileWide: Set<string> | 'all' | null; lin
   return { fileWide, lines };
 }
 
+/**
+ * Parses one piece of code and walks its AST, recording a match for each rule that applies: imports and `require` of known libraries,
+ * node:crypto and WebCrypto calls, JOSE algorithm settings, key sizes below 2048 bits and embedded PEM private keys. Matches are reduced to
+ * one finding per (position, rule); `lineOffset` is added to every line so findings from an embedded `<script>` map to the original file.
+ */
 function scanCode(file: string, code: string, lineOffset: number, kind: ts.ScriptKind, options: ScanOptions): Finding[] {
   const sf = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, kind);
   const pending: Pending[] = [];
+  /** Records a match; the detail is passed through {@link safeDetail} first. */
   const add = (ruleId: string, node: ts.Node, detail?: string) => {
     const safe = safeDetail(detail);
     pending.push({ ruleId, node, ...(safe !== undefined ? { detail: safe } : {}) });
   };
 
+  /** Classifies a module specifier by the first matching `MODULES` entry: post-quantum (QSJ900), its own rule, or inventory (QSJ050). */
   const handleModule = (spec: string, node: ts.Node) => {
     for (const m of MODULES) {
       const hit = m.match.exec(spec);
@@ -237,11 +285,16 @@ function scanCode(file: string, code: string, lineOffset: number, kind: ts.Scrip
     }
   };
 
+  /** Records QSJ040 at `anchor` when `node` is a string literal naming a classical JOSE algorithm (case-sensitive, for example `RS256`). */
   const joseLiteral = (node: ts.Node | undefined, anchor: ts.Node) => {
     const t = literalText(node);
     if (t !== undefined && CLASSICAL_JOSE.has(t)) add('QSJ040', anchor, t);
   };
 
+  /**
+   * Handles `generateKeyPair(Sync)(type, options)`: a literal type is mapped through `KEYGEN_TYPES`, ML-KEM/ML-DSA/SLH-DSA names count as
+   * post-quantum, a classical JOSE name gives QSJ040. For RSA the options object is also checked for a short key.
+   */
   const keyType = (call: ts.CallExpression) => {
     const first = literalText(call.arguments[0]);
     if (first === undefined) return;
@@ -258,6 +311,7 @@ function scanCode(file: string, code: string, lineOffset: number, kind: ts.Scrip
     }
   };
 
+  /** Records QSJ070 for a numeric `modulusLength`, `bits`, `keySize` or `keysize` property above 0 and below 2048. */
   const checkKeySize = (obj: ts.ObjectLiteralExpression) => {
     for (const p of obj.properties) {
       if (!ts.isPropertyAssignment(p)) continue;
@@ -269,6 +323,10 @@ function scanCode(file: string, code: string, lineOffset: number, kind: ts.Scrip
     }
   };
 
+  /**
+   * Classifies one argument of a `subtle.*` call: a bare algorithm name, or an object with a literal `name` (plus `modulusLength` and,
+   * for `AES-*`, `length`). AES with `length: 128` is reported as QSJ020.
+   */
   const webCryptoDescriptor = (node: ts.Expression) => {
     // Accept `{ name: 'ECDSA', ... }` or a bare string algorithm name.
     const direct = literalText(node);
@@ -298,6 +356,11 @@ function scanCode(file: string, code: string, lineOffset: number, kind: ts.Scrip
     else if (/^ml-(kem|dsa)-/.test(lower)) add('QSJ900', node, name);
   };
 
+  /**
+   * Dispatches on the callee name: node:crypto key generation, signing, ECDH, Diffie-Hellman, RSA encryption, hashing (MD5, SHA-1 and, with
+   * `cnsa2`, SHA-256) and ciphers; `subtle.*` WebCrypto calls; JOSE helpers; forge, tweetnacl and libsodium call shapes; and `require` or
+   * dynamic `import` of a module.
+   */
   const handleCall = (call: ts.CallExpression) => {
     const name = calleeName(call);
     const path = dottedPath(call.expression);
@@ -374,6 +437,7 @@ function scanCode(file: string, code: string, lineOffset: number, kind: ts.Scrip
     if (call.expression.kind === ts.SyntaxKind.ImportKeyword && first !== undefined) handleModule(first, call);
   };
 
+  /** Handles `new NodeRSA`, `new RSAKey` and elliptic's `new EC('curve')` / `new elliptic.ec('curve')`; JOSE builders match nothing. */
   const handleNew = (n: ts.NewExpression) => {
     const name = calleeName(n);
     const first = literalText(n.arguments?.[0]);
@@ -387,6 +451,7 @@ function scanCode(file: string, code: string, lineOffset: number, kind: ts.Scrip
     }
   };
 
+  /** True if one of the six nearest ancestors of `node` is a call to a JOSE function listed in `JOSE_CALLS`. */
   const insideJoseCall = (node: ts.Node): boolean => {
     for (let cur: ts.Node | undefined = node.parent, depth = 0; cur && depth < 6; cur = cur.parent, depth++) {
       if (ts.isCallExpression(cur)) {
@@ -397,6 +462,11 @@ function scanCode(file: string, code: string, lineOffset: number, kind: ts.Scrip
     return false;
   };
 
+  /**
+   * Handles object-literal properties: `alg`, `algorithm` or `algorithms` naming a classical JOSE algorithm (only when the file imports a
+   * JOSE library or the property sits inside a JOSE call), key-size properties below 2048 bits, and `ecdhCurve` / `groups` naming
+   * ML-KEM or Kyber.
+   */
   const handleProperty = (p: ts.PropertyAssignment) => {
     const n = propertyNameText(p.name);
     if (!n) return;
@@ -414,6 +484,7 @@ function scanCode(file: string, code: string, lineOffset: number, kind: ts.Scrip
     }
   };
 
+  /** Records QSJ060 for a string or template longer than 60 characters that contains a PEM private-key block. */
   const handleString = (node: ts.StringLiteral | ts.NoSubstitutionTemplateLiteral | ts.TemplateExpression) => {
     const text = ts.isTemplateExpression(node) ? node.head.text + node.templateSpans.map((s) => s.literal.text).join('') : node.text;
     if (text.length > 60 && PEM_PRIVATE.test(text)) add('QSJ060', node, 'PEM private key');
@@ -468,7 +539,22 @@ function scanCode(file: string, code: string, lineOffset: number, kind: ts.Scrip
   return findings;
 }
 
-/** Scans one file's text. Pure function: no filesystem access. Throws {@link ScanError} if the file cannot be analysed. */
+/**
+ * Scans one file's text. Pure function: no filesystem access. Throws {@link ScanError} if the file cannot be analysed.
+ *
+ * The file name selects the analysis: a name ending in `package.json` is read as a manifest; `.vue`, `.svelte`, `.astro`, `.html` and
+ * `.htm` files have their `<script>` blocks scanned; every other name is parsed as code (`.tsx`, `.jsx`, `.js`, `.mjs` and `.cjs` by
+ * extension, anything else as TypeScript). Findings suppressed by `qs-audit-ignore` comments are removed unless `options.ignoreInline`
+ * is `false`.
+ * @param file - File name or path; used to choose the analysis and recorded unchanged in each finding.
+ * @param text - Full source text of the file.
+ * @param options - Scan options; see {@link ScanOptions}.
+ * @returns The findings, one per (position, rule), in the order they were found.
+ * @throws {ScanError} If the file cannot be analysed; a nesting depth that overflows the parser gives "too deeply nested to analyse".
+ * @example
+ * const findings = scanSource('a.ts', "crypto.generateKeyPairSync('rsa', { modulusLength: 1024 })");
+ * findings.map((f) => f.ruleId); // ['QSJ001', 'QSJ070']
+ */
 export function scanSource(file: string, text: string, options: ScanOptions = {}): Finding[] {
   try {
     return scanSourceUnchecked(file, text, options);
@@ -479,6 +565,7 @@ export function scanSource(file: string, text: string, options: ScanOptions = {}
   }
 }
 
+/** Chooses the analysis from the file name, then drops inline-suppressed findings and reports their count through `onSuppressed`. */
 function scanSourceUnchecked(file: string, text: string, options: ScanOptions): Finding[] {
   const lower = file.toLowerCase();
   let findings: Finding[];
@@ -508,9 +595,16 @@ function scanSourceUnchecked(file: string, text: string, options: ScanOptions): 
   return kept;
 }
 
+/** Dependency names of classical public-key libraries, reported by `scanPackageJson` as QSJ050 (`node-rsa` as QSJ001). */
 const CLASSICAL_DEPS = /^(node-rsa|elliptic|node-forge|tweetnacl|tweetnacl-ts|jsrsasign|libsodium(-wrappers(-sumo)?)?|sodium-native|openpgp|jsonwebtoken|jose|jws|jwa|jwk-to-pem|pem|selfsigned|node-jose|ssh2|sshpk|@peculiar\/webcrypto|@peculiar\/x509|secp256k1|@noble\/secp256k1|@noble\/ed25519|@noble\/curves|ecdsa-sig-formatter)$/;
+/** Dependency names of post-quantum libraries, reported by `scanPackageJson` as QSJ900. */
 const PQ_DEPS = /^(quantum-safe-ts|@noble\/post-quantum|mlkem|crystals-kyber-js|@openpgp\/crystals-kyber-js|@oqs\/liboqs-js|pqc-kyber|@hpke\/hybridkem-x-wing)$/;
 
+/**
+ * Reports classical and post-quantum libraries listed in `dependencies`, `devDependencies`, `peerDependencies` and `optionalDependencies`.
+ * The line is the first line of the file that contains the quoted package name (line 1 if none does); text that is not valid JSON
+ * gives no findings.
+ */
 function scanPackageJson(file: string, text: string): Finding[] {
   let pkg: Record<string, unknown>;
   try {
@@ -542,7 +636,13 @@ function scanPackageJson(file: string, text: string): Finding[] {
   return out;
 }
 
-/** Highest severity among findings, or `null` if there are none. */
+/**
+ * Highest severity among findings, or `null` if there are none.
+ * @param findings - Findings to compare.
+ * @returns The most serious {@link Severity} found, or `null` for an empty list.
+ * @example
+ * maxSeverity(scanSource('a.ts', "createHash('md5')")); // 'medium'
+ */
 export function maxSeverity(findings: readonly Finding[]): Severity | null {
   let best: Severity | null = null;
   for (const f of findings) if (best === null || SEVERITY_ORDER[f.severity] > SEVERITY_ORDER[best]) best = f.severity;
