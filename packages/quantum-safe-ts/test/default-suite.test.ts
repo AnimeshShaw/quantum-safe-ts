@@ -1,5 +1,5 @@
 /**
- * The default hybrid signature suite is `Ed25519+ML-DSA-65-v2` (roadmap 0.2.0, decision D5), in step with quantum-safe-py 0.4.0.
+ * The default hybrid signature suite is `Ed25519+ML-DSA-65-v2` (roadmap 1.0.0, decision D5), in step with quantum-safe-py 1.0.0.
  *
  * `-v2` has no hedging prefix, signs a domain-separated wrapped message under FIPS 204's native context and is byte-compatible with
  * quantum-safe-py. The previous default format stays reachable under its own identifier and its signatures keep verifying when it is

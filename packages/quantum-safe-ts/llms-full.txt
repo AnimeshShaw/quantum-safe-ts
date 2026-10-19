@@ -35,7 +35,7 @@ Signature suites (`sigSuites()`): `Ed25519+ML-DSA-44`, `Ed25519+ML-DSA-65` (orig
 `P-256+ML-DSA-44`, `P-256+ML-DSA-65`, `P-384+ML-DSA-87`, `ML-DSA-44`, `ML-DSA-65`, `ML-DSA-87`, and SLH-DSA (FIPS 205): `SLH-DSA-SHAKE-128s`,
 `SLH-DSA-SHAKE-128f`, `SLH-DSA-SHAKE-192s`, `SLH-DSA-SHAKE-192f`, `SLH-DSA-SHAKE-256s`, `SLH-DSA-SHAKE-256f`,
 `SLH-DSA-SHA2-128s`, `SLH-DSA-SHA2-128f`, `SLH-DSA-SHA2-192s`, `SLH-DSA-SHA2-192f`, `SLH-DSA-SHA2-256s`, `SLH-DSA-SHA2-256f`.
-quantum-safe-py 0.4.0 reads and writes every suite here; 0.3.x does not read `X-Wing`, the `P-384` hybrids or nine of the twelve SLH-DSA sets (only SHAKE-128s/128f/256s are in 0.3.x).
+quantum-safe-py 1.0.0 reads and writes every suite here; 0.3.x does not read `X-Wing`, the `P-384` hybrids or nine of the twelve SLH-DSA sets (only SHAKE-128s/128f/256s are in 0.3.x).
 Signature format v2 (no prefix; read and written by quantum-safe-py 0.3.2+, not by 0.3.0; ML-DSA half signs a wrapped message `M2` under the FIPS 204 context `quantum-safe-sig-v2`, so it is NOT a standard signature over your message; keys tagged `-v2`): `ML-DSA-44-v2`, `ML-DSA-65-v2`, `ML-DSA-87-v2`,
 `Ed25519+ML-DSA-44-v2`, `Ed25519+ML-DSA-65-v2`, `Ed25519+ML-DSA-87-v2`, `P-256+ML-DSA-44-v2`, `P-256+ML-DSA-65-v2`, `P-384+ML-DSA-87-v2`. Prefer v2 unless a quantum-safe-py older than 0.3.2 must verify the signature (the default of `easy` and `HybridSign` is `Ed25519+ML-DSA-65-v2`).
 
@@ -44,7 +44,7 @@ hybrid is optional under CNSA 2.0) and `ML-DSA-87` (`Ed25519+ML-DSA-87` from `cn
 other ecosystems must read, use `X-Wing` (draft-connolly-cfrg-xwing-kem) and `StandardJwt` (RFC 9964) instead of the
 quantum-safe-py-compatible constructions.
 
-Streaming (also quantum-safe-py 0.4.0, `quantum_safe.protocols.stream`): `sealStream(publicKey, source, { aad, chunkSize })` and `openStream(secretKey, source, { expectedAad })` take and yield `Uint8Array` pieces (async generators); a truncated, reordered or modified stream throws and stops. See the streaming guide.
+Streaming (also quantum-safe-py 1.0.0, `quantum_safe.protocols.stream`): `sealStream(publicKey, source, { aad, chunkSize })` and `openStream(secretKey, source, { expectedAad })` take and yield `Uint8Array` pieces (async generators); a truncated, reordered or modified stream throws and stops. See the streaming guide.
 
 ## 3b. Easy layer (shortest path, nothing to free)
 

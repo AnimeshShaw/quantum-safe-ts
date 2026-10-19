@@ -1,6 +1,6 @@
 /**
  * The public standard FIPS 204 pair: `Sign.signRaw` / `Sign.verifyRaw` (also `signStandard` / `verifyStandard`), with a 32-byte
- * seed key (`StandardKeyPair`). Matches quantum-safe-py's `Sign.sign_raw` / `verify_raw` and its 0.4.0 aliases.
+ * seed key (`StandardKeyPair`). Matches quantum-safe-py's `Sign.sign_raw` / `verify_raw` and its 1.0.0 aliases.
  *
  * - signatures are bare FIPS 204 `ML-DSA.Sign` signatures with FIPS 204's native context;
  * - quantum-safe-py signatures verify (vectors made by the real package: tests/vectors/py_raw_fips204_vectors.json);

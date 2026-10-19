@@ -1,5 +1,5 @@
 /**
- * Streaming envelopes (format v3) made by the REAL quantum-safe-py (>= 0.4.0, `quantum_safe.protocols.stream`): scripts/generate_py_stream_vectors.py.
+ * Streaming envelopes (format v3) made by the REAL quantum-safe-py (>= 1.0.0, `quantum_safe.protocols.stream`): scripts/generate_py_stream_vectors.py.
  * TypeScript must open every one, including the pure ML-KEM-1024 (HKDF-SHA-384) and X-Wing suites, with the caller AAD the sender used.
  * The other direction (TypeScript seals, Python opens) is scripts/gen_stream_vectors.mjs and quantum-safe-py's tests/unit/test_stream.py.
  */

@@ -1,7 +1,7 @@
 /**
  * P-384 hybrids: `P-384+ML-KEM-1024` and `P-384+ML-DSA-87` (and its `-v2` form), for estates that hold CNSA 1.0 P-384 keys. Same conventions
  * as the P-256 hybrids with the curve's own sizes: public key = SEC1 point (97 B) / raw x||y (96 B), secret key = PKCS#8 PEM text, the ECDH
- * output is used whole (48 B), ECDSA signs with SHA-384, and the `-v2` classical half is raw r||s (96 B, low-S). quantum-safe-py 0.4.0 reads
+ * output is used whole (48 B), ECDSA signs with SHA-384, and the `-v2` classical half is raw r||s (96 B, low-S). quantum-safe-py 1.0.0 reads
  * and writes the same bytes (p384-py-interop through the suite, stream, rewrap and v2 vectors).
  */
 import { describe, expect, it } from 'vitest';

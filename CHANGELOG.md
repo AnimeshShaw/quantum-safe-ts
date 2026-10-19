@@ -4,7 +4,7 @@ All notable changes are documented here. The project follows semantic versioning
 add capability and, with notice, change behaviour that has not been released. **Wire formats are never changed**: new capability arrives
 as a new, explicitly identified algorithm suite.
 
-## [0.2.0] - 2026-10-18
+## [1.0.0] - 2026-10-20
 
 ### Security
 
@@ -26,7 +26,7 @@ as a new, explicitly identified algorithm suite.
 
 ### Changed
 
-- **`quantum-safe-audit` and `quantum-safe-mcp` 0.1.3** (with the `pqc-audit` and `pqc-mcp` aliases and the Action default): `recommend_suite` follows quantum-safe-ts 0.2.0 and quantum-safe-py 0.4.0 (default signature `Ed25519+ML-DSA-65-v2`, X-Wing and RFC 9964 readable by quantum-safe-py 0.4.0, `Sign.signRaw` for standard FIPS 204 signatures) and has two new use cases: `firmware-signing` (`LmsSigner` with `protection`, `Lms.verify`) and `migrate-stored-data` (`Envelope.rewrap`, `rewrapDirectory`). The scanner's replacement hints name the `-v2` default suite and the P-384 hybrid.
+- **`quantum-safe-audit` and `quantum-safe-mcp` 0.1.3** (with the `pqc-audit` and `pqc-mcp` aliases and the Action default): `recommend_suite` follows quantum-safe-ts 1.0.0 and quantum-safe-py 1.0.0 (default signature `Ed25519+ML-DSA-65-v2`, X-Wing and RFC 9964 readable by quantum-safe-py 0.4.0, `Sign.signRaw` for standard FIPS 204 signatures) and has two new use cases: `firmware-signing` (`LmsSigner` with `protection`, `Lms.verify`) and `migrate-stored-data` (`Envelope.rewrap`, `rewrapDirectory`). The scanner's replacement hints name the `-v2` default suite and the P-384 hybrid.
 - **WebAssembly size budget raised for the P-384 suites.** The module is 1.49 MB raw / 456 KiB gzipped (was 1.30 MB / 411 KiB) and the default entry's JavaScript about 680 KiB gzipped (was about 600 KiB). `quantum-safe-ts/slim` is unchanged in size. The budgets in `scripts/check-size.mjs` were raised deliberately.
 - **Streaming envelopes and X-Wing are no longer TypeScript-only**: quantum-safe-py 0.4.0 reads and writes the same bytes (`quantum_safe.protocols.stream`, `quantum_safe.kem.xwing`). Interop vectors are checked in both directions (`stream-py-interop.test.ts`, `xwing-py-interop.test.ts`; generators `scripts/gen_stream_vectors.mjs`, `scripts/generate_py_stream_vectors.py`). Documentation updated; no code or format change.
 - **The default hybrid signature suite is now `Ed25519+ML-DSA-65-v2`** (`DEFAULT_HYBRID_SIGNATURE`, `new HybridSign()`, the `easy` layer), in step with quantum-safe-py 0.4.0. Signatures from the new default verify on quantum-safe-py 0.3.1+ (and not on 0.3.0 or earlier). The original format `Ed25519+ML-DSA-65` is unchanged and still works when named (`ORIGINAL_HYBRID_SIGNATURE`); keys carry their format and a signer refuses a key of the other format. `new HybridSign(undefined, { hedged: false })` selects the original format because `-v2` is always hedged. `Sign` (single ML-DSA) keeps `ML-DSA-65`.

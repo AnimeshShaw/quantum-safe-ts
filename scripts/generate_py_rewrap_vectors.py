@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate re-wrap vectors from the REAL quantum-safe-py (>= 0.4.0, ``Envelope.rewrap``).
+"""Generate re-wrap vectors from the REAL quantum-safe-py (>= 1.0.0, ``Envelope.rewrap``).
 
 Writes tests/vectors/py_rewrap_vectors.json: envelopes sealed under an old key and the same messages
 re-wrapped to a new key by Python, with both secret keys. quantum-safe-ts must open the re-wrapped copy

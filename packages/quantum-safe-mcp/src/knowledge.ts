@@ -80,7 +80,7 @@ export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Inte
     : [];
   const interopNote =
     interop === 'other-ecosystems'
-      ? 'Interoperable with other X-Wing / RFC 9964 implementations (for example @noble/post-quantum, @hpke/hybridkem-x-wing). X-Wing, RFC 9964 (StandardJwt) tokens and public JWKs are also read by quantum-safe-py 0.4.0.'
+      ? 'Interoperable with other X-Wing / RFC 9964 implementations (for example @noble/post-quantum, @hpke/hybridkem-x-wing). X-Wing, RFC 9964 (StandardJwt) tokens and public JWKs are also read by quantum-safe-py 1.0.0.'
       : interop === 'quantum-safe-py'
         ? 'Byte-compatible with quantum-safe-py in both directions (envelopes, keys, signed messages). Not readable by third-party libraries.'
         : 'Default suites are byte-compatible with quantum-safe-py; use the X-Wing / RFC 9964 options when other ecosystems must read the data.';
@@ -142,7 +142,7 @@ signer.verify(signed, pair.publicKey, { expectedContext: utf8('myapp-v1-docs') }
         alternatives: [
           'Always sign with a context and verify with expectedContext: a signature without one is valid for any purpose of the key.',
           'For tokens other ecosystems must verify, use StandardJwt (RFC 9964). For a standard FIPS 204 signature over your bytes that any ML-DSA library verifies, use Sign.signRaw / Sign.verifyRaw; -v2 is for quantum-safe-py and quantum-safe-ts.',
-          'For P-384 estates (CNSA 1.0 keys) the hybrids P-384+ML-KEM-1024 and P-384+ML-DSA-87-v2 are available; they are not readable outside quantum-safe-py 0.4.0 and quantum-safe-ts 0.2.0.',
+          'For P-384 estates (CNSA 1.0 keys) the hybrids P-384+ML-KEM-1024 and P-384+ML-DSA-87-v2 are available; they are not readable outside quantum-safe-py 1.0.0 and quantum-safe-ts 1.0.0.',
         ],
       };
     case 'jwt':
@@ -216,7 +216,7 @@ const report = await rewrapDirectory(sourceDir, destinationDir, {
   expectedAad: (relativePath) => aadFor(relativePath),
 });
 // report.counts, report.ok; report.toCbom() gives a CycloneDX CBOM`,
-        compatibility: 'quantum-safe-py 0.4.0 has the same operation (Envelope.rewrap, rewrap_directory, qs-migrate rewrap) with the same report shape; each library opens what the other re-wraps.',
+        compatibility: 'quantum-safe-py 1.0.0 has the same operation (Envelope.rewrap, rewrap_directory, qs-migrate rewrap) with the same report shape; each library opens what the other re-wraps.',
         alternatives: [
           'Re-wrapping is idempotent and resumable: run it again after an interruption. inPlace: true replaces files one at a time through an atomic rename.',
           'Streaming envelopes are a different container and are not re-wrapped.',

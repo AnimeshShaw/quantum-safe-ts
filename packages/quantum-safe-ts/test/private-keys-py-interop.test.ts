@@ -1,5 +1,5 @@
 /**
- * Seed keys shared with quantum-safe-py 0.4.0 (its optional `cryptography` backend): private AKP JWKs (RFC 9964 `priv` is the 32-byte seed) and
+ * Seed keys shared with quantum-safe-py 1.0.0 (its optional `cryptography` backend): private AKP JWKs (RFC 9964 `priv` is the 32-byte seed) and
  * private COSE keys made by Python. TypeScript must derive the same public keys from the seeds, verify what Python signed, and sign with
  * Python's keys. The other direction (TypeScript's keys in Python) is scripts/gen_private_key_vectors.mjs and quantum-safe-py's
  * tests/unit/test_seed_interop.py. Also checks RFC 9964 Appendix A.1's all-zero JWKs (tests/vectors/rfc9964_jose_vectors.json).

@@ -123,7 +123,7 @@ if (sizes['ML-DSA-65'] !== 3309 + 33) throw new Error('unexpected default-format
 | What is signed | Context yes; the algorithm no | Algorithm and context, for both halves |
 | Available for | Every ML-DSA suite, the hybrids, SLH-DSA | ML-DSA-44/65/87 and the Ed25519 / P-256 hybrids (no SLH-DSA) |
 
-**Recommendation.** `-v2` is the default of `easy.generateSigningKeys` and `HybridSign()` from 0.2.0, so the defaults are right for new signatures
+**Recommendation.** `-v2` is the default of `easy.generateSigningKeys` and `HybridSign()` from 1.0.0, so the defaults are right for new signatures
 wherever every verifier you control is quantum-safe-py 0.3.2+ or quantum-safe-ts. Name the original format (`new HybridSign('Ed25519+ML-DSA-65')`)
 while an older Python verifier is in the loop. `new HybridSign(undefined, { hedged: false })` selects the original format, because `-v2` is
 always hedged.

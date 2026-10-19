@@ -109,7 +109,7 @@ abstract class BaseKem {
 /**
  * Hybrid classical + post-quantum KEM. Default: `X25519+ML-KEM-768`, byte-compatible with
  * quantum-safe-py's `HybridKEM`. Also accepts `X-Wing` (interoperable with other X-Wing implementations and
- * with quantum-safe-py 0.4.0's `XWing`).
+ * with quantum-safe-py 1.0.0's `XWing`).
  *
  * @example
  * ```ts

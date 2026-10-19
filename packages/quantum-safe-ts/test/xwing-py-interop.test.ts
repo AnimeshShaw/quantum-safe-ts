@@ -1,5 +1,5 @@
 /**
- * X-Wing against the REAL quantum-safe-py (>= 0.4.0, `quantum_safe.kem.xwing.XWing`).
+ * X-Wing against the REAL quantum-safe-py (>= 1.0.0, `quantum_safe.kem.xwing.XWing`).
  *
  * tests/vectors/py_xwing_vectors.json is made by scripts/generate_py_xwing_vectors.py. TypeScript must decapsulate Python's ciphertexts to
  * Python's shared secrets, and a ciphertext it makes for a Python public key must decapsulate under the Python secret key (so both

@@ -963,7 +963,7 @@ pub fn kem_suites() -> String {
                 "hybrid": s.is_hybrid(),
                 "nistLevel": s.nist_level().0,
                 "meetsCnsa2": s.meets_cnsa2(),
-                // quantum-safe-py 0.3.0 has neither X-Wing nor the P-384 hybrid (both are in 0.4.0).
+                // quantum-safe-py 0.3.0 has neither X-Wing nor the P-384 hybrid (both are in 1.0.0).
                 "pyCompatible": !matches!(
                     s,
                     KemSuite::XWing | KemSuite::Hybrid(quantum_safe_core::suite::Classical::P384, _)

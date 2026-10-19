@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Generate COSE_Sign1 vectors from the REAL quantum-safe-py (>= 0.4.0, ``quantum_safe.protocols.cose``).
+"""Generate COSE_Sign1 vectors from the REAL quantum-safe-py (>= 1.0.0, ``quantum_safe.protocols.cose``).
 
 Writes tests/vectors/py_cose_vectors.json; quantum-safe-ts must verify every message
 (packages/quantum-safe-ts/test/cose-py-interop.test.ts).
 
-Run from the repository root, with quantum-safe-py >= 0.4.0 installed (or on PYTHONPATH):
+Run from the repository root, with quantum-safe-py >= 1.0.0 installed (or on PYTHONPATH):
     python scripts/generate_py_cose_vectors.py
 """
 import json
@@ -14,7 +14,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import quantum_safe  # noqa: E402
-from quantum_safe.protocols.cose import sign1  # noqa: E402  (absent before 0.4.0)
+from quantum_safe.protocols.cose import sign1  # noqa: E402  (absent before 1.0.0)
 from quantum_safe.signatures.core import Sign  # noqa: E402
 
 out: dict = {"generated_by": f"quantum-safe-py {quantum_safe.__version__} (protocols.cose)", "vectors": []}

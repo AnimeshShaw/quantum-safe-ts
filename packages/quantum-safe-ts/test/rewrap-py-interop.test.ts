@@ -1,5 +1,5 @@
 /**
- * Re-wrap interop with quantum-safe-py 0.4.0 (`Envelope.rewrap`): Python-made re-wrapped messages open here, and the Python-sealed originals
+ * Re-wrap interop with quantum-safe-py 1.0.0 (`Envelope.rewrap`): Python-made re-wrapped messages open here, and the Python-sealed originals
  * re-wrap here to messages that open under the new key. The other direction (TypeScript's) is scripts/gen_rewrap_vectors.mjs and
  * quantum-safe-py's tests/unit/test_ts_rewrap_interop.py.
  */

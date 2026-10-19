@@ -16,7 +16,7 @@ from quantum_safe import KEM, HybridKEM  # noqa: E402
 from quantum_safe.protocols.envelope import Envelope, SealedMessage  # noqa: E402
 from quantum_safe import HybridSign  # noqa: E402
 
-try:  # P-384 hybrids exist from quantum-safe-py 0.4.0; the pinned release in CI may be older
+try:  # P-384 hybrids exist from quantum-safe-py 1.0.0; the pinned release in CI may be older
     from quantum_safe.kem.algorithms import CLASSICAL_KEM_ALGORITHMS as _CLASSICAL_KEMS  # noqa: E402
 
     HAS_P384 = "P-384" in _CLASSICAL_KEMS

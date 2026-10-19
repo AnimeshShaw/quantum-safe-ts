@@ -13,7 +13,7 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('artifact record', () => {
   it('lists each tarball with its SHA-256, and the versions and pins', async () => {
-    writeFileSync(join(dir, 'quantum-safe-ts-0.2.0.tgz'), 'tarball bytes');
+    writeFileSync(join(dir, 'quantum-safe-ts-1.0.0.tgz'), 'tarball bytes');
     writeFileSync(join(dir, 'notes.txt'), 'ignored');
     const { buildRecord } = (await import(script)) as { buildRecord: (d: string, o?: { created?: string }) => Record<string, unknown> };
     const record = buildRecord(dir, { created: '2026-10-15T00:00:00.000Z' }) as {
@@ -25,7 +25,7 @@ describe('artifact record', () => {
     };
     expect(record.artifacts).toHaveLength(1);
     expect(record.artifacts[0]).toEqual({
-      file: 'quantum-safe-ts-0.2.0.tgz',
+      file: 'quantum-safe-ts-1.0.0.tgz',
       sha256: createHash('sha256').update('tarball bytes').digest('hex'),
       bytes: 'tarball bytes'.length,
     });

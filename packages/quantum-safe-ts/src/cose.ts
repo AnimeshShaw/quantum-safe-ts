@@ -4,7 +4,7 @@
  *
  * What is signed: `Sig_structure = ["Signature1", protected, external_aad, payload]` (RFC 9052 section 4.4), signed with plain FIPS 204
  * `ML-DSA.Sign` and the **empty** context (RFC 9964 section 5), that is exactly {@link Sign.signRaw}. Any compliant COSE library verifies
- * the result, and this module verifies theirs; quantum-safe-py 0.4.0 (`quantum_safe.protocols.cose`) produces and accepts the same bytes.
+ * the result, and this module verifies theirs; quantum-safe-py 1.0.0 (`quantum_safe.protocols.cose`) produces and accepts the same bytes.
  *
  * Identifiers (RFC 9964 section 8.1): ML-DSA-44 = -48, ML-DSA-65 = -49, ML-DSA-87 = -50; key type `AKP` = 7, `pub` = -1, `priv` = -2 (the
  * 32-byte seed).

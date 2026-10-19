@@ -1,6 +1,6 @@
 //! Algorithm registry for key encapsulation, mirroring
 //! `quantum_safe.kem.algorithms` in quantum-safe-py (names, sizes, NIST levels,
-//! approved hybrid combinations) plus the `X-Wing` suite (also in quantum-safe-py 0.4.0).
+//! approved hybrid combinations) plus the `X-Wing` suite (also in quantum-safe-py 1.0.0).
 //!
 //! Identifiers are **wire-visible** (they are bound into the envelope AAD and the
 //! hybrid combiner `info`), so they must never change meaning once released.
@@ -38,7 +38,7 @@ pub enum KemSuite {
     /// Hybrid classical + ML-KEM, e.g. `"X25519+ML-KEM-768"` (quantum-safe-py `HybridKEM`).
     Hybrid(Classical, Pqc),
     /// X-Wing (draft-connolly-cfrg-xwing-kem): ML-KEM-768 + X25519 with the X-Wing combiner.
-    /// Also in quantum-safe-py 0.4.0 (`quantum_safe.kem.xwing`), byte for byte.
+    /// Also in quantum-safe-py 1.0.0 (`quantum_safe.kem.xwing`), byte for byte.
     XWing,
 }
 

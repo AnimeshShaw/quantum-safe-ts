@@ -1,5 +1,5 @@
 /**
- * COSE_Sign1 messages made by the REAL quantum-safe-py (>= 0.4.0, `quantum_safe.protocols.cose`): scripts/generate_py_cose_vectors.py.
+ * COSE_Sign1 messages made by the REAL quantum-safe-py (>= 1.0.0, `quantum_safe.protocols.cose`): scripts/generate_py_cose_vectors.py.
  * TypeScript must verify every one (tagged, untagged, detached, with external AAD). The other direction (TypeScript signs, Python verifies)
  * is scripts/gen_cose_vectors.mjs and quantum-safe-py's tests/unit/test_cose.py; RFC 9964's own examples are in cose.test.ts.
  */

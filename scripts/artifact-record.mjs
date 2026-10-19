@@ -2,7 +2,7 @@
 // Writes the artifact record of a release: what was built, from which commit and pins.
 //
 //   npm pack --workspaces --pack-destination dist-release       (or the release workflow's tarballs)
-//   node scripts/artifact-record.mjs dist-release --out artifact-record-0.2.0.json
+//   node scripts/artifact-record.mjs dist-release --out artifact-record-1.0.0.json
 //
 // For every .tgz in the directory it records the SHA-256 and size, plus the package versions, the git commit and tag, the SHA-256 of the
 // WebAssembly module and of Cargo.lock, and the pinned Rust toolchain. Attach the file to the GitHub release; Zenodo archives the release

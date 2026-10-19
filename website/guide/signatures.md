@@ -108,7 +108,7 @@ if (signed.signature.length !== 64 + 3309) throw new Error('hybrid v2 blob is 64
 quantum-safe-py 0.3.2 or later reads and writes v2 (all eight identifiers are verified in both directions); 0.3.0 cannot read it and fails
 closed on the identifier (the format first appeared in 0.3.1). There is no SLH-DSA v2. `JWTSigner` / `JWTVerifier` accept v2 keys too.
 
-**Which to use:** `-v2` is the default hybrid from 0.2.0. Name the original `Ed25519+ML-DSA-65` when a verifier older than quantum-safe-py
+**Which to use:** `-v2` is the default hybrid from 1.0.0. Name the original `Ed25519+ML-DSA-65` when a verifier older than quantum-safe-py
 0.3.2 is involved ([Choosing what to use](/guide/choosing#original-format-or-v2)).
 
 ## Standard ML-DSA for other ecosystems
@@ -149,7 +149,7 @@ signer.verifyRaw(utf8('release 1.2.3'), sig, pair.publicKey, { context: utf8('my
 ::: danger Seed keys sign; expanded keys from quantum-safe-py only verify
 A secret key made by quantum-safe-py's liboqs backend is a 4,032-byte *expanded* key. No seed can be recovered from it, so quantum-safe-ts
 cannot sign with it. Every signature that key makes **verifies** here. For one key that signs in both libraries, use a seed key
-(`generateStandardKeyPair()`, or quantum-safe-py's `cryptography` backend in 0.4.0).
+(`generateStandardKeyPair()`, or quantum-safe-py's `cryptography` backend in 1.0.0).
 :::
 
 ## Verifying bytes from elsewhere

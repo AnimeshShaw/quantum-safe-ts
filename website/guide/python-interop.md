@@ -24,9 +24,9 @@ Use quantum-safe-py **0.3.2 or later** (`pip install "quantum-safe-py>=0.3.2"`).
 | Envelope v2 (CNSA profile: pure `ML-KEM-1024`, HKDF-SHA-384) | Yes, with quantum-safe-py 0.3.2+ |
 | Signature format `-v2` (all eight identifiers) | Yes, with quantum-safe-py 0.3.2+ |
 | `StandardJwt` (RFC 9964) tokens and public `AKP` JWKs | Yes, with quantum-safe-py 0.3.2+ |
-| Private `AKP` JWKs and private COSE keys (`priv` is the 32-byte seed) | Yes, with quantum-safe-py 0.4.0 and its `cryptography` backend (`pip install 'quantum-safe-py[pyca]'`): a seed made in either library signs in the other |
-| `X-Wing` KEM, streaming encryption (format v3), all twelve SLH-DSA sets | Yes, with quantum-safe-py 0.4.0 |
-| Envelope re-wrap (`Envelope.rewrap`, the directory driver and its report) | Yes, with quantum-safe-py 0.4.0: what one library re-wraps the other opens |
+| Private `AKP` JWKs and private COSE keys (`priv` is the 32-byte seed) | Yes, with quantum-safe-py 1.0.0 and its `cryptography` backend (`pip install 'quantum-safe-py[pyca]'`): a seed made in either library signs in the other |
+| `X-Wing` KEM, streaming encryption (format v3), all twelve SLH-DSA sets | Yes, with quantum-safe-py 1.0.0 |
+| Envelope re-wrap (`Envelope.rewrap`, the directory driver and its report) | Yes, with quantum-safe-py 1.0.0: what one library re-wraps the other opens |
 | LMS signing | TypeScript signs only in Node.js with durable state; Python signs through its optional extra |
 
 What each library has that the other does not, and why, is in [Differences from quantum-safe-py](/guide/differences).
@@ -43,7 +43,7 @@ prefix signed under an empty FIPS 204 context. They are sound engineering choice
 | Your situation | Use |
 |---|---|
 | Both ends are quantum-safe-py or quantum-safe-ts | The defaults, or `-v2` for new signatures |
-| The other side is a standard FIPS 204 ML-DSA implementation, and you need a signature over your own bytes | Python: `Sign.sign_raw()` / `Sign.verify_raw()` (0.3.2; aliases `sign_standard` / `verify_standard` in 0.4.0). TypeScript: `Sign.signRaw()` / `Sign.verifyRaw()` (aliases `signStandard` / `verifyStandard`) |
+| The other side is a standard FIPS 204 ML-DSA implementation, and you need a signature over your own bytes | Python: `Sign.sign_raw()` / `Sign.verify_raw()` (0.3.2; aliases `sign_standard` / `verify_standard` in 1.0.0). TypeScript: `Sign.signRaw()` / `Sign.verifyRaw()` (aliases `signStandard` / `verifyStandard`) |
 | A JOSE or JWT library must read the token | `StandardJwt` (RFC 9964), in both libraries |
 | The other side is a third-party X-Wing or TLS-hybrid implementation | Use `X-Wing` for KEMs. quantum-safe-py envelopes (HKDF-SHA-256 combiner) cannot be read by them |
 
@@ -64,7 +64,7 @@ quantum-safe-py through liboqs is a 4,032-byte *expanded* key; no seed can be re
 It can **verify** every signature that key makes, because public keys are identical.
 
 To sign in both libraries with one key, use a seed key: generate it with `Sign.generateStandardKeyPair()` in TypeScript, or with
-quantum-safe-py's `cryptography` backend (0.4.0), and move the 32-byte seed between them.
+quantum-safe-py's `cryptography` backend (1.0.0), and move the 32-byte seed between them.
 :::
 
 ## Settings that must match across the two libraries

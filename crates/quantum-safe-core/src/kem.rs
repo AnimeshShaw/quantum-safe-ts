@@ -3,7 +3,7 @@
 //! - hybrid `X25519+ML-KEM-{512,768,1024}`, `P-256+ML-KEM-{512,768}` and `P-384+ML-KEM-1024`, matching
 //!   `quantum_safe.kem.hybrid.HybridKEM` byte for byte;
 //! - pure `ML-KEM-{512,768,1024}`, matching `quantum_safe.kem.core.KEM`;
-//! - `X-Wing` (draft-connolly-cfrg-xwing-kem; quantum-safe-py 0.4.0 has the same suite).
+//! - `X-Wing` (draft-connolly-cfrg-xwing-kem; quantum-safe-py 1.0.0 has the same suite).
 //!
 //! Wire layouts (all verified against quantum-safe-py 0.3.0):
 //!

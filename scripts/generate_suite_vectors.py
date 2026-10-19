@@ -23,7 +23,7 @@ from quantum_safe.protocols.jwt import JWTSigner  # noqa: E402
 from quantum_safe.protocols.envelope import Envelope  # noqa: E402
 
 def _supports_p384() -> bool:
-    """P-384 hybrids exist from quantum-safe-py 0.4.0; the release pinned in CI may be older."""
+    """P-384 hybrids exist from quantum-safe-py 1.0.0; the release pinned in CI may be older."""
     try:
         HybridKEM("P-384", "ML-KEM-1024")
         return True

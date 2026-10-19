@@ -163,7 +163,7 @@ describe('knowledge tools', () => {
     expect(recommend('firmware-signing', false, 'none').code).toContain('LmsSigner.create');
     expect(recommend('firmware-signing', false, 'none').code).toContain('protection');
     expect(recommend('migrate-stored-data', false, 'none').code).toContain('rewrapDirectory');
-    expect(recommend('encrypt-data', false, 'other-ecosystems').compatibility).toContain('quantum-safe-py 0.4.0');
+    expect(recommend('encrypt-data', false, 'other-ecosystems').compatibility).toContain('quantum-safe-py 1.0.0');
   });
   it('explain_error knows every library error code', async () => {
     const client = await connect(project());

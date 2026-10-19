@@ -15,7 +15,7 @@ and its bytes are the same as [quantum-safe-py](/guide/python-interop)'s.
 | Key lifecycle | Serialisation, fingerprints, Argon2id master-key derivation, classical-to-hybrid key upgrade, a migration state machine with an audit trail, and cross-process-safe stores. |
 | Hash-based signatures | LMS / HSS verification in every runtime; LMS signing in Node.js with write-ahead durable state. |
 | Audit and compliance | A scanner for JavaScript and TypeScript with SARIF and CycloneDX CBOM output, a GitHub Action, an MCP server for coding agents, and a CNSA 2.0 parameter report. |
-| Python interop | Keys, ciphertexts, signatures, tokens, streams, COSE and migration state are byte-compatible with quantum-safe-py 0.4.0, checked in CI against the real library in both directions. |
+| Python interop | Keys, ciphertexts, signatures, tokens, streams, COSE and migration state are byte-compatible with quantum-safe-py 1.0.0, checked in CI against the real library in both directions. |
 | Developer experience | Typed errors with stable codes and hints, a one-call `easy` layer, `llms.txt`, and documentation whose code blocks are executed by the test suite. |
 
 ## Reach for it when you need to
