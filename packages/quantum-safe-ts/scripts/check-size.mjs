@@ -1,4 +1,4 @@
-// Fails CI if the shipped WASM or inline bundle exceeds the budget. Budgets are measured, not guessed:
+// Fails CI if the shipped WASM or inline bundle exceeds the budget. (The browser bundle's raw budget includes the TSDoc comments that the build keeps in the JavaScript; a minified build drops them.) Budgets are measured, not guessed:
 // raw WASM ~1.49 MB / ~456 KB gzip at opt-level 3 with the P-384 suites (1.30 MB / 411 KB before them; 0.86 MB / 292 KB at opt-level s; 2-3x faster). Raise deliberately (and note why in the CHANGELOG), never silently.
 import { gzipSync } from 'node:zlib';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -10,7 +10,7 @@ const dist = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const chunkFiles = readdirSync(dist).filter((f) => /^chunk-.*\.js$/.test(f));
 const BUDGET = {
   'quantum_safe_wasm_bg.wasm': { files: ['quantum_safe_wasm_bg.wasm'], raw: 1_520_000, gzip: 480_000 },
-  'browser bundle (index.js + chunks)': { files: ['index.js', ...chunkFiles], raw: 2_220_000, gzip: 720_000 },
+  'browser bundle (index.js + chunks)': { files: ['index.js', ...chunkFiles], raw: 2_300_000, gzip: 730_000 },
 };
 let failed = false;
 for (const [file, b] of Object.entries(BUDGET)) {

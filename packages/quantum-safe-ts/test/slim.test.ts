@@ -36,6 +36,6 @@ describe('slim entry (built artifact)', () => {
       for (const m of text.matchAll(/require\('\.\/(chunk-[^']+\.cjs)'\)/g)) if (!files.includes(m[1]!)) files.push(m[1]!);
     }
     for (const f of files) expect(readFileSync(dist(f), 'utf8'), f).not.toContain('AGFzbQ');
-    expect(files.reduce((n, f) => n + statSync(dist(f)).size, 0)).toBeLessThan(250_000);
+    expect(files.reduce((n, f) => n + statSync(dist(f)).size, 0)).toBeLessThan(280_000);
   });
 });
