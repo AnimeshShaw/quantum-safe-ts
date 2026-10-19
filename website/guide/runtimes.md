@@ -95,6 +95,27 @@ await init({ wasm: fetch(wasmUrl) });
 
 The `.wasm` then caches independently of your JavaScript and loads in parallel. Any call before `init` throws `NotInitializedError`.
 
+## Speed
+
+Medians over 15 runs on Node.js 22 (Windows, one pinned core of an Intel i9-14900HX; `results/ts/2026-10-19/`). Relative figures matter more than the absolute ones; browsers coarsen timers and differ.
+
+| Operation | Median |
+|---|---|
+| X25519+ML-KEM-768 encapsulate | 155 µs |
+| X25519+ML-KEM-768 decapsulate | 143 µs |
+| ML-KEM-768 encapsulate | 62 µs |
+| ML-DSA-65 sign | 1.27 ms |
+| ML-DSA-65 verify | 293 µs |
+| Ed25519+ML-DSA-65-v2 sign | 1.31 ms |
+| Ed25519+ML-DSA-65-v2 verify | 363 µs |
+| Envelope.seal, 1 KiB | 171 µs |
+| Envelope.open, 1 KiB | 156 µs |
+| Envelope.seal, 1 MiB | 1.87 ms |
+
+On Node.js, `Envelope` payloads and stream chunks of 16 KiB or more are encrypted with Node's native AES-256-GCM, so large data moves about 4 to 8 times
+faster than with the WebAssembly cipher: a 1 MiB message seals in 1.9 ms instead of 8.3 ms, and a 64 MiB stream encrypts at about 600 MiB/s and
+decrypts at about 950 MiB/s. The output is identical byte for byte. Browsers and Workers keep the WebAssembly cipher (about 125 MiB/s).
+
 ## Passwords in browsers
 
 `deriveMasterKey` (Argon2id, 19 MiB) takes tens of milliseconds on a desktop CPU and more on phones, and it blocks while it runs. Run it in a
