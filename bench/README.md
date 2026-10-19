@@ -1,7 +1,7 @@
 # Benchmarks and timing-leakage screen
 
-Scripts that produce the numbers and the timing screen mentioned in the main README. The raw
-results of the last run are in [`../results/`](../results/).
+Scripts that produce the numbers and the timing screen mentioned in the main README. The summaries
+of the last run (`results/ts/2026-10-19/`: the aggregate, the environment and the leakage screen) are in [`../results/`](../results/); the per-run sample files are attached to the release.
 
 ```bash
 npm ci --prefix packages/quantum-safe-ts && npm run build --prefix packages/quantum-safe-ts

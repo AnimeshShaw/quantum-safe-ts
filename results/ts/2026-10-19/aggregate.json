@@ -1,0 +1,339 @@
+{
+  "files": [
+    "results\\ts\\2026-10-19\\run02.json",
+    "results\\ts\\2026-10-19\\run03.json",
+    "results\\ts\\2026-10-19\\run04.json",
+    "results\\ts\\2026-10-19\\run05.json",
+    "results\\ts\\2026-10-19\\run06.json",
+    "results\\ts\\2026-10-19\\run07.json",
+    "results\\ts\\2026-10-19\\run08.json",
+    "results\\ts\\2026-10-19\\run09.json",
+    "results\\ts\\2026-10-19\\run10.json",
+    "results\\ts\\2026-10-19\\run11.json",
+    "results\\ts\\2026-10-19\\run12.json",
+    "results\\ts\\2026-10-19\\run13.json",
+    "results\\ts\\2026-10-19\\run14.json",
+    "results\\ts\\2026-10-19\\run15.json",
+    "results\\ts\\2026-10-19\\run16.json"
+  ],
+  "discarded_first": true,
+  "metadata_of_first_file": {
+    "recorded_at": "2026-10-19T18:24:57.967Z",
+    "node": "22.23.3",
+    "v8": "12.4.254.21-node.57",
+    "platform": "win32-10.0.26300",
+    "machine": "x64",
+    "cpu_model": "Intel(R) Core(TM) i9-14900HX",
+    "logical_cpus": 32,
+    "total_memory_mb": 16088,
+    "cpu_affinity": null,
+    "library": "quantum-safe-ts",
+    "library_version": "0.2.0",
+    "git_commit": "b000cc9a51164a7509c0d90610bfa475d7047d65",
+    "in_container": false,
+    "default_iterations": 3000,
+    "warmup": 100
+  },
+  "rows": [
+    {
+      "name": "HybridKEM X25519+ML-KEM-768 keygen",
+      "runs": 15,
+      "median_of_run_medians_us": 84.9,
+      "fastest_run_us": 84.3,
+      "slowest_run_us": 96.2,
+      "run_to_run_cov_pct": 4.02,
+      "ci95_lo_us": 84.8,
+      "ci95_hi_us": 85.2
+    },
+    {
+      "name": "HybridKEM X25519+ML-KEM-768 encapsulate",
+      "runs": 15,
+      "median_of_run_medians_us": 155,
+      "fastest_run_us": 152.6,
+      "slowest_run_us": 163.5,
+      "run_to_run_cov_pct": 1.68,
+      "ci95_lo_us": 154.7,
+      "ci95_hi_us": 156.8
+    },
+    {
+      "name": "HybridKEM X25519+ML-KEM-768 decapsulate",
+      "runs": 15,
+      "median_of_run_medians_us": 143.1,
+      "fastest_run_us": 140.3,
+      "slowest_run_us": 147.3,
+      "run_to_run_cov_pct": 1.19,
+      "ci95_lo_us": 142.1,
+      "ci95_hi_us": 144
+    },
+    {
+      "name": "ML-KEM-768 keygen",
+      "runs": 15,
+      "median_of_run_medians_us": 60.3,
+      "fastest_run_us": 59.5,
+      "slowest_run_us": 61.6,
+      "run_to_run_cov_pct": 1,
+      "ci95_lo_us": 59.9,
+      "ci95_hi_us": 60.8
+    },
+    {
+      "name": "ML-KEM-768 encapsulate",
+      "runs": 15,
+      "median_of_run_medians_us": 61.8,
+      "fastest_run_us": 60.65,
+      "slowest_run_us": 66.6,
+      "run_to_run_cov_pct": 2.82,
+      "ci95_lo_us": 61.5,
+      "ci95_hi_us": 63.4
+    },
+    {
+      "name": "ML-KEM-768 decapsulate",
+      "runs": 15,
+      "median_of_run_medians_us": 74.2,
+      "fastest_run_us": 72.6,
+      "slowest_run_us": 75.6,
+      "run_to_run_cov_pct": 1.08,
+      "ci95_lo_us": 73.8,
+      "ci95_hi_us": 74.8
+    },
+    {
+      "name": "ML-KEM-1024 encapsulate",
+      "runs": 15,
+      "median_of_run_medians_us": 93.4,
+      "fastest_run_us": 91,
+      "slowest_run_us": 101.4,
+      "run_to_run_cov_pct": 3.02,
+      "ci95_lo_us": 93,
+      "ci95_hi_us": 94.2
+    },
+    {
+      "name": "ML-KEM-1024 decapsulate",
+      "runs": 15,
+      "median_of_run_medians_us": 109.8,
+      "fastest_run_us": 107.2,
+      "slowest_run_us": 113.8,
+      "run_to_run_cov_pct": 1.78,
+      "ci95_lo_us": 109,
+      "ci95_hi_us": 110.4
+    },
+    {
+      "name": "X-Wing keygen",
+      "runs": 15,
+      "median_of_run_medians_us": 81.3,
+      "fastest_run_us": 80.6,
+      "slowest_run_us": 97.8,
+      "run_to_run_cov_pct": 5.3,
+      "ci95_lo_us": 81,
+      "ci95_hi_us": 82.5
+    },
+    {
+      "name": "X-Wing encapsulate",
+      "runs": 15,
+      "median_of_run_medians_us": 148.6,
+      "fastest_run_us": 147.3,
+      "slowest_run_us": 152.1,
+      "run_to_run_cov_pct": 0.85,
+      "ci95_lo_us": 148,
+      "ci95_hi_us": 149.9
+    },
+    {
+      "name": "X-Wing decapsulate",
+      "runs": 15,
+      "median_of_run_medians_us": 285.1,
+      "fastest_run_us": 281.3,
+      "slowest_run_us": 295.3,
+      "run_to_run_cov_pct": 1.18,
+      "ci95_lo_us": 283.5,
+      "ci95_hi_us": 286.7
+    },
+    {
+      "name": "Envelope.seal 1 KiB",
+      "runs": 15,
+      "median_of_run_medians_us": 170.7,
+      "fastest_run_us": 168.5,
+      "slowest_run_us": 193.7,
+      "run_to_run_cov_pct": 4.59,
+      "ci95_lo_us": 170,
+      "ci95_hi_us": 172.5
+    },
+    {
+      "name": "Envelope.open 1 KiB",
+      "runs": 15,
+      "median_of_run_medians_us": 155.6,
+      "fastest_run_us": 152.5,
+      "slowest_run_us": 172,
+      "run_to_run_cov_pct": 3.1,
+      "ci95_lo_us": 153.7,
+      "ci95_hi_us": 156.8
+    },
+    {
+      "name": "Envelope.seal 1 MiB",
+      "runs": 15,
+      "median_of_run_medians_us": 1867.55,
+      "fastest_run_us": 1725.2,
+      "slowest_run_us": 2313.65,
+      "run_to_run_cov_pct": 9.69,
+      "ci95_lo_us": 1762.05,
+      "ci95_hi_us": 1932.7
+    },
+    {
+      "name": "ML-DSA-44 keygen",
+      "runs": 15,
+      "median_of_run_medians_us": 417.7,
+      "fastest_run_us": 413.6,
+      "slowest_run_us": 435.85,
+      "run_to_run_cov_pct": 1.21,
+      "ci95_lo_us": 417.1,
+      "ci95_hi_us": 420.2
+    },
+    {
+      "name": "ML-DSA-44 sign (256 B, hedged)",
+      "runs": 15,
+      "median_of_run_medians_us": 723.85,
+      "fastest_run_us": 718.25,
+      "slowest_run_us": 784.3,
+      "run_to_run_cov_pct": 2.96,
+      "ci95_lo_us": 721.9,
+      "ci95_hi_us": 730.55
+    },
+    {
+      "name": "ML-DSA-44 verify",
+      "runs": 15,
+      "median_of_run_medians_us": 190.2,
+      "fastest_run_us": 188.9,
+      "slowest_run_us": 200.9,
+      "run_to_run_cov_pct": 1.72,
+      "ci95_lo_us": 189.7,
+      "ci95_hi_us": 190.5
+    },
+    {
+      "name": "ML-DSA-65 keygen",
+      "runs": 15,
+      "median_of_run_medians_us": 657.6,
+      "fastest_run_us": 655.1,
+      "slowest_run_us": 673.5,
+      "run_to_run_cov_pct": 0.69,
+      "ci95_lo_us": 656.4,
+      "ci95_hi_us": 658.2
+    },
+    {
+      "name": "ML-DSA-65 sign (256 B, hedged)",
+      "runs": 15,
+      "median_of_run_medians_us": 1267.3,
+      "fastest_run_us": 1255.9,
+      "slowest_run_us": 1288.4,
+      "run_to_run_cov_pct": 0.84,
+      "ci95_lo_us": 1263.95,
+      "ci95_hi_us": 1276.65
+    },
+    {
+      "name": "ML-DSA-65 verify",
+      "runs": 15,
+      "median_of_run_medians_us": 293.1,
+      "fastest_run_us": 292.2,
+      "slowest_run_us": 303.2,
+      "run_to_run_cov_pct": 0.97,
+      "ci95_lo_us": 292.7,
+      "ci95_hi_us": 293.9
+    },
+    {
+      "name": "ML-DSA-87 keygen",
+      "runs": 15,
+      "median_of_run_medians_us": 985.5,
+      "fastest_run_us": 983.4,
+      "slowest_run_us": 1011.45,
+      "run_to_run_cov_pct": 0.92,
+      "ci95_lo_us": 985.1,
+      "ci95_hi_us": 991.1
+    },
+    {
+      "name": "ML-DSA-87 sign (256 B, hedged)",
+      "runs": 15,
+      "median_of_run_medians_us": 1487.2,
+      "fastest_run_us": 1473.8,
+      "slowest_run_us": 1520.95,
+      "run_to_run_cov_pct": 0.88,
+      "ci95_lo_us": 1485.85,
+      "ci95_hi_us": 1489.5
+    },
+    {
+      "name": "ML-DSA-87 verify",
+      "runs": 15,
+      "median_of_run_medians_us": 457.8,
+      "fastest_run_us": 455.8,
+      "slowest_run_us": 471.2,
+      "run_to_run_cov_pct": 1.08,
+      "ci95_lo_us": 457,
+      "ci95_hi_us": 460.1
+    },
+    {
+      "name": "Ed25519+ML-DSA-65-v2 sign",
+      "runs": 15,
+      "median_of_run_medians_us": 1314.5,
+      "fastest_run_us": 1301.4,
+      "slowest_run_us": 1339.7,
+      "run_to_run_cov_pct": 1,
+      "ci95_lo_us": 1303.9,
+      "ci95_hi_us": 1325.9
+    },
+    {
+      "name": "Ed25519+ML-DSA-65-v2 verify",
+      "runs": 15,
+      "median_of_run_medians_us": 363.3,
+      "fastest_run_us": 360.7,
+      "slowest_run_us": 375.4,
+      "run_to_run_cov_pct": 1.24,
+      "ci95_lo_us": 362.5,
+      "ci95_hi_us": 365.1
+    },
+    {
+      "name": "SLH-DSA-SHAKE-128f sign (256 B)",
+      "runs": 15,
+      "median_of_run_medians_us": 51713.6,
+      "fastest_run_us": 51538.45,
+      "slowest_run_us": 52834.25,
+      "run_to_run_cov_pct": 0.86,
+      "ci95_lo_us": 51572.65,
+      "ci95_hi_us": 51729.85
+    },
+    {
+      "name": "SLH-DSA-SHAKE-128f verify",
+      "runs": 15,
+      "median_of_run_medians_us": 3079.35,
+      "fastest_run_us": 2929.4,
+      "slowest_run_us": 3148.5,
+      "run_to_run_cov_pct": 2.34,
+      "ci95_lo_us": 3039.55,
+      "ci95_hi_us": 3124.8
+    },
+    {
+      "name": "JWT ML-DSA-65 sign",
+      "runs": 15,
+      "median_of_run_medians_us": 1307.45,
+      "fastest_run_us": 1290.75,
+      "slowest_run_us": 1346.7,
+      "run_to_run_cov_pct": 1.27,
+      "ci95_lo_us": 1306.05,
+      "ci95_hi_us": 1311.2
+    },
+    {
+      "name": "JWT ML-DSA-65 verify",
+      "runs": 15,
+      "median_of_run_medians_us": 337.2,
+      "fastest_run_us": 336.3,
+      "slowest_run_us": 358.45,
+      "run_to_run_cov_pct": 1.73,
+      "ci95_lo_us": 336.6,
+      "ci95_hi_us": 338
+    },
+    {
+      "name": "Argon2id deriveMasterKey (default parameters)",
+      "runs": 15,
+      "median_of_run_medians_us": 15601.7,
+      "fastest_run_us": 15433.15,
+      "slowest_run_us": 16557.45,
+      "run_to_run_cov_pct": 2.22,
+      "ci95_lo_us": 15576.95,
+      "ci95_hi_us": 15888.85
+    }
+  ]
+}
