@@ -616,6 +616,7 @@ export class MigrationStateManager {
    */
   async importHistory(keyId: string, records: readonly MigrationRecord[]): Promise<void> {
     if (records.length === 0) throw new InvalidArgumentError('Nothing to import.');
+    if (records.length > MAX_HISTORY) throw new InvalidArgumentError(`A history holds at most ${MAX_HISTORY} records; got ${records.length}.`);
     let prev: MigrationState | undefined;
     for (const r of records) {
       parseMigrationRecord(r, keyId);

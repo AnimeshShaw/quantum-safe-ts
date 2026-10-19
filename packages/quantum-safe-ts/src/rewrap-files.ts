@@ -21,6 +21,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
+import { kemSuites } from './algorithms.js';
 import { Envelope, SealedMessage } from './envelope.js';
 import { InvalidArgumentError } from './errors.js';
 import type { PublicKey, SecretKey } from './keys.js';
@@ -148,7 +149,7 @@ export class RewrapReport {
       }
     }
     const slug = (n: string): string => n.toLowerCase().replace(/\+/g, '-');
-    const component = (name: string, ref: string, vulnerable: boolean, status: string, items: number): Record<string, unknown> => ({
+    const component = (name: string, ref: string, vulnerable: boolean, status: string, items: number, level: number): Record<string, unknown> => ({
       type: 'cryptographic-asset',
       'bom-ref': ref,
       name,
@@ -158,7 +159,7 @@ export class RewrapReport {
           primitive: 'kem',
           executionEnvironment: 'software-plain-ram',
           implementationPlatform: 'generic',
-          nistQuantumSecurityLevel: vulnerable ? 0 : 3,
+          nistQuantumSecurityLevel: level,
         },
       },
       properties: [
@@ -169,8 +170,13 @@ export class RewrapReport {
     });
     const components = [...fromCounts.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, n]) => component(name, `migrated-from/${slug(name)}`, name !== this.newAlgorithm, 'migrated-from', n));
-    components.push(component(this.newAlgorithm, `migrated-to/${slug(this.newAlgorithm)}`, false, 'migrated-to', counts.rewrapped ?? 0));
+      .map(([name, n]) => {
+        const known = kemSuites().find((s) => s.name === name); // a hybrid or ML-KEM source is post-quantum already; only an unknown name is not
+        return component(name, `migrated-from/${slug(name)}`, known === undefined, 'migrated-from', n, known?.nistLevel ?? 0);
+      });
+    components.push(
+      component(this.newAlgorithm, `migrated-to/${slug(this.newAlgorithm)}`, false, 'migrated-to', counts.rewrapped ?? 0, kemSuites().find((s) => s.name === this.newAlgorithm)?.nistLevel ?? 0),
+    );
     return {
       bomFormat: 'CycloneDX',
       specVersion: '1.6',
@@ -225,8 +231,10 @@ function encode(sealed: SealedMessage, encoding: 'bytes' | 'hex'): Uint8Array {
 async function writeAtomic(path: string, data: Uint8Array): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const tmp = join(dirname(path), `.${randomUUID()}.tmp`);
+  // A file that is replaced keeps its permissions.
+  const mode = (await stat(path).catch(() => null))?.mode;
   try {
-    const fh = await open(tmp, 'w');
+    const fh = await open(tmp, 'w', mode === undefined ? undefined : mode & 0o777);
     try {
       await fh.writeFile(data);
       await fh.sync();
@@ -288,6 +296,7 @@ export async function rewrapDirectory(source: string, destination: string | null
     if (destination === null) throw new InvalidArgumentError('destination is required unless inPlace is true.');
     dst = resolve(destination);
     if (dst === src) throw new InvalidArgumentError('destination is the source directory; pass inPlace: true to replace files there.');
+    if (dst.startsWith(src + sep)) throw new InvalidArgumentError('destination is inside the source directory; choose a directory outside it.');
   }
   const report = new RewrapReport(options.newPublicKey.algorithm, options.dryRun === true, inPlace, options.expectedAad !== undefined);
   /** The AAD to require for a file: the caller's value (or function of the relative path), else the AAD the message already carries. */

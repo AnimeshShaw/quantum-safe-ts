@@ -42,7 +42,7 @@ to say how the seed is stored (there is no default):
 
 | `protection` | The seed on disk | Use it when |
 |---|---|---|
-| `{ passphrase }` | Encrypted with AES-256-GCM under a key derived from the passphrase with scrypt (default cost 2^17, 128 MiB; salt and cost are stored; `scryptLog2N` lowers it for tests, from 14 to 22) | A person or a secrets manager supplies the passphrase at signing time |
+| `{ passphrase }` | Encrypted with AES-256-GCM under a key derived from the passphrase with scrypt (default cost 2^17, 128 MiB; salt and cost are stored; `scryptLog2N` lowers it for tests, from 14 to 18) | A person or a secrets manager supplies the passphrase at signing time |
 | `{ key }` | Encrypted with AES-256-GCM under the 32-byte key you supply | The key comes from a KMS, an HSM-wrapped secret, or the environment of a build runner |
 | `{ unprotected: true }` | In clear | The directory itself is protected (an encrypted volume, an ephemeral runner) |
 

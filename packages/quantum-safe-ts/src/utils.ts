@@ -115,6 +115,7 @@ export function fromBase64Url(s: string): Uint8Array {
     throw new InvalidArgumentError('Invalid base64url string.');
   }
   const b64 = stripPadding(s.replace(/-/g, '+').replace(/_/g, '/'));
+  if (b64.length % 4 === 1) throw new InvalidArgumentError('Invalid base64url string.');
   const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);

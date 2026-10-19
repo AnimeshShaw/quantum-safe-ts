@@ -400,6 +400,7 @@ export async function* openStream(secretKey: SecretKey, source: ByteSource, opti
     }
   };
 
+  try {
   await fill(8);
   if (queue.length < 8) throw new MalformedCiphertextError('Stream is too short to contain a header.');
   const magic = queue.take(4);
@@ -427,6 +428,10 @@ export async function* openStream(secretKey: SecretKey, source: ByteSource, opti
     const last = queue.length === 0; // `fill` tried to read past the frame; nothing there means the source ended
     yield opener.open(ciphertext, last);
     if (last) return;
+  }
+  } finally {
+    // The consumer stopped early or a chunk failed: release the source (a file handle, a socket) instead of leaving it open.
+    if (!ended) await iterator.return?.();
   }
 }
 

@@ -318,7 +318,7 @@ const KDF_P = 1;
 /** Default, smallest and largest scrypt cost exponent (`N = 2^log2N`) accepted for a passphrase. */
 const KDF_DEFAULT_LOG2N = 17;
 const KDF_MIN_LOG2N = 14;
-const KDF_MAX_LOG2N = 22;
+const KDF_MAX_LOG2N = 18; // 2^18 * 1 KiB = 256 MiB, within KDF_MAXMEM; larger costs would fail after the tree is built
 /** Memory limit passed to scrypt, in bytes. */
 const KDF_MAXMEM = 512 * 1024 * 1024;
 /** Empty HKDF salt. */
@@ -486,7 +486,7 @@ export class LmsSigner {
    * @throws {UnsupportedAlgorithmError} when not running in Node.js, or for `height` 25.
    * @throws {InvalidArgumentError} for an empty `directory`, a `height` or `winternitz` outside the supported values, a `protection` that does
    * not name exactly one of `passphrase` (non-empty), `key` (32 bytes) or `unprotected: true`, or a `scryptLog2N` that is not an integer from
-   * 14 to 22.
+   * 14 to 18.
    * @throws {SigningError} if `key.json` or `tree.bin` already exists in the directory.
    */
   static create(options: LmsSignerCreateOptions): LmsSigner {
@@ -692,7 +692,11 @@ export class LmsSigner {
         fd = fs.openSync(lock, 'wx', 0o600);
         break;
       } catch (e) {
-        if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw new SigningError(`The LMS key lock cannot be taken: ${(e as Error).message}`);
+        const code = (e as NodeJS.ErrnoException).code;
+        // On Windows a lock file that another process has just removed is briefly "delete pending", and creating it fails with EPERM, EACCES
+        // or EBUSY: that is contention, like EEXIST. Anywhere else those codes are real permission problems and fail at once.
+        const contended = code === 'EEXIST' || (process.platform === 'win32' && (code === 'EPERM' || code === 'EACCES' || code === 'EBUSY'));
+        if (!contended) throw new SigningError(`The LMS key lock cannot be taken: ${(e as Error).message}`);
         if (Date.now() > deadline) {
           throw new SigningError(
             'The LMS key is locked by another signer, or a signer stopped while holding the lock. Refusing to sign. If you are sure no signer is running, delete key.json.lock.',

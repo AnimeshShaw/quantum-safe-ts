@@ -37,6 +37,11 @@ as a new, explicitly identified algorithm suite.
 - **`FileMigrationStore` keys are limited to 100 bytes (was 120).** The file name is the hex of the key plus the temporary-file and lock suffixes, so a key of 101 to 120 bytes could not be written on filesystems with a 255-character name limit; it failed late with an operating-system error. The limit is now explicit and the longest allowed key is tested through `set` and `compareAndSet`.
 
 - **`FileMigrationStore` stale-lock breaking re-checks what it moved**: a lock that replaced the stale one between the age check and the rename is put back instead of removed, so a live holder is not turned into a "lock lost" failure by a concurrent waiter. Writes were never unsafe (ownership is checked before every rename).
+- **`quantum-safe-mcp`: `audit_path` no longer honours `qs-audit-ignore` comments**. The scanned repository is untrusted, and a comment in its own code could hide a finding from the agent.
+- **`quantum-safe-audit` command line:** an unknown option is a usage error (`--cnsa` used to swallow the next path); an unwritable `--output` or a policy of the wrong shape exits 2 instead of 1 (which means "findings"); a `package.json` that is not valid JSON makes the scan incomplete instead of passing; the help names every policy key and says an incomplete scan wins over findings.
+- **`rewrapDirectory`:** refuses a destination inside the source, keeps file permissions on an in-place rewrite, and its CycloneDX report treats a hybrid or ML-KEM source as post-quantum with its real security level.
+- **`openStream`** closes its source when the consumer stops early or a chunk fails; **`fromBase64Url`** reports a length of 1 mod 4 as `InvalidArgumentError` (it leaked a `DOMException`); **`FileMigrationStore.keys()`** lists only the files it wrote; **`importHistory`** enforces the 10,000-record limit that reading applies; **`LmsSigner`** accepts `scryptLog2N` 14 to 18 (19 to 22 could never run within the memory limit and failed after the tree was built) and retries a lock that Windows reports as EPERM while another process is deleting it.
+- The WebAssembly `SealPlan` no longer traps when `finish()` is called twice.
 
 ### Documentation
 

@@ -30,7 +30,7 @@ const HELP = `quantum-safe-audit: find classical (quantum-vulnerable) cryptograp
 
 Usage:
   quantum-safe-audit scan [paths...]      Scan files/directories (default: .)
-  quantum-safe-audit cbom [paths...]      Emit a CycloneDX 1.6 CBOM (same as: scan --format cbom)
+  quantum-safe-audit cbom [paths...]      Emit a CycloneDX 1.6 CBOM (like scan --format cbom, but exits 0 when the scan is complete)
   quantum-safe-audit sbom <file.json>     Add post-quantum readiness properties to a CycloneDX SBOM (npm components)
   quantum-safe-audit rules                List rules (add --json for machine-readable output)
   quantum-safe-audit explain <RULE_ID>    Explain a rule and show the migration (add --json)
@@ -39,7 +39,7 @@ Options for scan/cbom:
   --format <text|json|sarif|cbom>   Output format (default: text)
   --output <file>                   Write to a file instead of stdout
   --fail-on <critical|high|medium|low|info|none>   Exit 1 at or above this severity (default: high)
-  --policy <file>                   JSON policy { failOn, ignoreRules, exclude, cnsa2 }; default ./.qs-audit.json if present
+  --policy <file>                   JSON policy { failOn, ignoreRules, exclude, cnsa2, noInlineIgnore, noDefaultExcludes }; default ./.qs-audit.json if present
   --exclude <glob>                  Exclude paths (repeatable; ** and * supported)
   --ignore-rule <ID>                Ignore a rule (repeatable)
   --cnsa2                           Also report CNSA 2.0 hash gaps (SHA-256)
@@ -52,7 +52,7 @@ Options for scan/cbom:
   -h, --help                        Show this help
   -v, --version                     Show the version
 
-Exit codes: 0 ok; 1 findings at or above --fail-on; 2 usage or I/O error.
+Exit codes: 0 ok; 1 findings at or above --fail-on; 2 usage or I/O error, or an incomplete scan (this wins over 1).
 Suppress a finding in code with:  // qs-audit-ignore QSJ010 reason   (same or next line)
 This tool reports what the source names. It is an inventory, not a compliance verdict.`;
 
@@ -74,6 +74,7 @@ function parseArgs(argv: string[]): Parsed {
   const flags: Parsed['flags'] = {};
   const positional: string[] = [];
   const multi = new Set(['exclude', 'ignore-rule']);
+  const VALUE_FLAGS = new Set(['format', 'output', 'fail-on', 'policy', 'exclude', 'ignore-rule', 'app-name']);
   const bool = new Set(['cnsa2', 'no-provided', 'json', 'help', 'version', 'allow-incomplete', 'no-config', 'no-inline-ignore', 'no-default-excludes']);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
@@ -84,6 +85,7 @@ function parseArgs(argv: string[]): Parsed {
       const k = eq === -1 ? a.slice(2) : a.slice(2, eq);
       const inline = eq === -1 ? undefined : a.slice(eq + 1);
       if (bool.has(k)) flags[k] = true;
+      else if (!VALUE_FLAGS.has(k)) throw new Error(`Unknown option --${k}`);
       else {
         const v = inline ?? argv[++i];
         if (v === undefined) throw new Error(`--${k} requires a value`);
@@ -238,4 +240,15 @@ function main(): number {
   return command === 'cbom' ? 0 : shouldFail(report) ? 1 : 0;
 }
 
-process.exit(main());
+/** Runs {@link main}; an unexpected failure (an unwritable `--output`, a policy with the wrong shape) is reported as an error with exit code 2. */
+function run(): number {
+  try {
+    return main();
+  } catch (e) {
+    process.stderr.write(`Error: ${(e as Error).message}
+`);
+    return 2;
+  }
+}
+
+process.exit(run());

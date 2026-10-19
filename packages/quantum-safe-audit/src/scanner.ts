@@ -602,15 +602,15 @@ const PQ_DEPS = /^(quantum-safe-ts|@noble\/post-quantum|mlkem|crystals-kyber-js|
 
 /**
  * Reports classical and post-quantum libraries listed in `dependencies`, `devDependencies`, `peerDependencies` and `optionalDependencies`.
- * The line is the first line of the file that contains the quoted package name (line 1 if none does); text that is not valid JSON
- * gives no findings.
+ * The line is the first line of the file that contains the quoted package name (line 1 if none does).
+ * @throws {ScanError} If the text is not valid JSON; the scan is then reported as incomplete.
  */
 function scanPackageJson(file: string, text: string): Finding[] {
   let pkg: Record<string, unknown>;
   try {
     pkg = JSON.parse(text) as Record<string, unknown>;
   } catch {
-    return [];
+    throw new ScanError(`${file}: not valid JSON, so its dependencies were not checked`);
   }
   const lines = text.split('\n');
   const out: Finding[] = [];

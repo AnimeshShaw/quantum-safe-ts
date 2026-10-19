@@ -10,7 +10,7 @@
  *    and the number of findings returned is capped.
  */
 import { existsSync, realpathSync } from 'node:fs';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { RULES, ruleById, scanPaths, shouldFail, summary } from 'quantum-safe-audit';
 import type { Severity } from 'quantum-safe-audit';
@@ -44,7 +44,7 @@ export function resolveInside(root: string, userPath: string): string {
   if (!existsSync(candidate)) throw new Error('Path does not exist inside the allowed root.');
   const real = realpathSync(candidate);
   const rel = relative(realRoot, real);
-  if (rel.startsWith('..') || isAbsolute(rel)) throw new Error('Path is outside the allowed root.');
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error('Path is outside the allowed root.');
   return real;
 }
 
@@ -139,7 +139,8 @@ export function createServer(options: ServerOptions = {}): McpServer {
       } catch (e) {
         return failure((e as Error).message);
       }
-      const report = scanPaths([target], { ...(cnsa2 ? { cnsa2 } : {}), ...(exclude ? { exclude } : {}) });
+      // The repository is untrusted: its own `qs-audit-ignore` comments must not hide findings from the agent.
+      const report = scanPaths([target], { noInlineIgnore: true, ...(cnsa2 ? { cnsa2 } : {}), ...(exclude ? { exclude } : {}) });
       const order = SEVERITIES.indexOf((minSeverity ?? 'info') as Severity);
       const kept = report.findings.filter((f) => SEVERITIES.indexOf(f.severity) <= order);
       const shown = kept.slice(0, MAX_FINDINGS).map((f, i) => ({

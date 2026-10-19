@@ -59,6 +59,20 @@ function spy(): { impl: NativeAead; encrypts: number; decrypts: number; keys: Ui
 const SIZES = [0, 1, 100, NATIVE_AEAD_MIN_BYTES - 1, NATIVE_AEAD_MIN_BYTES, NATIVE_AEAD_MIN_BYTES + 1, 70_000, 1 << 20];
 const SUITES = ['X25519+ML-KEM-768', 'P-256+ML-KEM-768', 'P-384+ML-KEM-1024', 'X-Wing'] as const;
 
+/** Equality with a readable failure: where the first difference is and how many bytes differ. */
+function expectSame(actual: Uint8Array, expected: Uint8Array, label: string): void {
+  if (actual.length !== expected.length) throw new Error(`${label}: length ${actual.length} != ${expected.length}`);
+  let first = -1;
+  let count = 0;
+  for (let i = 0; i < actual.length; i++) {
+    if (actual[i] !== expected[i]) {
+      if (first < 0) first = i;
+      count++;
+    }
+  }
+  if (first >= 0) throw new Error(`${label}: ${count} bytes differ, the first at ${first} (got ${actual[first]}, expected ${expected[first]})`);
+}
+
 function data(n: number): Uint8Array {
   const out = new Uint8Array(n);
   for (let i = 0; i < n; i++) out[i] = (i * 31 + 7) & 0xff;
@@ -75,8 +89,8 @@ describe('Envelope: native and WebAssembly agree', () => {
         const viaNative = Envelope.seal(plain, pair.publicKey, { aad });
         const viaWasm = wasmOnly(() => Envelope.seal(plain, pair.publicKey, { aad }));
         for (const sealed of [viaNative, viaWasm]) {
-          expect(Envelope.open(sealed, pair.secretKey, { expectedAad: aad }), `${suite} ${n} native open`).toEqual(plain);
-          expect(wasmOnly(() => Envelope.open(sealed, pair.secretKey, { expectedAad: aad })), `${suite} ${n} wasm open`).toEqual(plain);
+          expectSame(Envelope.open(sealed, pair.secretKey, { expectedAad: aad }), plain, `${suite} ${n} native open`);
+          expectSame(wasmOnly(() => Envelope.open(sealed, pair.secretKey, { expectedAad: aad })), plain, `${suite} ${n} wasm open`);
         }
         // the messages have the same shape: same fields, same lengths
         expect(viaNative.version).toBe(viaWasm.version);

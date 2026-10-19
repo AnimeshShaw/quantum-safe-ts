@@ -127,7 +127,7 @@ export class FileMigrationStore implements MigrationStore {
    */
   async keys(): Promise<string[]> {
     try {
-      return (await readdir(this.#dir)).filter((n) => n.endsWith('.json')).map((n) => dec(n.slice(0, -'.json'.length)));
+      return (await readdir(this.#dir)).filter((n) => /^(?:[0-9a-f]{2})+\.json$/.test(n)).map((n) => dec(n.slice(0, -'.json'.length)));
     } catch (e) {
       if (code(e) === 'ENOENT') return [];
       throw e;

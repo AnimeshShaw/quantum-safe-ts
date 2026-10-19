@@ -222,6 +222,19 @@ pub struct SealPlan {
 }
 
 impl SealPlan {
+    /// The finished message for the AES-GCM output (`ciphertext || tag`), leaving the plan intact (the
+    /// public fields are copied; the key stays in the plan and is wiped when it is dropped).
+    pub fn to_message(&self, ciphertext: Vec<u8>) -> SealedMessage {
+        SealedMessage {
+            version: self.version,
+            algorithm: self.algorithm.clone(),
+            kem_ct: self.kem_ct.clone(),
+            nonce: self.nonce.to_vec(),
+            ciphertext,
+            aad: self.aad.clone(),
+        }
+    }
+
     /// The finished message, given the AES-GCM output (`ciphertext || tag`).
     pub fn into_message(self, ciphertext: Vec<u8>) -> SealedMessage {
         SealedMessage {

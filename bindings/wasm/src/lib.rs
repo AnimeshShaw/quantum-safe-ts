@@ -446,19 +446,17 @@ pub fn envelope_open(sealed: &[u8], secret_key: &SecretKey) -> Result<Vec<u8>, J
 /// ciphertext, nonce and AAD are public; `takeKey()` returns a copy of the one-time AES key (each call gives a
 /// new `SecretBytes`). Free it when done.
 ///
-/// After `finish()` the plan is spent: calling `finish()`, a getter or `takeKey()` again panics.
+/// `finish()` can be called any number of times; free the plan when done so the key is wiped.
 #[wasm_bindgen]
 pub struct SealPlan {
-    inner: Option<envelope::SealPlan>,
+    inner: envelope::SealPlan,
 }
 
 #[wasm_bindgen]
 impl SealPlan {
-    // The plan's data. `inner` is `Some` until `finish()` consumes it; the getters rely on that.
+    // The plan's data.
     fn plan(&self) -> &envelope::SealPlan {
-        self.inner
-            .as_ref()
-            .expect("a SealPlan is not used after finish()")
+        &self.inner
     }
     /// The envelope version: 1 or 2.
     #[wasm_bindgen(getter)]
@@ -497,11 +495,10 @@ impl SealPlan {
             inner: Zeroizing::new(self.plan().key.to_vec()),
         }
     }
-    /// Encodes the sealed message, given the AES-GCM output (`ciphertext || tag`); consumes the plan. Returns the
-    /// CBOR bytes as a `Uint8Array`.
-    pub fn finish(&mut self, ciphertext: &[u8]) -> Result<Vec<u8>, JsValue> {
-        let plan = self.inner.take().expect("a SealPlan is finished once");
-        plan.into_message(ciphertext.to_vec()).to_cbor().map_err(err)
+    /// Encodes the sealed message, given the AES-GCM output (`ciphertext || tag`). Returns the CBOR bytes as a
+    /// `Uint8Array`.
+    pub fn finish(&self, ciphertext: &[u8]) -> Result<Vec<u8>, JsValue> {
+        self.inner.to_message(ciphertext.to_vec()).to_cbor().map_err(err)
     }
 }
 
@@ -511,7 +508,7 @@ impl SealPlan {
 #[wasm_bindgen(js_name = envelopeSealPlan)]
 pub fn envelope_seal_plan(public_key: &PublicKey, aad: &[u8]) -> Result<SealPlan, JsValue> {
     Ok(SealPlan {
-        inner: Some(envelope::seal_plan(&public_key.core(), aad).map_err(err)?),
+        inner: envelope::seal_plan(&public_key.core(), aad).map_err(err)?,
     })
 }
 
