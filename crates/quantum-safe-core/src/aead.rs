@@ -5,11 +5,16 @@
 
 use thiserror::Error;
 
+/// AES-GCM nonce length in bytes.
 pub const NONCE_LEN: usize = 12;
+/// AES-256 key length in bytes.
 pub const KEY_LEN: usize = 32;
 
+/// Errors returned by [`decrypt`].
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum AeadError {
+    /// The GCM tag did not verify: the key, nonce or AAD differs from the one used to encrypt, the
+    /// ciphertext was modified, or the input is shorter than the 16-byte tag.
     #[error("AES-GCM authentication failed: wrong key, wrong AAD, or tampered ciphertext")]
     AuthenticationFailed,
 }
@@ -20,6 +25,14 @@ use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 /// Encrypt `plaintext` under `key`/`nonce`, authenticating `aad`. Returns
 /// `ciphertext || tag` (tag is the trailing 16 bytes), matching
 /// `cryptography.hazmat.primitives.ciphers.aead.AESGCM.encrypt`'s output shape.
+///
+/// The output is `plaintext.len() + 16` bytes. The same `key`/`nonce` pair must never encrypt two
+/// different messages; the caller chooses the nonce.
+///
+/// # Panics
+///
+/// The two `expect` calls are unreachable: a 12-byte array always converts to a nonce, and AES-256-GCM
+/// encryption fails only when the message or AAD exceeds the GCM length limit (about 64 GiB).
 pub fn encrypt(key: &[u8; KEY_LEN], nonce: &[u8; NONCE_LEN], plaintext: &[u8], aad: &[u8]) -> Vec<u8> {
     let cipher = Aes256Gcm::new(key.into());
     let nonce = Nonce::try_from(nonce.as_slice()).expect("NONCE_LEN-sized array always converts");
@@ -32,6 +45,11 @@ pub fn encrypt(key: &[u8; KEY_LEN], nonce: &[u8; NONCE_LEN], plaintext: &[u8], a
 /// `Err(AeadError::AuthenticationFailed)` — never panics — on a wrong key,
 /// wrong AAD, or any tampering, so a caller decrypting attacker-supplied
 /// envelopes never crashes the process on bad input.
+///
+/// # Errors
+///
+/// [`AeadError::AuthenticationFailed`] when the tag does not verify, including when
+/// `ciphertext_with_tag` is shorter than the 16-byte tag.
 pub fn decrypt(
     key: &[u8; KEY_LEN],
     nonce: &[u8; NONCE_LEN],

@@ -13,13 +13,15 @@
 //!   halves are not (their inputs are different byte strings, and a v1 signing oracle that signs attacker-chosen contexts could be made to emit a v2 half).
 //!
 //! `M2 = u8(len(algo)) || algo || u8(len(ctx)) || ctx || message`, where `algo` is the full v2 identifier (for example `ML-DSA-65-v2`).
-//! ML-DSA signs `M2` with FIPS 204 context [`LABEL`]. The classical half signs `LABEL || 0x00 || M2` (Ed25519, or ECDSA P-256 with SHA-256,
+//! ML-DSA signs `M2` with FIPS 204 context [`LABEL`]. The classical half signs `LABEL || 0x00 || M2` (Ed25519, or ECDSA P-256 with SHA-256 or P-384 with SHA-384,
 //! raw `r || s`, low-S only). A hybrid signature is `classical signature || ML-DSA signature`, both of fixed length. ML-DSA signing is always
 //! hedged (32 fresh random bytes inside ML-DSA, per FIPS 204).
 
 use super::*;
 
+/// Suffix that marks a v2 algorithm identifier.
 pub const SUFFIX: &str = "-v2";
+/// Domain-separation label: the FIPS 204 context of the ML-DSA half, and the prefix of the classical half's input.
 pub const LABEL: &[u8] = b"quantum-safe-sig-v2";
 
 /// `Some(base suite name)` when `algorithm` is a supported v2 identifier (ML-DSA and the approved hybrids; SLH-DSA has no v2).
@@ -55,6 +57,7 @@ pub(crate) fn signed_input(algorithm: &str, context: &[u8], message: &[u8]) -> V
     v
 }
 
+/// The classical half's signing input: `LABEL || 0x00 || M2`.
 fn classical_input(m2: &[u8]) -> Vec<u8> {
     let mut v = Vec::with_capacity(LABEL.len() + 1 + m2.len());
     v.extend_from_slice(LABEL);
@@ -63,6 +66,7 @@ fn classical_input(m2: &[u8]) -> Vec<u8> {
     v
 }
 
+/// Signs `input` with the classical half: Ed25519 as in v1, ECDSA as raw `r || s` normalised to low-S.
 fn classical_sign_v2(c: ClassicalSig, sk: &[u8], input: &[u8]) -> Result<Vec<u8>, SigError> {
     match c {
         ClassicalSig::Ed25519 => classical_sign(c, sk, input),
@@ -72,9 +76,17 @@ fn classical_sign_v2(c: ClassicalSig, sk: &[u8], input: &[u8]) -> Result<Vec<u8>
             let sig: p256::ecdsa::Signature = key.try_sign(input).map_err(|_| SigError::SigningFailed)?;
             Ok(sig.normalize_s().to_bytes().to_vec()) // raw r || s, low-S
         }
+        ClassicalSig::P384 => {
+            let pem = std::str::from_utf8(sk).map_err(|_| SigError::MalformedKey)?;
+            let key = p384::ecdsa::SigningKey::from_pkcs8_pem(pem).map_err(|_| SigError::MalformedKey)?;
+            let sig: p384::ecdsa::Signature = key.try_sign(input).map_err(|_| SigError::SigningFailed)?;
+            Ok(sig.normalize_s().to_bytes().to_vec()) // raw r || s (96 bytes), low-S
+        }
     }
 }
 
+/// Verifies the classical half. ECDSA signatures must be raw `r || s` in low-S form; a high-S signature is
+/// `Ok(false)`. A public key of the wrong length or off the curve is `MalformedKey`.
 fn classical_verify_v2(c: ClassicalSig, pk: &[u8], input: &[u8], sig: &[u8]) -> Result<bool, SigError> {
     match c {
         ClassicalSig::Ed25519 => classical_verify(c, pk, input, sig),
@@ -95,12 +107,41 @@ fn classical_verify_v2(c: ClassicalSig, pk: &[u8], input: &[u8], sig: &[u8]) -> 
             }
             Ok(vk.verify(input, &sig).is_ok())
         }
+        ClassicalSig::P384 => {
+            if pk.len() != 96 {
+                return Err(SigError::MalformedKey);
+            }
+            let mut point = Vec::with_capacity(97);
+            point.push(0x04);
+            point.extend_from_slice(pk);
+            let vk =
+                p384::ecdsa::VerifyingKey::from_sec1_bytes(&point).map_err(|_| SigError::MalformedKey)?;
+            let Ok(sig) = p384::ecdsa::Signature::from_slice(sig) else {
+                return Ok(false);
+            };
+            if sig.normalize_s() != sig {
+                return Ok(false); // the high-S twin is refused, as for P-256
+            }
+            Ok(vk.verify(input, &sig).is_ok())
+        }
     }
 }
 
-/// Both classical signature encodings used here are 64 bytes (Ed25519, raw P-256 `r || s`).
-const CLASSICAL_SIG_LEN: usize = 64;
+/// Length of the fixed-size classical half: Ed25519 and raw P-256 `r || s` are 64 bytes, raw P-384 `r || s` is 96.
+const fn classical_sig_len(c: ClassicalSig) -> usize {
+    match c {
+        ClassicalSig::Ed25519 | ClassicalSig::P256 => 64,
+        ClassicalSig::P384 => 96,
+    }
+}
 
+/// Generate a key pair for a v2 identifier (`<suite>-v2`).
+///
+/// The key bytes are those of the base suite; only the algorithm string differs.
+///
+/// # Errors
+///
+/// [`SigError::UnsupportedAlgorithm`] when `algorithm` is not a supported v2 identifier.
 pub fn generate_keypair(algorithm: &str) -> Result<SigKeyPair, SigError> {
     let base = base_of(algorithm).ok_or_else(|| SigError::UnsupportedAlgorithm(algorithm.to_string()))?;
     // The same key material as the base suite, tagged `<base>-v2`.
@@ -110,6 +151,18 @@ pub fn generate_keypair(algorithm: &str) -> Result<SigKeyPair, SigError> {
     Ok(kp)
 }
 
+/// Sign `message` in the v2 format. `secret.algorithm` must be a v2 identifier.
+///
+/// The signature blob is the ML-DSA signature, or for a hybrid `classical signature || ML-DSA signature`.
+/// `opts.deterministic` has no effect: v2 has no random prefix.
+///
+/// # Errors
+///
+/// - [`SigError::UnsupportedAlgorithm`] when the key's algorithm is not a supported v2 identifier.
+/// - [`SigError::ContextTooLong`] when `context` is over 255 bytes.
+/// - [`SigError::EmptyMessage`] when `message` is empty.
+/// - [`SigError::MalformedKey`] when the secret key has the wrong length or does not parse.
+/// - [`SigError::SigningFailed`] when the OS RNG or the signing primitive fails.
 pub fn sign(
     secret: &SecretKey,
     message: &[u8],
@@ -148,6 +201,17 @@ pub fn sign(
 }
 
 /// Failures of the signature collapse to `VerificationFailed`; an unusable public key is `MalformedKey`.
+///
+/// A hybrid blob must be exactly the classical signature length plus the ML-DSA signature length, and
+/// both halves are evaluated before they are combined.
+///
+/// # Errors
+///
+/// - [`SigError::UnsupportedAlgorithm`] when `algorithm` is not a supported v2 identifier.
+/// - [`SigError::AlgorithmMismatch`] when `public.algorithm` differs from `algorithm`.
+/// - [`SigError::MalformedKey`] when the public key has the wrong length or does not parse.
+/// - [`SigError::VerificationFailed`] for an empty message, a context over 255 bytes, a blob of the wrong
+///   length, or a signature that does not verify.
 pub fn verify_parts(
     algorithm: &str,
     message: &[u8],
@@ -168,10 +232,10 @@ pub fn verify_parts(
         SigSuite::MlDsa(l) => mldsa_verify_ctx(l, &public.raw, &m2, LABEL, blob)?,
         SigSuite::Hybrid(c, l) => {
             let (c_pub, p_pub) = unpack_components(&public.raw).map_err(|_| SigError::MalformedKey)?;
-            if blob.len() != CLASSICAL_SIG_LEN + l.sizes().2 {
+            if blob.len() != classical_sig_len(c) + l.sizes().2 {
                 return Err(SigError::VerificationFailed);
             }
-            let (c_sig, p_sig) = blob.split_at(CLASSICAL_SIG_LEN);
+            let (c_sig, p_sig) = blob.split_at(classical_sig_len(c));
             // Both halves are always evaluated before they are combined.
             let classical_ok = classical_verify_v2(c, c_pub, &classical_input(&m2), c_sig);
             let pqc_ok = mldsa_verify_ctx(l, p_pub, &m2, LABEL, p_sig);
@@ -201,7 +265,7 @@ mod tests {
 
     #[test]
     fn identifiers() {
-        assert_eq!(all().len(), 3 + 5);
+        assert_eq!(all().len(), 3 + 5 + 1);
         assert_eq!(base_of("ML-DSA-65-v2"), Some("ML-DSA-65"));
         assert_eq!(base_of("Ed25519+ML-DSA-87-v2"), Some("Ed25519+ML-DSA-87"));
         assert_eq!(base_of("SLH-DSA-SHAKE-128f-v2"), None);
@@ -291,11 +355,28 @@ mod tests {
     }
 
     #[test]
+    fn p384_high_s_twin_is_rejected() {
+        use p384::ecdsa::Signature;
+        let kp = super::super::generate_keypair("P-384+ML-DSA-87-v2").unwrap();
+        let sm = sign(&kp.secret, b"low-s only", b"", &opts()).unwrap();
+        let (c_sig, p_sig) = sm.signature.split_at(classical_sig_len(ClassicalSig::P384));
+        assert_eq!(c_sig.len(), 96);
+        let sig = Signature::from_slice(c_sig).unwrap();
+        let (r, s) = sig.split_scalars();
+        let high = Signature::from_scalars(r, -*s).unwrap();
+        assert_ne!(high, sig);
+        let mut twin = high.to_bytes().to_vec();
+        twin.extend_from_slice(p_sig);
+        super::super::verify_parts(&sm.algorithm, b"low-s only", &sm.signature, b"", &kp.public).unwrap();
+        assert!(super::super::verify_parts(&sm.algorithm, b"low-s only", &twin, b"", &kp.public).is_err());
+    }
+
+    #[test]
     fn p256_high_s_twin_is_rejected() {
         use p256::ecdsa::Signature;
         let kp = super::super::generate_keypair("P-256+ML-DSA-44-v2").unwrap();
         let sm = sign(&kp.secret, b"low-s only", b"", &opts()).unwrap();
-        let (c_sig, p_sig) = sm.signature.split_at(CLASSICAL_SIG_LEN);
+        let (c_sig, p_sig) = sm.signature.split_at(classical_sig_len(ClassicalSig::P256));
         let sig = Signature::from_slice(c_sig).unwrap();
         // build the high-S twin: s' = n - s
         let (r, s) = sig.split_scalars();

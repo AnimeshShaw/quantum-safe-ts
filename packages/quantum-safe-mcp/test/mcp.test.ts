@@ -134,7 +134,7 @@ describe('knowledge tools', () => {
   });
   it('recommend_suite covers every use case and never overclaims', async () => {
     const client = await connect(project());
-    for (const useCase of ['encrypt-data', 'key-exchange', 'sign-data', 'jwt', 'password-kdf', 'file-or-vault-encryption']) {
+    for (const useCase of ['encrypt-data', 'key-exchange', 'sign-data', 'jwt', 'password-kdf', 'file-or-vault-encryption', 'firmware-signing', 'migrate-stored-data']) {
       for (const requireCnsa2 of [false, true]) {
         const r = payload(await client.callTool({ name: 'recommend_suite', arguments: { useCase, requireCnsa2 } }));
         expect(r.code.length).toBeGreaterThan(50);
@@ -159,6 +159,11 @@ describe('knowledge tools', () => {
     expect(other.compatibility).toContain('0.3.2 or later');
     expect(JSON.stringify(other)).not.toMatch(/plain FIPS 204/i);
     expect(recommend('jwt', false, 'none').algorithm).toBe('ML-DSA-65');
+    expect(recommend('sign-data', false, 'none').algorithm).toBe('Ed25519+ML-DSA-65-v2');
+    expect(recommend('firmware-signing', false, 'none').code).toContain('LmsSigner.create');
+    expect(recommend('firmware-signing', false, 'none').code).toContain('protection');
+    expect(recommend('migrate-stored-data', false, 'none').code).toContain('rewrapDirectory');
+    expect(recommend('encrypt-data', false, 'other-ecosystems').compatibility).toContain('quantum-safe-py 1.0.0');
   });
   it('explain_error knows every library error code', async () => {
     const client = await connect(project());

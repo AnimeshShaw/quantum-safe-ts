@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const q = require('../packages/quantum-safe-ts/dist/node.cjs');
 
 const out = { jwt: [], kem: [], envelope: [], upgrade_kem: [], upgrade_sign: [], migrate_store: null };
-for (const algorithm of ['ML-DSA-65', 'ML-DSA-44', 'ML-DSA-87', 'Ed25519+ML-DSA-65', 'Ed25519+ML-DSA-87', 'P-256+ML-DSA-65']) {
+for (const algorithm of ['ML-DSA-65', 'ML-DSA-44', 'ML-DSA-87', 'Ed25519+ML-DSA-65', 'Ed25519+ML-DSA-87', 'P-256+ML-DSA-65', 'P-384+ML-DSA-87']) {
   const signer = algorithm.includes('+') ? new q.HybridSign(algorithm) : new q.Sign(algorithm);
   const pair = signer.generateKeyPair();
   const token = new q.JWTSigner(pair, { issuer: 'https://ts.example' }).sign({ sub: 'ts-user', n: 7 }, { expiresIn: 1_000_000_000 });
@@ -16,7 +16,7 @@ for (const algorithm of ['ML-DSA-65', 'ML-DSA-44', 'ML-DSA-87', 'Ed25519+ML-DSA-
   pair.free();
 }
 // Facade-level (not just core) KEM + envelope vectors, so the published API surface is what is verified.
-for (const algorithm of ['X25519+ML-KEM-768', 'X25519+ML-KEM-1024', 'P-256+ML-KEM-768']) {
+for (const algorithm of ['X25519+ML-KEM-768', 'X25519+ML-KEM-1024', 'P-256+ML-KEM-768', 'P-384+ML-KEM-1024']) {
   const kem = new q.HybridKEM(algorithm);
   const pair = kem.generateKeyPair();
   const sealed = q.Envelope.seal(q.utf8(`facade ${algorithm}`), pair.publicKey, { aad: q.utf8('facade') });

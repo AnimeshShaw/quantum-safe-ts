@@ -5,6 +5,7 @@ export * from './errors.js';
 export {
   DEFAULT_KEM,
   DEFAULT_HYBRID_SIGNATURE,
+  ORIGINAL_HYBRID_SIGNATURE,
   DEFAULT_SIGNATURE,
   kemSuites,
   sigSuites,
@@ -17,7 +18,11 @@ export type { Encapsulation } from './kem.js';
 export { Envelope, SealedMessage } from './envelope.js';
 export type { SealOptions, SealedInfo } from './envelope.js';
 export { Sign, HybridSign, SignedMessage } from './signatures.js';
+export { warnings } from './warnings.js';
+export type { QuantumSafeWarning, QuantumSafeWarningCode } from './warnings.js';
 export type { SignOptions, SignedInfo } from './signatures.js';
+export { StandardKeyPair, STANDARD_SEED_LENGTH } from './standard.js';
+export type { StandardAlgorithm } from './standard.js';
 export { sealStream, openStream, sealBytes, openBytes, StreamSealer, StreamOpener, inspectStreamHeader, DEFAULT_STREAM_CHUNK_SIZE } from './stream.js';
 export type { SealStreamOptions, OpenStreamOptions, StreamHeaderInfo, ByteSource } from './stream.js';
 export { deriveMasterKey } from './kdf.js';
@@ -36,6 +41,7 @@ export type {
   StandardVerifyOptions,
 } from './jwt.js';
 export * as cnsa2 from './cnsa2.js';
+export * as cose from './cose.js';
 export * as easy from './easy.js';
 export type { EasyKeyPair } from './easy.js';
 export { toHex, fromHex, utf8, wipe, equalBytes, toBase64Url, fromBase64Url } from './utils.js';

@@ -1,0 +1,7 @@
+commit: b000cc9a51164a7509c0d90610bfa475d7047d65
+date: 2026-10-19T18:22:22.880Z
+runs: 15 timed + 1 discarded warm-up  iterations: 3000  leakage iterations: 20000
+node: v22.23.3  v8: 12.4.254.21-node.57
+platform: win32 10.0.26300 x64
+cpu: Intel(R) Core(TM) i9-14900HX x32  memory: 16088 MiB
+pinned: true

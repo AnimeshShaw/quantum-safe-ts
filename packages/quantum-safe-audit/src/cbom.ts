@@ -14,6 +14,7 @@ import { ruleById } from './rules.js';
 import type { Primitive } from './rules.js';
 import type { ScanReport } from './walk.js';
 
+/** A post-quantum algorithm quantum-safe-ts provides, listed in the CBOM as a migration target. */
 interface Provided {
   name: string;
   primitive: Primitive;
@@ -22,6 +23,7 @@ interface Provided {
   quantum: number;
 }
 
+/** The ML-KEM, ML-DSA and SLH-DSA parameter sets listed as `provided` assets. */
 const PROVIDED: readonly Provided[] = [
   { name: 'ML-KEM-512', primitive: 'kem', oid: '2.16.840.1.101.3.4.4.1', classical: 128, quantum: 1 },
   { name: 'ML-KEM-768', primitive: 'kem', oid: '2.16.840.1.101.3.4.4.2', classical: 192, quantum: 3 },
@@ -33,19 +35,27 @@ const PROVIDED: readonly Provided[] = [
   { name: 'SLH-DSA-SHAKE-256s', primitive: 'signature', oid: '2.16.840.1.101.3.4.3.30', classical: 256, quantum: 5 },
 ];
 
+/** Options for {@link buildCbom}. */
 export interface CbomOptions {
+  /** List the post-quantum algorithms quantum-safe-ts provides. Default: `true`. */
   includeProvided?: boolean;
+  /** Name of the scanned application. Default: `scanned-application`. */
   applicationName?: string;
+  /** Document serial number. Default: a new `urn:uuid:` value. */
   serialNumber?: string;
+  /** Document timestamp, ISO 8601. Default: the current time. */
   timestamp?: string;
+  /** Version recorded for quantum-safe-audit in the document's tool list. Default: `0.1.3`. */
   toolVersion?: string;
 }
 
+/** Optional parts of a CBOM component: where it was found, and extra name/value properties. */
 interface ComponentExtra {
   occurrences?: Array<{ location: string; line: number; offset: number }>;
   properties?: Array<{ name: string; value: string }>;
 }
 
+/** Builds a CycloneDX `cryptographic-asset` component of asset type `algorithm`; optional fields are left out when not given. */
 function algorithmComponent(
   ref: string,
   name: string,
@@ -73,6 +83,20 @@ function algorithmComponent(
   };
 }
 
+/**
+ * Builds a CycloneDX 1.6 CBOM from a scan report.
+ *
+ * Every finding of an algorithm rule becomes one `detected-*` component with its location, rule id, severity and quantum-vulnerability
+ * flag. Findings of QSJ050, QSJ060 and QSJ900 (library inventory, embedded keys, post-quantum usage) are not algorithms and are left out.
+ * Unless `includeProvided` is `false`, the post-quantum algorithms quantum-safe-ts provides follow as `provided-*` components. The document
+ * metadata carries the detected-asset count and a note on the scope of static analysis.
+ * @param report - Scan report to inventory.
+ * @param options - Document options; see {@link CbomOptions}.
+ * @returns The CBOM as a plain object, ready for `JSON.stringify`.
+ * @example
+ * const cbom = buildCbom(scanPaths(['src']), { applicationName: 'my-app' });
+ * writeFileSync('cbom.json', JSON.stringify(cbom, null, 2));
+ */
 export function buildCbom(report: ScanReport, options: CbomOptions = {}): Record<string, unknown> {
   const components: unknown[] = [];
   let detected = 0;
@@ -121,7 +145,7 @@ export function buildCbom(report: ScanReport, options: CbomOptions = {}): Record
           {
             type: 'application',
             name: 'quantum-safe-audit',
-            version: options.toolVersion ?? '0.1.2',
+            version: options.toolVersion ?? '0.1.3',
             description: 'Static cryptographic asset discovery for JavaScript and TypeScript',
           },
         ],

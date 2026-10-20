@@ -1,0 +1,334 @@
+{
+  "generatedAt": "2026-10-19T18:42:11.439Z",
+  "node": "v22.23.3",
+  "platform": "win32 10.0.26300",
+  "cpu": "Intel(R) Core(TM) i9-14900HX",
+  "iterationsPerClass": 20000,
+  "rounds": 3,
+  "threshold": 4.5,
+  "note": "Screen at the resolution of this setup. Not a constant-time proof. See the header of bench/leakage.mjs.",
+  "experiments": [
+    {
+      "name": "ML-KEM-768 decapsulate: fixed vs random secret key",
+      "measurementsPerClass": 20000,
+      "mustLeak": false,
+      "control": false,
+      "calibration": false,
+      "verdict": "DIFFERENCE DETECTED (consistent across rounds at: rawT, croppedT, strongCroppedT)",
+      "rounds": [
+        {
+          "real": {
+            "rawT": -6.998477802670223,
+            "croppedT": -153.98146905807386,
+            "strongCroppedT": -301.1901230053751,
+            "meanDiffNs": -4938.1600000000035,
+            "effectSd": -0.06998477802670224
+          },
+          "nullMaxAbsT": 1.208878482013461
+        },
+        {
+          "real": {
+            "rawT": -9.875945007416187,
+            "croppedT": -135.611727729952,
+            "strongCroppedT": -259.51351410344466,
+            "meanDiffNs": -3223.074999999997,
+            "effectSd": -0.09875945007416186
+          },
+          "nullMaxAbsT": 1.1328742543463481
+        },
+        {
+          "real": {
+            "rawT": -16.88974915121077,
+            "croppedT": -141.37406285933383,
+            "strongCroppedT": -217.6017958633299,
+            "meanDiffNs": -2709.9100000000035,
+            "effectSd": -0.16889749151210767
+          },
+          "nullMaxAbsT": 1.6621078607152289
+        }
+      ]
+    },
+    {
+      "name": "X25519+ML-KEM-768 decapsulate: fixed vs random secret key",
+      "measurementsPerClass": 20000,
+      "mustLeak": false,
+      "control": false,
+      "calibration": false,
+      "verdict": "DIFFERENCE DETECTED (consistent across rounds at: rawT, croppedT, strongCroppedT)",
+      "rounds": [
+        {
+          "real": {
+            "rawT": -13.643549724449603,
+            "croppedT": -100.27794799278361,
+            "strongCroppedT": -178.43473726324666,
+            "meanDiffNs": -5369.364999999991,
+            "effectSd": -0.13643549724449602
+          },
+          "nullMaxAbsT": 1.7304510529476698
+        },
+        {
+          "real": {
+            "rawT": -43.73208707217754,
+            "croppedT": -156.45755405431092,
+            "strongCroppedT": -270.77951216978664,
+            "meanDiffNs": -5475.244999999995,
+            "effectSd": -0.4373208707217755
+          },
+          "nullMaxAbsT": 1.956037431948737
+        },
+        {
+          "real": {
+            "rawT": -9.73612010731343,
+            "croppedT": -60.94802299562004,
+            "strongCroppedT": -118.2731883633788,
+            "meanDiffNs": -2433.795000000013,
+            "effectSd": -0.0973612010731343
+          },
+          "nullMaxAbsT": 1.3490235435865505
+        }
+      ]
+    },
+    {
+      "name": "CONTROL: ML-KEM-768 decapsulate, random vs random (must show no difference)",
+      "measurementsPerClass": 20000,
+      "mustLeak": false,
+      "control": true,
+      "calibration": false,
+      "verdict": "no difference detected",
+      "rounds": [
+        {
+          "real": {
+            "rawT": 0.6708175677961967,
+            "croppedT": 2.8638103135375146,
+            "strongCroppedT": 3.6390024683300584,
+            "meanDiffNs": 109.14499999998952,
+            "effectSd": 0.006708175677961966
+          },
+          "nullMaxAbsT": 1.7482204300991138
+        },
+        {
+          "real": {
+            "rawT": -1.2040899384274009,
+            "croppedT": 2.29924282315185,
+            "strongCroppedT": 2.1341887810096583,
+            "meanDiffNs": -313.24499999999534,
+            "effectSd": -0.01204089938427401
+          },
+          "nullMaxAbsT": 1.574818238227702
+        },
+        {
+          "real": {
+            "rawT": 1.7325816239761491,
+            "croppedT": 0.9372495325015394,
+            "strongCroppedT": 1.5263989111142249,
+            "meanDiffNs": 493.875,
+            "effectSd": 0.017325816239761493
+          },
+          "nullMaxAbsT": 1.2648183233708004
+        }
+      ]
+    },
+    {
+      "name": "CALIBRATION: ML-KEM-768 encapsulate, fixed vs random PUBLIC key (no secret involved)",
+      "measurementsPerClass": 20000,
+      "mustLeak": false,
+      "control": false,
+      "calibration": true,
+      "verdict": "DIFFERENCE DETECTED (consistent across rounds at: croppedT, strongCroppedT)",
+      "rounds": [
+        {
+          "real": {
+            "rawT": -5.4267741691824805,
+            "croppedT": -114.09866854661276,
+            "strongCroppedT": -279.0317473509825,
+            "meanDiffNs": -6386.720000000001,
+            "effectSd": -0.0542677416918248
+          },
+          "nullMaxAbsT": 1.6073101756096155
+        },
+        {
+          "real": {
+            "rawT": -3.291162445411022,
+            "croppedT": -129.1535575651275,
+            "strongCroppedT": -254.06807367728382,
+            "meanDiffNs": -2246.6150000000052,
+            "effectSd": -0.03291162445411022
+          },
+          "nullMaxAbsT": 1.4203624511224309
+        },
+        {
+          "real": {
+            "rawT": -4.864922611229291,
+            "croppedT": -115.57752502031799,
+            "strongCroppedT": -204.98489053133773,
+            "meanDiffNs": -3489.209999999992,
+            "effectSd": -0.04864922611229291
+          },
+          "nullMaxAbsT": 1.404310700058558
+        }
+      ]
+    },
+    {
+      "name": "ML-KEM-768 decapsulate: valid vs invalid ciphertext (implicit rejection path), same key",
+      "measurementsPerClass": 20000,
+      "mustLeak": false,
+      "control": false,
+      "calibration": false,
+      "verdict": "no difference detected",
+      "rounds": [
+        {
+          "real": {
+            "rawT": 0.32973443239732386,
+            "croppedT": 1.6504052239943185,
+            "strongCroppedT": 0.7735433862866082,
+            "meanDiffNs": 70.61999999999534,
+            "effectSd": 0.0032973443239732387
+          },
+          "nullMaxAbsT": 2.6791072764449173
+        },
+        {
+          "real": {
+            "rawT": 1.1634795377463947,
+            "croppedT": 2.5094433900328452,
+            "strongCroppedT": 3.4237018682686533,
+            "meanDiffNs": 861.4100000000035,
+            "effectSd": 0.011634795377463944
+          },
+          "nullMaxAbsT": 1.7143982332150471
+        },
+        {
+          "real": {
+            "rawT": -1.1113197300908713,
+            "croppedT": 0.7949335885861107,
+            "strongCroppedT": 1.0677202836369533,
+            "meanDiffNs": -740.9049999999988,
+            "effectSd": -0.011113197300908715
+          },
+          "nullMaxAbsT": 1.541044765316701
+        }
+      ]
+    },
+    {
+      "name": "Envelope.open (1 KiB) failure path: tampered first ciphertext byte vs tampered last tag byte, same key",
+      "measurementsPerClass": 20000,
+      "mustLeak": false,
+      "control": false,
+      "calibration": false,
+      "verdict": "inconclusive (flagged in some rounds or levels only)",
+      "rounds": [
+        {
+          "real": {
+            "rawT": 1.6141502854156133,
+            "croppedT": -0.5520403633920375,
+            "strongCroppedT": 1.8034939046551504,
+            "meanDiffNs": 805.0999999999767,
+            "effectSd": 0.016141502854156133
+          },
+          "nullMaxAbsT": 2.023205612944145
+        },
+        {
+          "real": {
+            "rawT": -2.4478416683000788,
+            "croppedT": -3.2616394430511715,
+            "strongCroppedT": -9.605492554049135,
+            "meanDiffNs": -892.804999999993,
+            "effectSd": -0.02447841668300079
+          },
+          "nullMaxAbsT": 1.638377448215476
+        },
+        {
+          "real": {
+            "rawT": -0.023523699267645356,
+            "croppedT": -2.644407714785491,
+            "strongCroppedT": -6.287583596609161,
+            "meanDiffNs": -7.055000000022119,
+            "effectSd": -0.00023523699267645354
+          },
+          "nullMaxAbsT": 2.779482852652825
+        }
+      ]
+    },
+    {
+      "name": "ML-DSA-65 sign: fixed vs random secret key (rejection sampling makes timing vary by design)",
+      "measurementsPerClass": 5000,
+      "mustLeak": false,
+      "control": false,
+      "calibration": false,
+      "verdict": "no difference detected",
+      "rounds": [
+        {
+          "real": {
+            "rawT": 0.13985888994626983,
+            "croppedT": -0.17019095109418045,
+            "strongCroppedT": 0.6279834780529687,
+            "meanDiffNs": 3284.5400000000373,
+            "effectSd": 0.0027971777989253964
+          },
+          "nullMaxAbsT": 1.7842370678281239
+        },
+        {
+          "real": {
+            "rawT": -0.8001294767565402,
+            "croppedT": -0.6618446514709186,
+            "strongCroppedT": -2.348694723736857,
+            "meanDiffNs": -18135.040000000037,
+            "effectSd": -0.016002589535130802
+          },
+          "nullMaxAbsT": 1.2478558426063668
+        },
+        {
+          "real": {
+            "rawT": 1.5334473250132863,
+            "croppedT": 1.1821504954266442,
+            "strongCroppedT": 0.7592919631873476,
+            "meanDiffNs": 34652.73999999999,
+            "effectSd": 0.030668946500265724
+          },
+          "nullMaxAbsT": 1.6617780824716393
+        }
+      ]
+    },
+    {
+      "name": "HARNESS CHECK: deliberately leaky early-exit comparison (must be flagged)",
+      "measurementsPerClass": 20000,
+      "mustLeak": true,
+      "control": false,
+      "calibration": false,
+      "verdict": "DIFFERENCE DETECTED (consistent across rounds at: rawT, croppedT, strongCroppedT)",
+      "rounds": [
+        {
+          "real": {
+            "rawT": -46.95452344622901,
+            "croppedT": -82.42761289991844,
+            "strongCroppedT": -3787.037005003268,
+            "meanDiffNs": -3564.895,
+            "effectSd": -0.4695452344622901
+          },
+          "nullMaxAbsT": 1.2731607331638175
+        },
+        {
+          "real": {
+            "rawT": -45.0550880010787,
+            "croppedT": -4726.225258556722,
+            "strongCroppedT": -5166.457045435054,
+            "meanDiffNs": -2555.16,
+            "effectSd": -0.450550880010787
+          },
+          "nullMaxAbsT": 1.5303233610328588
+        },
+        {
+          "real": {
+            "rawT": -907.2124011029091,
+            "croppedT": -4864.554492306792,
+            "strongCroppedT": -5238.681303034306,
+            "meanDiffNs": -2551.09,
+            "effectSd": -9.072124011029091
+          },
+          "nullMaxAbsT": 2.7406143782878236
+        }
+      ]
+    }
+  ],
+  "controlsClean": true,
+  "harnessValid": true
+}

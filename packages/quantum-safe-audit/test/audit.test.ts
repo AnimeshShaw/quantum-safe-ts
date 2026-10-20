@@ -84,7 +84,7 @@ describe('other file types', () => {
     const f = scanSource('package.json', pkg);
     expect(f.map((x) => `${x.ruleId}:${x.detail}`).sort()).toEqual(['QSJ001:node-rsa', 'QSJ050:node-forge', 'QSJ900:quantum-safe-ts']);
     expect(f.every((x) => x.line > 1)).toBe(true);
-    expect(scanSource('package.json', '{ not json')).toEqual([]);
+    expect(() => scanSource('package.json', '{ not json')).toThrow(/not valid JSON/);
   });
   it('Vue and Svelte script blocks keep correct line numbers', () => {
     const vue = ['<template><div/></template>', '<script lang="ts">', "import crypto from 'node:crypto';", "crypto.createHash('md5');", '</script>'].join('\n');

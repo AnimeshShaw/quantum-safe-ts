@@ -7,15 +7,22 @@
 
 use thiserror::Error;
 
+/// Errors returned by [`unpack_components`].
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum WireError {
+    /// The input is shorter than the 2-byte length prefix.
     #[error("wire data too short: need at least 2 bytes for the length prefix")]
     TooShortForPrefix,
+    /// The length prefix claims more bytes than follow it; `available` is the byte count after the prefix.
     #[error("wire data too short: length prefix claims {claimed} bytes, only {available} available")]
     TooShortForComponent { claimed: usize, available: usize },
 }
 
 /// Pack two byte strings with a 2-byte big-endian length prefix on `a`.
+///
+/// The output is `len(a) as u16 (big-endian) || a || b`, so its length is `2 + a.len() + b.len()`. The
+/// prefix holds `a.len()` modulo 65536, so `a` must be at most 65535 bytes for [`unpack_components`] to
+/// recover it.
 pub fn pack_components(a: &[u8], b: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(2 + a.len() + b.len());
     out.extend_from_slice(&(a.len() as u16).to_be_bytes());
@@ -25,6 +32,14 @@ pub fn pack_components(a: &[u8], b: &[u8]) -> Vec<u8> {
 }
 
 /// Unpack two byte strings packed by [`pack_components`].
+///
+/// Returns two slices borrowed from `data`: the component whose length the prefix gives, and everything
+/// after it. The second slice may be empty.
+///
+/// # Errors
+///
+/// - [`WireError::TooShortForPrefix`] when `data` is under 2 bytes.
+/// - [`WireError::TooShortForComponent`] when fewer bytes than the prefix claims follow it.
 pub fn unpack_components(data: &[u8]) -> Result<(&[u8], &[u8]), WireError> {
     if data.len() < 2 {
         return Err(WireError::TooShortForPrefix);

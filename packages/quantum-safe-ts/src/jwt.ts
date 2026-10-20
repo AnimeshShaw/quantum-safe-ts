@@ -23,25 +23,39 @@ import { bytes, fromBase64Url, fromBase64UrlStrict, toBase64Url, utf8 } from './
 
 /** JWT claims. Standard registered claims are typed; any other JSON-serializable claim is allowed. */
 export interface JwtClaims {
+  /** Issuer. */
   iss?: string;
+  /** Subject. */
   sub?: string;
+  /** Audience: one value or a list. A verifier given `audience` requires it to be among them. */
   aud?: string | string[];
+  /** Expiry, in Unix seconds. */
   exp?: number;
+  /** Not-before time, in Unix seconds. */
   nbf?: number;
+  /** Issued-at time, in Unix seconds. */
   iat?: number;
+  /** Token identifier. */
   jti?: string;
+  /** Any other claim. */
   [claim: string]: unknown;
 }
 
 /** Clock-skew tolerance applied to `exp` / `nbf` (seconds), as in quantum-safe-py. */
 const CLOCK_SKEW_SECONDS = 30;
 
+/** Strict UTF-8 decoder: invalid byte sequences throw instead of being replaced. */
 const dec = new TextDecoder('utf-8', { fatal: true });
 
+/** Serializes `obj` as JSON text and encodes it as unpadded base64url (one header or payload part of a token). */
 function jsonB64(obj: unknown): string {
   return toBase64Url(utf8(JSON.stringify(obj)));
 }
 
+/**
+ * Decodes one base64url token part as UTF-8 JSON and returns it, which must be a JSON object.
+ * Any decoding or parsing failure, or a non-object value, is reported as `Malformed JWT: could not decode the <what>.`
+ */
 function decodeJson(part: string, what: string): Record<string, unknown> {
   try {
     const value: unknown = JSON.parse(dec.decode(fromBase64Url(part)));
@@ -52,6 +66,7 @@ function decodeJson(part: string, what: string): Record<string, unknown> {
   }
 }
 
+/** Splits a compact token on `.` into exactly three non-empty parts, else throws {@link InvalidArgumentError}. */
 function splitToken(token: string): [string, string, string] {
   if (typeof token !== 'string') throw new InvalidArgumentError('token must be a string.');
   const parts = token.split('.');
@@ -61,18 +76,30 @@ function splitToken(token: string): [string, string, string] {
   return parts as [string, string, string];
 }
 
+/** Checks applied to the claims of a token whose signature has already verified. */
 interface ClaimChecks {
+  /** Required value of `iss`; no check when undefined. */
   issuer?: string | undefined;
+  /** Value that `aud` (a string or a list) must contain; no check when undefined. */
   audience?: string | undefined;
+  /** Check `exp` when present (default true). */
   validateExp?: boolean | undefined;
+  /** Fail when `exp` is absent (default false). */
   requireExp?: boolean | undefined;
+  /** Check `nbf` when present (default true). */
   validateNbf?: boolean | undefined;
+  /** The current time in Unix seconds (default: the system clock). */
   now?: number | undefined;
 }
 
 /** Claim validation shared by both modes. Failures are a bare VerificationError (no oracle). */
 const CLAIMS_MESSAGE = 'Token verification failed: the signature or a claim check (exp, nbf, iss, aud) did not pass.';
 
+/**
+ * Applies `c` to `claims`: `exp` and `nbf` must be numbers and are compared with a 30-second tolerance ({@link CLOCK_SKEW_SECONDS}),
+ * `iss` must equal `c.issuer` and `aud` must contain `c.audience` when those are set. Throws {@link VerificationError} with one fixed message
+ * for every failure, so the caller cannot tell which check failed.
+ */
 function checkClaims(claims: Record<string, unknown>, c: ClaimChecks): void {
   const now = c.now ?? Date.now() / 1000;
   if (c.requireExp && !('exp' in claims)) throw new VerificationError(CLAIMS_MESSAGE);
@@ -92,6 +119,11 @@ function checkClaims(claims: Record<string, unknown>, c: ClaimChecks): void {
   }
 }
 
+/**
+ * Builds the payload to sign: `iss` (when `issuer` is non-empty), `iat` (now, in Unix seconds) and `exp` (`iat + expiresIn` when `expiresIn`
+ * is above 0), then the caller's `claims` on top, which override those. A negative or non-finite `expiresIn` throws
+ * {@link InvalidArgumentError}.
+ */
 function buildClaims(claims: JwtClaims, issuer: string | undefined, expiresIn: number): JwtClaims {
   const now = Math.floor(Date.now() / 1000);
   const full: JwtClaims = {};
@@ -124,13 +156,33 @@ export interface JwtSignOptions {
   context?: Uint8Array;
 }
 
-/** Signs quantum-safe-py-compatible JWTs. See the module notes: other JOSE libraries cannot verify them. */
+/**
+ * Signs quantum-safe-py-compatible JWTs. See the module notes: other JOSE libraries cannot verify them.
+ *
+ * The header is `{ alg, typ: "JWT", "qs-version": 1 }` with `alg` the key's algorithm name; the payload is built from the claims you pass plus
+ * `iss`, `iat` and `exp`. The signature part is base64url of the signature blob over `header.payload`.
+ *
+ * @example
+ * ```ts
+ * using pair = new Sign('ML-DSA-65').generateKeyPair();
+ * const token = new JWTSigner(pair, { issuer: 'auth.example' }).sign({ sub: 'alice' }, { expiresIn: 600 });
+ * const claims = new JWTVerifier(pair.publicKey, { issuer: 'auth.example' }).verify(token);
+ * ```
+ */
 export class JWTSigner {
+  /** The signature algorithm of the key; it is written to the header `alg`. */
   readonly algorithm: SignatureAlgorithm;
   readonly #secret: SecretKey;
   readonly #issuer: string | undefined;
   readonly #signer: Sign | HybridSign;
 
+  /**
+   * Creates a signer for `key`, using a hybrid signer when the algorithm name contains `+` and a single-algorithm signer otherwise.
+   * @param key - The secret key, or a key pair whose secret key is used.
+   * @param options - Issuer and hedging. Hedged signing is on by default.
+   * @throws {InvalidArgumentError} if `key` is not a {@link SecretKey} or {@link KeyPair}.
+   * @throws {UnsupportedAlgorithmError} if the key's algorithm is not a supported signature algorithm.
+   */
   constructor(key: SecretKey | KeyPair, options: JwtSignerOptions = {}) {
     this.#secret = key instanceof KeyPair ? key.secretKey : key;
     if (!(this.#secret instanceof SecretKey)) throw new InvalidArgumentError('key must be a SecretKey or KeyPair.');
@@ -142,7 +194,14 @@ export class JWTSigner {
       : new Sign(this.algorithm as never, { hedged });
   }
 
-  /** Signs `claims` and returns `header.payload.signature`. */
+  /**
+   * Signs `claims` and returns `header.payload.signature`.
+   * @param claims - Claims to include; they override the generated `iss`, `iat` and `exp`.
+   * @param options - `expiresIn` in seconds (default 3600; `0` omits `exp`) and the signing `context` (default the bytes of `"jwt"`).
+   * @returns The compact token.
+   * @throws {InvalidArgumentError} if `expiresIn` is negative or not finite, or `context` is longer than 255 bytes.
+   * @throws {SigningError} if the underlying signing operation fails.
+   */
   sign(claims: JwtClaims = {}, options: JwtSignOptions = {}): string {
     const header = { alg: this.algorithm, typ: 'JWT', 'qs-version': 1 };
     const headerB64 = jsonB64(header);
@@ -167,7 +226,9 @@ export interface JwtVerifierOptions {
 export interface JwtVerifyOptions {
   /** Must equal the context used to sign (default `"jwt"`). */
   context?: Uint8Array;
+  /** Check `exp` when the token has one (default true). */
   validateExp?: boolean;
+  /** Check `nbf` when the token has one (default true). */
   validateNbf?: boolean;
   /** Reject tokens that carry no `exp` claim (default false, as in quantum-safe-py). Recommended for anything that should expire. */
   requireExp?: boolean;
@@ -175,13 +236,26 @@ export interface JwtVerifyOptions {
   now?: number;
 }
 
-/** Verifies quantum-safe-py-compatible JWTs. */
+/**
+ * Verifies quantum-safe-py-compatible JWTs.
+ *
+ * The algorithm is fixed by the public key: a token whose header names another algorithm is refused. The constructor's `issuer` and
+ * `audience` apply to every token verified; the per-token options of {@link JWTVerifier.verify} are merged over the constructor's options.
+ */
 export class JWTVerifier {
+  /** The signature algorithm of the public key; tokens must name it in their header. */
   readonly algorithm: SignatureAlgorithm;
   readonly #public: PublicKey;
   readonly #opts: JwtVerifierOptions;
   readonly #verifier: Sign | HybridSign;
 
+  /**
+   * Creates a verifier for `publicKey`, using a hybrid verifier when the algorithm name contains `+`.
+   * @param publicKey - The signer's public key.
+   * @param options - Required issuer and audience, and whether the tokens were signed hedged (default true).
+   * @throws {InvalidArgumentError} if `publicKey` is not a {@link PublicKey}.
+   * @throws {UnsupportedAlgorithmError} if the key's algorithm is not a supported signature algorithm.
+   */
   constructor(publicKey: PublicKey, options: JwtVerifierOptions = {}) {
     if (!(publicKey instanceof PublicKey)) throw new InvalidArgumentError('publicKey must be a PublicKey.');
     this.#public = publicKey;
@@ -195,6 +269,11 @@ export class JWTVerifier {
 
   /**
    * Verifies the signature, then the `exp`/`nbf`/`iss`/`aud` claims, and returns the claims.
+   *
+   * The signature part must be canonical unpadded base64url. `exp` and `nbf` are checked with a 30-second tolerance.
+   * @param token - The compact token.
+   * @param options - The signing `context` (default the bytes of `"jwt"`), which must equal the one used to sign, and per-token claim checks.
+   * @returns The payload claims.
    * @throws {VerificationError} for an invalid signature or failed claim check (no detail, by design).
    * @throws {InvalidArgumentError} if the token is structurally malformed.
    * @throws {UnsupportedAlgorithmError} if the header `alg` differs from the key's algorithm.
@@ -227,19 +306,26 @@ export type MlDsaJoseAlg = 'ML-DSA-44' | 'ML-DSA-65' | 'ML-DSA-87';
 
 /** An `AKP` JSON Web Key for ML-DSA (RFC 9964). `priv` (the 32-byte seed) is present only on private keys. */
 export interface AkpJwk {
+  /** Key type: always `"AKP"`. */
   kty: 'AKP';
+  /** The ML-DSA parameter set of the key. */
   alg: MlDsaJoseAlg;
   /** base64url of the FIPS 204 public key. */
   pub: string;
   /** base64url of the 32-byte seed. **Secret.** */
   priv?: string;
+  /** Key identifier; copied into the token header when signing. */
   kid?: string;
+  /** Intended use of the key. */
   use?: 'sig';
+  /** Permitted key operations. */
   key_ops?: string[];
 }
 
+/** The three ML-DSA JOSE `alg` names accepted by {@link checkAlg}. */
 const ML_DSA_ALGS: readonly string[] = ['ML-DSA-44', 'ML-DSA-65', 'ML-DSA-87'];
 
+/** Returns `alg` typed as an {@link MlDsaJoseAlg}, or throws {@link UnsupportedAlgorithmError} for any other value. */
 function checkAlg(alg: unknown): MlDsaJoseAlg {
   if (typeof alg !== 'string' || !ML_DSA_ALGS.includes(alg)) {
     throw new UnsupportedAlgorithmError(`'${String(alg)}' is not an ML-DSA JOSE algorithm (ML-DSA-44/65/87).`);
@@ -247,6 +333,10 @@ function checkAlg(alg: unknown): MlDsaJoseAlg {
   return alg as MlDsaJoseAlg;
 }
 
+/**
+ * Checks that `jwk` is an AKP key with a supported `alg` and a string `pub` (and a string `priv` when `needPrivate`), and returns its `alg`.
+ * Throws {@link InvalidArgumentError} for a missing member or another `kty`, and {@link UnsupportedAlgorithmError} for another `alg`.
+ */
 function checkJwk(jwk: AkpJwk, needPrivate: boolean): MlDsaJoseAlg {
   if (jwk === null || typeof jwk !== 'object' || jwk.kty !== 'AKP') throw new InvalidArgumentError('JWK must have kty "AKP".');
   const alg = checkAlg(jwk.alg);
@@ -265,20 +355,38 @@ export interface StandardSignOptions {
 
 /** Options for {@link StandardJwt.verify}. */
 export interface StandardVerifyOptions {
+  /** If set, the `iss` claim must equal this. */
   issuer?: string;
+  /** If set, the `aud` claim must include this. */
   audience?: string;
+  /** Check `exp` when the token has one (default true). */
   validateExp?: boolean;
+  /** Check `nbf` when the token has one (default true). */
   validateNbf?: boolean;
   /** Reject tokens that carry no `exp` claim (default false). Recommended for anything that should expire. */
   requireExp?: boolean;
+  /** Override "now" (Unix seconds), mainly for tests. */
   now?: number;
 }
 
-/** RFC 9964 ML-DSA JWTs: interoperable with any compliant JOSE implementation. */
+/**
+ * RFC 9964 ML-DSA JWTs: interoperable with any compliant JOSE implementation.
+ *
+ * @example
+ * ```ts
+ * const { publicJwk, privateJwk } = StandardJwt.generateKeyPair('ML-DSA-65');
+ * const token = StandardJwt.sign({ sub: 'alice' }, privateJwk, { expiresIn: 600 });
+ * const claims = StandardJwt.verify(token, publicJwk, { requireExp: true });
+ * ```
+ */
 export const StandardJwt = {
   /**
    * Generates an ML-DSA key pair as AKP JWKs. The private JWK contains the secret seed as a string
    * (inherent to JWK): store it as carefully as any secret key.
+   * @param alg - The ML-DSA parameter set (default: the library's default signature algorithm).
+   * @param options - `kid` is copied into both JWKs when non-empty.
+   * @returns The public JWK (no `priv`) and the private JWK (with `priv`, the base64url 32-byte seed).
+   * @throws {UnsupportedAlgorithmError} if `alg` is not `ML-DSA-44`, `ML-DSA-65` or `ML-DSA-87`.
    */
   generateKeyPair(alg: MlDsaJoseAlg = DEFAULT_SIGNATURE as MlDsaJoseAlg, options: { kid?: string } = {}): {
     publicJwk: AkpJwk;
@@ -303,7 +411,14 @@ export const StandardJwt = {
     }
   },
 
-  /** Derives the public JWK from a private one. */
+  /**
+   * Derives the public JWK from a private one.
+   * @param privateJwk - An AKP JWK with `priv`.
+   * @returns A JWK with `kty`, `alg`, `pub` and, when the private JWK has a non-empty `kid`, `kid`.
+   * @throws {InvalidArgumentError} if `privateJwk` is not an AKP key, lacks `pub` or `priv`, or has a `priv` that is not base64url.
+   * @throws {UnsupportedAlgorithmError} if its `alg` is not an ML-DSA JOSE algorithm.
+   * @throws {MalformedKeyError} if `priv` is not a valid seed.
+   */
   publicJwk(privateJwk: AkpJwk): AkpJwk {
     const alg = checkJwk(privateJwk, true);
     const seedBytes = fromBase64Url(privateJwk.priv!);
@@ -317,7 +432,19 @@ export const StandardJwt = {
     }
   },
 
-  /** Signs claims as a compact JWS (`alg` = the key's ML-DSA level). */
+  /**
+   * Signs claims as a compact JWS (`alg` = the key's ML-DSA level).
+   *
+   * The header is `{ alg, typ: "JWT" }` plus `kid` when the JWK has one. The signature is FIPS 204 ML-DSA with an empty context over
+   * `header.payload`.
+   * @param claims - Claims to include; they override the generated `iss`, `iat` and `exp`.
+   * @param privateJwk - An AKP JWK with `priv`.
+   * @param options - `issuer` and `expiresIn` in seconds (default 3600; `0` omits `exp`).
+   * @returns The compact token.
+   * @throws {InvalidArgumentError} if the JWK is malformed or `expiresIn` is negative or not finite.
+   * @throws {UnsupportedAlgorithmError} if the JWK's `alg` is not an ML-DSA JOSE algorithm.
+   * @throws {MalformedKeyError} if `priv` does not decode to a 32-byte seed.
+   */
   sign(claims: JwtClaims, privateJwk: AkpJwk, options: StandardSignOptions = {}): string {
     const alg = checkJwk(privateJwk, true);
     const header: Record<string, unknown> = { alg, typ: 'JWT' };
@@ -339,7 +466,17 @@ export const StandardJwt = {
   /**
    * Verifies a compact JWS against `publicJwk` and returns the claims. The algorithm is taken from
    * the key and must equal the header `alg`; `crit` headers are rejected.
+   *
+   * The signature part must be canonical unpadded base64url.
+   * @param token - The compact token.
+   * @param publicJwk - An AKP JWK with `pub`.
+   * @param options - Claim checks (`issuer`, `audience`, `validateExp`, `validateNbf`, `requireExp`, `now`).
+   * @returns The payload claims.
    * @throws {VerificationError} for an invalid signature or failed claim check.
+   * @throws {AlgorithmMismatchError} if the header `alg` differs from the key's `alg`.
+   * @throws {UnsupportedAlgorithmError} if the JWK's `alg` is not an ML-DSA JOSE algorithm, or the header has a `crit` member.
+   * @throws {InvalidArgumentError} if the JWK or the token is malformed.
+   * @throws {MalformedKeyError} if `pub` decodes to a key of the wrong length.
    */
   verify(token: string, publicJwk: AkpJwk, options: StandardVerifyOptions = {}): JwtClaims {
     const alg = checkJwk(publicJwk, false);

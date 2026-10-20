@@ -90,8 +90,10 @@ The private JWK's `priv` member is the secret seed as a string, which is inheren
 publish only `publicJwk` (for example at a `jwks.json` URL).
 :::
 
-- Tokens made by quantum-safe-py 0.3.2+ `StandardJwt` verify here, and the reverse. **Private** JWKs are TypeScript-only: liboqs cannot
-  derive a Python key pair from a seed, so only public JWKs and tokens cross.
+- Tokens made by quantum-safe-py 0.3.2+ `StandardJwt` verify here, and the reverse. **Private** JWKs cross too with quantum-safe-py 1.0.0:
+  its optional `cryptography` backend (`pip install 'quantum-safe-py[pyca]'`) turns the `priv` seed into a key pair, so a private JWK
+  made in either library signs in the other (`StandardJwt.generate_private_jwk` / `keypair_from_private_jwk` in Python). A key from
+  Python's liboqs backend is an expanded key with no seed: it verifies here but cannot be written as a private JWK.
 - `StandardJwt` supports pure ML-DSA only (no hybrids, no SLH-DSA). For a hybrid you control, use the quantum-safe mode.
 - Both modes pin the algorithm to the key and reject `alg: "none"`.
 

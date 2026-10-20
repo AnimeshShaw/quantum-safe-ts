@@ -14,33 +14,45 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 use zeroize::Zeroizing;
 
+/// Key format version written by every serializer in this module.
 pub const CURRENT_KEY_VERSION: i64 = 1;
+/// Highest key format version the parsers accept.
 pub const MAX_SUPPORTED_KEY_VERSION: i64 = 1;
 /// Mirrors `_MAX_PAYLOAD_BYTES` in quantum-safe-py's serialization layer.
 pub const MAX_PAYLOAD_BYTES: usize = 10 * 1024 * 1024;
 
+/// PEM label for public keys.
 const PEM_PUBLIC_LABEL: &str = "QUANTUM SAFE PUBLIC KEY";
+/// PEM label for secret keys.
 const PEM_SECRET_LABEL: &str = "QUANTUM SAFE SECRET KEY";
 
+/// Errors returned by the key serializers and parsers.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum KeyError {
+    /// The input is longer than [`MAX_PAYLOAD_BYTES`] (PEM text: twice that); the field is its length.
     #[error("payload of {0} bytes exceeds the {MAX_PAYLOAD_BYTES}-byte limit")]
     TooLarge(usize),
+    /// The input is not a valid key in `format` (`"cbor"`, `"pem"`, `"jwk"` or `"key"`); `reason` says why.
     #[error("{format} parse error: {reason}")]
     Parse { format: &'static str, reason: String },
+    /// The key version is below 1.
     #[error("invalid key version {0}: minimum is 1")]
     VersionRollback(i64),
+    /// The key version is above [`MAX_SUPPORTED_KEY_VERSION`].
     #[error("key version {found} is newer than the maximum supported version {max}")]
     IncompatibleVersion { found: i64, max: i64 },
+    /// The data holds a key of the other type (public versus secret) than the caller asked for.
     #[error("data contains a {found} key, but a {expected} key was expected")]
     WrongKeyType {
         expected: &'static str,
         found: &'static str,
     },
+    /// [`EncodedKey::to_jwk`] was called on a secret key.
     #[error("secret keys are never serialized as JWK")]
     JwkSecretForbidden,
 }
 
+/// Builds a [`KeyError::Parse`] for `format`.
 fn parse_err(format: &'static str, reason: impl Into<String>) -> KeyError {
     KeyError::Parse {
         format,
@@ -51,13 +63,18 @@ fn parse_err(format: &'static str, reason: impl Into<String>) -> KeyError {
 /// Mirrors `quantum_safe.types.keys.MigrationState`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MigrationState {
+    /// Wire name `classical_only`.
     ClassicalOnly,
+    /// Wire name `hybrid_transition`; the value used when a stored one is missing or unknown.
     HybridTransition,
+    /// Wire name `pqc_preferred`.
     PqcPreferred,
+    /// Wire name `pqc_only`.
     PqcOnly,
 }
 
 impl MigrationState {
+    /// The wire name written into CBOR, PEM and JWK.
     pub fn as_str(self) -> &'static str {
         match self {
             MigrationState::ClassicalOnly => "classical_only",
@@ -66,6 +83,7 @@ impl MigrationState {
             MigrationState::PqcOnly => "pqc_only",
         }
     }
+    /// Parses a wire name; `None` for anything other than the four names from [`MigrationState::as_str`].
     pub fn parse(s: &str) -> Option<Self> {
         match s {
             "classical_only" => Some(Self::ClassicalOnly),
@@ -81,19 +99,24 @@ impl MigrationState {
     }
 }
 
+/// Whether an [`EncodedKey`] holds a public or a secret key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KeyType {
+    /// A public key (CBOR `ktype` `"pub"`).
     Public,
+    /// A secret key (CBOR `ktype` `"sec"`).
     Secret,
 }
 
 impl KeyType {
+    /// The CBOR `ktype` value.
     fn tag(self) -> &'static str {
         match self {
             KeyType::Public => "pub",
             KeyType::Secret => "sec",
         }
     }
+    /// The word used in error messages.
     fn word(self) -> &'static str {
         match self {
             KeyType::Public => "public",
@@ -103,11 +126,17 @@ impl KeyType {
 }
 
 /// A key plus the metadata quantum-safe-py serializes with it.
+///
+/// Its `Debug` output hides the bytes of a secret key.
 #[derive(Clone)]
 pub struct EncodedKey {
+    /// Canonical algorithm string, e.g. `"ML-DSA-65"`.
     pub algorithm: String,
+    /// Migration state stored with the key.
     pub migration_state: MigrationState,
+    /// Public or secret.
     pub key_type: KeyType,
+    /// The raw key bytes in the algorithm's wire layout, wiped on drop.
     pub raw: Zeroizing<Vec<u8>>,
 }
 
@@ -120,12 +149,15 @@ impl std::fmt::Debug for EncodedKey {
     }
 }
 
+/// Encodes `value` as CBOR.
 fn cbor_to_vec(value: &Value) -> Vec<u8> {
     let mut out = Vec::new();
     ciborium::into_writer(value, &mut out).expect("writing CBOR to a Vec cannot fail");
     out
 }
 
+// Decodes untrusted CBOR. Invariant: the size limit and `cbor_guard::validate_shape` both pass before
+// ciborium allocates any value tree.
 fn cbor_from_slice(data: &[u8], format: &'static str) -> Result<Value, KeyError> {
     if data.len() > MAX_PAYLOAD_BYTES {
         return Err(KeyError::TooLarge(data.len()));
@@ -134,6 +166,7 @@ fn cbor_from_slice(data: &[u8], format: &'static str) -> Result<Value, KeyError>
     ciborium::from_reader(data).map_err(|e| parse_err(format, format!("CBOR decode failed: {e}")))
 }
 
+/// Looks up a text key in a decoded CBOR map; the first match wins.
 fn map_get<'a>(entries: &'a [(Value, Value)], key: &str) -> Option<&'a Value> {
     entries.iter().find_map(|(k, v)| match k {
         Value::Text(t) if t == key => Some(v),
@@ -161,12 +194,19 @@ pub fn expected_public_len(algorithm: &str) -> Option<usize> {
             2 + match c {
                 sig::ClassicalSig::Ed25519 => 32,
                 sig::ClassicalSig::P256 => 64,
+                sig::ClassicalSig::P384 => 96,
             } + l.sizes().0
         }
     })
 }
 
 /// Errors unless `raw` has the exact public-key length for a known `algorithm`.
+///
+/// An algorithm string this library does not know passes unchecked.
+///
+/// # Errors
+///
+/// [`KeyError::Parse`] with format `"key"` when the length differs from [`expected_public_len`].
 pub fn check_public_len(algorithm: &str, raw: &[u8]) -> Result<(), KeyError> {
     match expected_public_len(algorithm) {
         Some(n) if raw.len() != n => Err(parse_err(
@@ -178,6 +218,7 @@ pub fn check_public_len(algorithm: &str, raw: &[u8]) -> Result<(), KeyError> {
 }
 
 impl EncodedKey {
+    /// Builds a key from its parts; `raw` is moved into a wiping buffer and nothing is validated.
     pub fn new(
         algorithm: impl Into<String>,
         key_type: KeyType,
@@ -201,7 +242,7 @@ impl EncodedKey {
         hex_lower(&h.finalize())
     }
 
-    /// Colon-separated variant: `aa:bb:cc:...`.
+    /// Colon-separated variant of [`EncodedKey::fingerprint`]: `aa:bb:cc:...`.
     pub fn fingerprint_colon(&self) -> String {
         let fp = self.fingerprint();
         fp.as_bytes()
@@ -211,6 +252,7 @@ impl EncodedKey {
             .join(":")
     }
 
+    /// The CBOR map `{v, algo, ms, ktype, key}`, in that order.
     fn to_value(&self) -> Value {
         Value::Map(vec![
             (
@@ -230,10 +272,14 @@ impl EncodedKey {
         ])
     }
 
+    /// Serializes as CBOR `{v, algo, ms, ktype, key}`.
     pub fn to_cbor(&self) -> Vec<u8> {
         cbor_to_vec(&self.to_value())
     }
 
+    // Decodes one key map. Invariants: the version is within 1..=MAX_SUPPORTED_KEY_VERSION, `key` is
+    // non-empty, `ktype` is present and equals `expected`, and a public key has the exact length for its
+    // algorithm when the algorithm is known.
     fn from_value(value: &Value, expected: KeyType, format: &'static str) -> Result<Self, KeyError> {
         let Value::Map(entries) = value else {
             return Err(parse_err(format, "top-level CBOR value is not a map"));
@@ -287,6 +333,18 @@ impl EncodedKey {
         Ok(Self::new(algorithm, expected, raw, ms))
     }
 
+    /// Parses a key from CBOR `{v, algo, ms, ktype, key}`.
+    ///
+    /// A missing or unknown `ms` falls back to `hybrid_transition`.
+    ///
+    /// # Errors
+    ///
+    /// - [`KeyError::TooLarge`] for input over [`MAX_PAYLOAD_BYTES`].
+    /// - [`KeyError::Parse`] for malformed CBOR, a shape the CBOR guard refuses, missing or mistyped
+    ///   fields, an empty `key`, a missing or unknown `ktype`, or a public key of the wrong length.
+    /// - [`KeyError::VersionRollback`] when `v` is below 1.
+    /// - [`KeyError::IncompatibleVersion`] when `v` is above [`MAX_SUPPORTED_KEY_VERSION`].
+    /// - [`KeyError::WrongKeyType`] when `ktype` differs from `expected`.
     pub fn from_cbor(data: &[u8], expected: KeyType) -> Result<Self, KeyError> {
         Self::from_value(&cbor_from_slice(data, "cbor")?, expected, "cbor")
     }
@@ -312,6 +370,20 @@ impl EncodedKey {
         )
     }
 
+    /// Parses a PEM key written by [`EncodedKey::to_pem`].
+    ///
+    /// The key, its algorithm and its migration state are read from the base64 CBOR body; the `qs-*`
+    /// header lines are skipped. The body is every line after the first blank line.
+    ///
+    /// # Errors
+    ///
+    /// - [`KeyError::TooLarge`] for text over twice [`MAX_PAYLOAD_BYTES`], or a decoded body over
+    ///   [`MAX_PAYLOAD_BYTES`].
+    /// - [`KeyError::Parse`] for missing BEGIN/END markers, an empty body or invalid base64, and for the
+    ///   parse errors listed at [`EncodedKey::from_cbor`].
+    /// - [`KeyError::WrongKeyType`] when the BEGIN line carries the other key type's label, or the CBOR
+    ///   `ktype` differs from `expected`.
+    /// - [`KeyError::VersionRollback`] and [`KeyError::IncompatibleVersion`] as for CBOR.
     pub fn from_pem(pem: &str, expected: KeyType) -> Result<Self, KeyError> {
         if pem.len() > MAX_PAYLOAD_BYTES * 2 {
             return Err(KeyError::TooLarge(pem.len()));
@@ -356,6 +428,13 @@ impl EncodedKey {
     }
 
     /// Public-key JWK as a JSON string (`kty: "AKP"`). Secret keys are refused.
+    ///
+    /// The object has `kty`, `alg`, `pub` (unpadded base64url), `qs-version`, `qs-migration` and
+    /// `key_ops` (`["encapsulate", "verify"]`).
+    ///
+    /// # Errors
+    ///
+    /// [`KeyError::JwkSecretForbidden`] when the key is a secret key.
     pub fn to_jwk(&self) -> Result<String, KeyError> {
         if self.key_type == KeyType::Secret {
             return Err(KeyError::JwkSecretForbidden);
@@ -371,6 +450,17 @@ impl EncodedKey {
         Ok(jwk.to_string())
     }
 
+    /// Parses a public-key JWK (`kty: "AKP"`) written by [`EncodedKey::to_jwk`].
+    ///
+    /// Reads `alg`, `pub` (base64url, padded or not) and the optional `qs-migration`; other members are
+    /// ignored. The result is always a public key.
+    ///
+    /// # Errors
+    ///
+    /// - [`KeyError::TooLarge`] for input over [`MAX_PAYLOAD_BYTES`].
+    /// - [`KeyError::Parse`] with format `"jwk"` for invalid JSON, a `kty` other than `"AKP"`, a missing
+    ///   `pub` or `alg`, invalid base64url or an empty key; with format `"key"` when the length is wrong
+    ///   for a known algorithm.
     pub fn from_jwk(json: &str) -> Result<Self, KeyError> {
         if json.len() > MAX_PAYLOAD_BYTES {
             return Err(KeyError::TooLarge(json.len()));
@@ -402,6 +492,13 @@ impl EncodedKey {
 }
 
 /// `KeyPair.to_cbor_bundle()`: `{v, bundle: "keypair", pub: {...}, sec: {...}}`.
+///
+/// Each of `pub` and `sec` is the key map from [`EncodedKey::to_cbor`].
+///
+/// # Errors
+///
+/// [`KeyError::Parse`] (format `"cbor"`) when the two keys name different algorithms. The key types are
+/// not checked here.
 pub fn keypair_to_bundle(public: &EncodedKey, secret: &EncodedKey) -> Result<Vec<u8>, KeyError> {
     if public.algorithm != secret.algorithm {
         return Err(parse_err("cbor", "public and secret key algorithms differ"));
@@ -417,6 +514,15 @@ pub fn keypair_to_bundle(public: &EncodedKey, secret: &EncodedKey) -> Result<Vec
     ])))
 }
 
+/// Parses a bundle written by [`keypair_to_bundle`], returning `(public, secret)`.
+///
+/// # Errors
+///
+/// - [`KeyError::TooLarge`] for input over [`MAX_PAYLOAD_BYTES`].
+/// - [`KeyError::Parse`] (format `"cbor"`) when the data is not a map, is not a `"keypair"` bundle,
+///   lacks `pub` or `sec`, holds an invalid key, or the two keys name different algorithms.
+/// - [`KeyError::WrongKeyType`], [`KeyError::VersionRollback`] and [`KeyError::IncompatibleVersion`] as
+///   for [`EncodedKey::from_cbor`], applied to each key.
 pub fn keypair_from_bundle(data: &[u8]) -> Result<(EncodedKey, EncodedKey), KeyError> {
     let Value::Map(entries) = cbor_from_slice(data, "cbor")? else {
         return Err(parse_err("cbor", "bundle is not a map"));
@@ -441,6 +547,7 @@ pub fn keypair_from_bundle(data: &[u8]) -> Result<(EncodedKey, EncodedKey), KeyE
     Ok((public, secret))
 }
 
+/// Lowercase hexadecimal encoding.
 fn hex_lower(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut s = String::with_capacity(bytes.len() * 2);

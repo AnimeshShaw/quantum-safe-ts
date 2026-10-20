@@ -5,7 +5,7 @@ project's Rust code together with the third-party Rust crates below, which are u
 (MIT OR Apache-2.0) is also linked into the module. The list is generated from Cargo.lock by scripts/generate-third-party-licenses.mjs and matches
 the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bindings through normal dependencies).
 
-## Crates (113)
+## Crates (114)
 
 | Crate | Version | License | Repository |
 |---|---|---|---|
@@ -14,7 +14,7 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | aes | 0.9.3 | MIT OR Apache-2.0 | https://github.com/RustCrypto/block-ciphers |
 | argon2 | 0.6.0 | MIT OR Apache-2.0 | https://github.com/RustCrypto/password-hashes |
 | base16ct | 1.0.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/formats |
-| base64 | 0.22.1 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
+| base64 | 0.23.1 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
 | base64ct | 1.8.3 | Apache-2.0 OR MIT | https://github.com/RustCrypto/formats |
 | blake2 | 0.11.0 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | block-buffer | 0.10.4 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |
@@ -69,6 +69,7 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | num-traits | 0.2.19 | MIT OR Apache-2.0 | https://github.com/rust-num/num-traits |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 | https://github.com/matklad/once_cell |
 | p256 | 0.14.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/elliptic-curves |
+| p384 | 0.14.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/elliptic-curves |
 | password-hash | 0.6.1 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
 | pem-rfc7468 | 1.0.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/formats |
 | phc | 0.6.1 | Apache-2.0 OR MIT | https://github.com/RustCrypto/formats |
@@ -120,7 +121,7 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | zerocopy | 0.7.35 | BSD-2-Clause OR Apache-2.0 OR MIT | https://github.com/google/zerocopy |
 | zerocopy | 0.8.59 | BSD-2-Clause OR Apache-2.0 OR MIT | https://github.com/google/zerocopy |
 | zeroize_derive | 1.5.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
-| zeroize | 1.9.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
+| zeroize | 1.9.1 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
 | zmij | 1.0.23 | MIT | https://github.com/dtolnay/zmij |
 
 ## License and notice texts
@@ -131,7 +132,7 @@ Each distinct text is printed once, followed by the crates whose source ships it
 
 ### LICENSE-APACHE
 
-Shipped by: aead 0.6.1, aes-gcm 0.11.1, aes 0.9.3, argon2 0.6.0, base16ct 1.0.0, base64ct 1.8.3, blake2 0.11.0, block-buffer 0.10.4, block-buffer 0.12.1, cipher 0.5.2, const-oid 0.10.2, cpubits 0.1.1, crypto-bigint 0.7.5, crypto-common 0.1.7, crypto-common 0.2.2, ctr 0.10.1, der 0.8.2, digest 0.10.7, digest 0.11.3, elliptic-curve 0.14.1, ghash 0.6.0, hkdf 0.13.0, hmac 0.12.1, hmac 0.13.0, hybrid-array 0.2.3, hybrid-array 0.4.15, inout 0.2.2, keccak 0.1.6, keccak 0.2.2, ml-kem 0.3.2, module-lattice 0.2.3, p256 0.14.0, password-hash 0.6.1, pem-rfc7468 1.0.0, phc 0.6.1, pkcs8 0.11.0, polyval 0.7.3, primefield 0.14.0, primeorder 0.14.0, sec1 0.8.1, sha2 0.10.9, sha2 0.11.0, sha3 0.10.9, sha3 0.11.0, sha3 0.12.0, shake 0.1.0, signature 2.3.0-pre.4, signature 3.0.0, spki 0.8.0, sponge-cursor 0.1.0, universal-hash 0.6.1, wnaf 0.14.1, x-wing 0.1.1
+Shipped by: aead 0.6.1, aes-gcm 0.11.1, aes 0.9.3, argon2 0.6.0, base16ct 1.0.0, base64ct 1.8.3, blake2 0.11.0, block-buffer 0.10.4, block-buffer 0.12.1, cipher 0.5.2, const-oid 0.10.2, cpubits 0.1.1, crypto-bigint 0.7.5, crypto-common 0.1.7, crypto-common 0.2.2, ctr 0.10.1, der 0.8.2, digest 0.10.7, digest 0.11.3, elliptic-curve 0.14.1, ghash 0.6.0, hkdf 0.13.0, hmac 0.12.1, hmac 0.13.0, hybrid-array 0.2.3, hybrid-array 0.4.15, inout 0.2.2, keccak 0.1.6, keccak 0.2.2, ml-kem 0.3.2, module-lattice 0.2.3, p256 0.14.0, p384 0.14.0, password-hash 0.6.1, pem-rfc7468 1.0.0, phc 0.6.1, pkcs8 0.11.0, polyval 0.7.3, primefield 0.14.0, primeorder 0.14.0, sec1 0.8.1, sha2 0.10.9, sha2 0.11.0, sha3 0.10.9, sha3 0.11.0, sha3 0.12.0, shake 0.1.0, signature 2.3.0-pre.4, signature 3.0.0, spki 0.8.0, sponge-cursor 0.1.0, universal-hash 0.6.1, wnaf 0.14.1, x-wing 0.1.1
 
 ```text
                               Apache License
@@ -514,7 +515,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-APACHE
 
-Shipped by: base64 0.22.1, bumpalo 3.20.3, cfg-if 1.0.5, ff 0.14.0, group 0.14.0, js-sys 0.3.106, num-traits 0.2.19, once_cell 1.21.4, wasm-bindgen-macro-support 0.2.129, wasm-bindgen-macro 0.2.129, wasm-bindgen-shared 0.2.129, wasm-bindgen 0.2.129
+Shipped by: base64 0.23.1, bumpalo 3.20.3, cfg-if 1.0.5, ff 0.14.0, group 0.14.0, js-sys 0.3.106, num-traits 0.2.19, once_cell 1.21.4, wasm-bindgen-macro-support 0.2.129, wasm-bindgen-macro 0.2.129, wasm-bindgen-shared 0.2.129, wasm-bindgen 0.2.129
 
 ```text
                               Apache License
@@ -724,12 +725,12 @@ limitations under the License.
 
 ### LICENSE-MIT
 
-Shipped by: base64 0.22.1
+Shipped by: base64 0.23.1
 
 ```text
 The MIT License (MIT)
 
-Copyright (c) 2015 Alice Maz
+Copyright (c) 2025 Alice Maz, Marshall Pierce
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1280,7 +1281,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-APACHE
 
-Shipped by: cmov 0.5.4, ctutils 0.4.2, serdect 0.4.3, zeroize_derive 1.5.0, zeroize 1.9.0
+Shipped by: cmov 0.5.4, ctutils 0.4.2, serdect 0.4.3, zeroize_derive 1.5.0, zeroize 1.9.1
 
 ```text
 
@@ -3271,7 +3272,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-MIT
 
-Shipped by: keccak 0.2.2, zeroize 1.9.0
+Shipped by: keccak 0.2.2, zeroize 1.9.1
 
 ```text
 Copyright (c) 2018-2026 The RustCrypto Project Developers
@@ -3603,6 +3604,40 @@ Shipped by: num-traits 0.2.19
 
 ```text
 Copyright (c) 2014 The Rust Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+---
+
+### LICENSE-MIT
+
+Shipped by: p384 0.14.0
+
+```text
+Copyright (c) 2020-2021 RustCrypto Developers
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated

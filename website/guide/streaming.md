@@ -1,7 +1,7 @@
 # Streaming encryption
 
 `sealStream` and `openStream` encrypt data that does not fit in memory, or arrives in pieces: files, uploads, backups, exports. They are
-**TypeScript-only** (quantum-safe-py has no streaming format).
+**byte-compatible with quantum-safe-py 1.0.0** (`quantum_safe.protocols.stream`): a stream sealed here opens there and the reverse.
 
 **Use them for** large or unbounded data. **Do not use them** for small messages (use [`Envelope`](/guide/encryption): simpler, and its output is
 also readable by Python), or if you need sender authentication (a stream, like an envelope, is anonymous: sign it separately).

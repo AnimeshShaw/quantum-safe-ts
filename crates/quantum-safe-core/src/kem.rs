@@ -1,9 +1,9 @@
 //! Key encapsulation for every suite in [`crate::suite`]:
 //!
-//! - hybrid `X25519+ML-KEM-{512,768,1024}` and `P-256+ML-KEM-{512,768}`, matching
+//! - hybrid `X25519+ML-KEM-{512,768,1024}`, `P-256+ML-KEM-{512,768}` and `P-384+ML-KEM-1024`, matching
 //!   `quantum_safe.kem.hybrid.HybridKEM` byte for byte;
 //! - pure `ML-KEM-{512,768,1024}`, matching `quantum_safe.kem.core.KEM`;
-//! - `X-Wing` (TypeScript-only, draft-connolly-cfrg-xwing-kem).
+//! - `X-Wing` (draft-connolly-cfrg-xwing-kem; quantum-safe-py 1.0.0 has the same suite).
 //!
 //! Wire layouts (all verified against quantum-safe-py 0.3.0):
 //!
@@ -32,32 +32,52 @@ pub const ALGORITHM: &str = crate::suite::DEFAULT_KEM;
 /// A 32-byte KEM shared secret, wiped on drop.
 pub type SharedSecret = Zeroizing<[u8; 32]>;
 
+/// Errors returned by key generation, encapsulation and decapsulation.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum KemError {
+    /// The algorithm string is not a suite in [`crate::suite`]; the field holds the string.
     #[error("unsupported or unapproved KEM algorithm '{0}'")]
     UnsupportedAlgorithm(String),
+    /// A key and a ciphertext (or two keys) name different algorithms. No function in this module
+    /// returns it; callers that compare algorithm strings use it.
     #[error("key/ciphertext algorithm does not match the algorithm of the key in use")]
     AlgorithmMismatch,
+    /// A key has the wrong length for its suite, fails to parse, or (for hybrid keys) lacks the
+    /// 2-byte length prefix or a component.
     #[error("key bytes are malformed or truncated")]
     MalformedKey,
+    /// A ciphertext has the wrong length for its suite, or a hybrid ciphertext lacks the 2-byte length
+    /// prefix or a component.
     #[error("ciphertext bytes are malformed or truncated")]
     MalformedCiphertext,
+    /// The X25519 shared secret was all zeros, which a low-order peer point produces.
     #[error("classical key-agreement component failed (invalid or low-order point)")]
     ClassicalFailure,
 }
 
+/// A KEM public key: the raw bytes and the canonical algorithm string of its suite.
+///
+/// For a hybrid suite `raw` is `u16_be(len(classical)) || classical || pqc`.
 #[derive(Clone)]
 pub struct PublicKey {
+    /// Public key bytes in the suite's wire layout.
     pub raw: Vec<u8>,
+    /// Canonical suite name, e.g. `"X25519+ML-KEM-768"`.
     pub algorithm: String,
 }
 
+/// A KEM secret key: the raw bytes (wiped on drop) and the canonical algorithm string of its suite.
+///
+/// Its `Debug` output shows the algorithm and hides the bytes.
 pub struct SecretKey {
+    /// Secret key bytes in the suite's wire layout.
     pub raw: Zeroizing<Vec<u8>>,
+    /// Canonical suite name, e.g. `"X25519+ML-KEM-768"`.
     pub algorithm: String,
 }
 
 impl SecretKey {
+    /// Wraps `raw` so it is wiped on drop; the bytes and the algorithm string are not validated here.
     pub fn new(raw: Vec<u8>, algorithm: impl Into<String>) -> Self {
         Self {
             raw: Zeroizing::new(raw),
@@ -78,13 +98,19 @@ impl fmt::Debug for SecretKey {
     }
 }
 
+/// A matching public and secret key for one suite.
 pub struct KeyPair {
+    /// The public key.
     pub public: PublicKey,
+    /// The secret key.
     pub secret: SecretKey,
 }
 
+/// The two halves of a hybrid-suite ciphertext.
 pub struct HybridCiphertext {
+    /// Classical half: the sender's ephemeral public key (32 bytes for X25519, 65 for P-256, 97 for P-384).
     pub classical_ct: Vec<u8>,
+    /// ML-KEM ciphertext.
     pub pqc_ct: Vec<u8>,
 }
 
@@ -96,6 +122,12 @@ impl HybridCiphertext {
         pack_components(&self.classical_ct, &self.pqc_ct)
     }
 
+    /// Parses the layout written by [`HybridCiphertext::to_bytes`].
+    ///
+    /// # Errors
+    ///
+    /// [`KemError::MalformedCiphertext`] when the 2-byte prefix or the classical component is missing, or
+    /// when nothing follows the classical component.
     pub fn from_bytes(data: &[u8]) -> Result<Self, KemError> {
         let (classical_ct, pqc_ct) = unpack_components(data).map_err(|_| KemError::MalformedCiphertext)?;
         if pqc_ct.is_empty() {
@@ -116,6 +148,9 @@ impl HybridCiphertext {
 use ml_kem::ExpandedKeyEncoding;
 use ml_kem::{Decapsulate, Encapsulate, ExpandedDecapsulationKey, Kem as _, KeyExport};
 
+// Expands to a module `$m` with `keygen`, `encaps` and `decaps` for the ML-KEM parameter set `$ty`.
+// Keys and ciphertexts cross this boundary as plain byte vectors in the expanded FIPS 203 encoding;
+// a parse failure maps to `MalformedKey` or `MalformedCiphertext`.
 macro_rules! mlkem_level {
     ($m:ident, $ty:ty) => {
         mod $m {
@@ -164,6 +199,7 @@ mlkem_level!(mlkem512, ml_kem::MlKem512);
 mlkem_level!(mlkem768, ml_kem::MlKem768);
 mlkem_level!(mlkem1024, ml_kem::MlKem1024);
 
+/// Generates an ML-KEM key pair, returning `(expanded secret key, public key)`.
 fn pqc_keygen(p: Pqc) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
     match p {
         Pqc::MlKem512 => mlkem512::keygen(),
@@ -172,6 +208,7 @@ fn pqc_keygen(p: Pqc) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
     }
 }
 
+/// ML-KEM encapsulation; a public key whose length is not the parameter set's gives `MalformedKey`.
 fn pqc_encaps(p: Pqc, ek: &[u8]) -> Result<(Vec<u8>, SharedSecret), KemError> {
     if ek.len() != p.sizes().0 {
         return Err(KemError::MalformedKey);
@@ -183,6 +220,8 @@ fn pqc_encaps(p: Pqc, ek: &[u8]) -> Result<(Vec<u8>, SharedSecret), KemError> {
     }
 }
 
+/// ML-KEM decapsulation; the key and ciphertext lengths are checked against the parameter set before
+/// decoding. A well-formed but wrong ciphertext yields a pseudorandom secret (FIPS 203 implicit rejection).
 fn pqc_decaps(p: Pqc, dk: &[u8], ct: &[u8]) -> Result<SharedSecret, KemError> {
     let (_, sk_len, ct_len) = p.sizes();
     if dk.len() != sk_len {
@@ -205,6 +244,7 @@ fn pqc_decaps(p: Pqc, dk: &[u8], ct: &[u8]) -> Result<SharedSecret, KemError> {
 use p256::pkcs8::{DecodePrivateKey, EncodePrivateKey};
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519SecretKey};
 
+/// Draws a random valid P-256 secret scalar from the OS RNG, retrying on out-of-range values.
 pub(crate) fn p256_random_secret() -> p256::SecretKey {
     loop {
         let mut b = Zeroizing::new([0u8; 32]);
@@ -216,11 +256,32 @@ pub(crate) fn p256_random_secret() -> p256::SecretKey {
     }
 }
 
+/// Uncompressed SEC1 encoding (65 bytes) of a P-256 public key.
 pub(crate) fn p256_public_bytes(pk: &p256::PublicKey) -> Vec<u8> {
     use p256::elliptic_curve::sec1::ToSec1Point;
     pk.to_sec1_point(false).as_bytes().to_vec()
 }
 
+/// Draws a random valid P-384 secret scalar from the OS RNG, retrying on out-of-range values.
+pub(crate) fn p384_random_secret() -> p384::SecretKey {
+    loop {
+        let mut b = Zeroizing::new([0u8; 48]);
+        getrandom::fill(&mut b[..]).expect("OS RNG must be available");
+        // Rejects zero and values >= the group order; loop until valid.
+        if let Ok(sk) = p384::SecretKey::from_slice(&b[..]) {
+            return sk;
+        }
+    }
+}
+
+/// Uncompressed SEC1 encoding (97 bytes) of a P-384 public key.
+pub(crate) fn p384_public_bytes(pk: &p384::PublicKey) -> Vec<u8> {
+    use p384::elliptic_curve::sec1::ToSec1Point;
+    pk.to_sec1_point(false).as_bytes().to_vec()
+}
+
+/// Generates a classical key pair, returning `(secret, public)`. X25519 secrets are 32 raw bytes; P-256
+/// and P-384 secrets are PKCS#8 PEM text bytes, as quantum-safe-py stores them.
 fn classical_keygen(c: Classical) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
     match c {
         Classical::X25519 => {
@@ -238,10 +299,21 @@ fn classical_keygen(c: Classical) -> (Zeroizing<Vec<u8>>, Vec<u8>) {
                 p256_public_bytes(&sk.public_key()),
             )
         }
+        Classical::P384 => {
+            let sk = p384_random_secret();
+            let pem = sk
+                .to_pkcs8_pem(p384::pkcs8::LineEnding::LF)
+                .expect("P-384 PKCS#8 PEM encoding is infallible for a valid key");
+            (
+                Zeroizing::new(pem.as_bytes().to_vec()),
+                p384_public_bytes(&sk.public_key()),
+            )
+        }
     }
 }
 
-/// Returns `(classical_ct, classical_shared_secret)`.
+/// Returns `(classical_ct, classical_shared_secret)`. The recipient key must be exactly `c.public_len()`
+/// bytes; X25519 additionally rejects an all-zero shared secret.
 fn classical_encaps(c: Classical, recipient_pub: &[u8]) -> Result<(Vec<u8>, Zeroizing<Vec<u8>>), KemError> {
     if recipient_pub.len() != c.public_len() {
         return Err(KemError::MalformedKey);
@@ -267,9 +339,22 @@ fn classical_encaps(c: Classical, recipient_pub: &[u8]) -> Result<(Vec<u8>, Zero
                 Zeroizing::new(ss.raw_secret_bytes().as_slice().to_vec()),
             ))
         }
+        Classical::P384 => {
+            let recipient =
+                p384::PublicKey::from_sec1_bytes(recipient_pub).map_err(|_| KemError::MalformedKey)?;
+            let eph = p384_random_secret();
+            let ss = p384::ecdh::diffie_hellman(eph.to_nonzero_scalar(), recipient.as_affine());
+            // The whole ECDH x-coordinate (48 bytes), as quantum-safe-py uses it.
+            Ok((
+                p384_public_bytes(&eph.public_key()),
+                Zeroizing::new(ss.raw_secret_bytes().as_slice().to_vec()),
+            ))
+        }
     }
 }
 
+/// Classical half of decapsulation. The ciphertext must be exactly `c.public_len()` bytes; X25519
+/// additionally rejects an all-zero shared secret.
 fn classical_decaps(c: Classical, secret: &[u8], ct: &[u8]) -> Result<Zeroizing<Vec<u8>>, KemError> {
     if ct.len() != c.public_len() {
         return Err(KemError::MalformedCiphertext);
@@ -289,6 +374,13 @@ fn classical_decaps(c: Classical, secret: &[u8], ct: &[u8]) -> Result<Zeroizing<
             let ss = p256::ecdh::diffie_hellman(sk.to_nonzero_scalar(), peer.as_affine());
             Ok(Zeroizing::new(ss.raw_secret_bytes().as_slice().to_vec()))
         }
+        Classical::P384 => {
+            let pem = std::str::from_utf8(secret).map_err(|_| KemError::MalformedKey)?;
+            let sk = p384::SecretKey::from_pkcs8_pem(pem).map_err(|_| KemError::MalformedKey)?;
+            let peer = p384::PublicKey::from_sec1_bytes(ct).map_err(|_| KemError::MalformedCiphertext)?;
+            let ss = p384::ecdh::diffie_hellman(sk.to_nonzero_scalar(), peer.as_affine());
+            Ok(Zeroizing::new(ss.raw_secret_bytes().as_slice().to_vec()))
+        }
     }
 }
 
@@ -306,6 +398,8 @@ fn nonzero(ss: &[u8]) -> Result<(), KemError> {
 // X-Wing
 // ---------------------------------------------------------------------------
 
+// X-Wing wrappers around the `x_wing` crate: the public key, secret key and ciphertext are the crate's
+// fixed-size byte encodings, and the shared secret is 32 bytes.
 mod xwing {
     use super::*;
     use x_wing::KeyInit as _;
@@ -344,16 +438,27 @@ mod xwing {
 // Public API
 // ---------------------------------------------------------------------------
 
+/// Resolves an algorithm string to a suite or `UnsupportedAlgorithm`.
 fn suite_of(algorithm: &str) -> Result<KemSuite, KemError> {
     KemSuite::parse(algorithm).ok_or_else(|| KemError::UnsupportedAlgorithm(algorithm.to_string()))
 }
 
 /// Generate a key pair for the default suite (`X25519+ML-KEM-768`).
+///
+/// # Panics
+///
+/// Does not panic in practice: the default suite name always parses.
 pub fn generate_keypair() -> KeyPair {
     generate_keypair_for(ALGORITHM).expect("default suite is always supported")
 }
 
 /// Generate a key pair for any supported suite.
+///
+/// Hybrid secret and public keys are `u16_be(len(classical)) || classical || pqc`.
+///
+/// # Errors
+///
+/// [`KemError::UnsupportedAlgorithm`] when `algorithm` is not a suite in [`crate::suite`].
 pub fn generate_keypair_for(algorithm: &str) -> Result<KeyPair, KemError> {
     let suite = suite_of(algorithm)?;
     let (sec, public) = match suite {
@@ -382,6 +487,15 @@ pub fn generate_keypair_for(algorithm: &str) -> Result<KeyPair, KemError> {
 }
 
 /// Encapsulate to `public_key`. Returns `(ciphertext_wire_bytes, shared_secret)`.
+///
+/// The ciphertext is the bare ML-KEM or X-Wing ciphertext for those suites, and
+/// `u16_be(len(classical_ct)) || classical_ct || pqc_ct` for hybrids; the shared secret is 32 bytes.
+///
+/// # Errors
+///
+/// - [`KemError::UnsupportedAlgorithm`] when `public_key.algorithm` is not a known suite.
+/// - [`KemError::MalformedKey`] when the key has the wrong length or does not parse.
+/// - [`KemError::ClassicalFailure`] when an X25519 hybrid's classical shared secret is all zeros.
 pub fn encapsulate(public_key: &PublicKey) -> Result<(Vec<u8>, SharedSecret), KemError> {
     let suite = suite_of(&public_key.algorithm)?;
     match suite {
@@ -405,6 +519,17 @@ pub fn encapsulate(public_key: &PublicKey) -> Result<(Vec<u8>, SharedSecret), Ke
 }
 
 /// Decapsulate wire-format ciphertext bytes with `secret_key`.
+///
+/// A ciphertext of the right length that was not made for this key does not raise an error: ML-KEM and
+/// X-Wing return a pseudorandom secret (implicit rejection), and a hybrid suite returns a secret that
+/// differs from the sender's.
+///
+/// # Errors
+///
+/// - [`KemError::UnsupportedAlgorithm`] when `secret_key.algorithm` is not a known suite.
+/// - [`KemError::MalformedKey`] when the secret key has the wrong length or does not parse.
+/// - [`KemError::MalformedCiphertext`] when the ciphertext has the wrong length or layout.
+/// - [`KemError::ClassicalFailure`] when an X25519 hybrid's classical shared secret is all zeros.
 pub fn decapsulate(secret_key: &SecretKey, ciphertext: &[u8]) -> Result<SharedSecret, KemError> {
     let suite = suite_of(&secret_key.algorithm)?;
     match suite {

@@ -165,7 +165,7 @@ describe('JWT hardening', () => {
   });
 
   it('a hedged:false verifier is needed for tokens from an un-hedged signer', () => {
-    using pair = new HybridSign().generateKeyPair();
+    using pair = new HybridSign('Ed25519+ML-DSA-65').generateKeyPair(); // the original (prefix) format: -v2 has no unhedged mode
     const token = new JWTSigner(pair, { hedged: false }).sign({ sub: 'u' }, { expiresIn: 60 });
     expect(() => new JWTVerifier(pair.publicKey).verify(token)).toThrow(VerificationError);
     expect(new JWTVerifier(pair.publicKey, { hedged: false }).verify(token).sub).toBe('u');

@@ -45,7 +45,8 @@ helps them. Use `isValid` for a boolean, or `verifyBytes(message, signature, pub
 - A **hybrid** signature carries a classical and a post-quantum signature, and **both** must verify. Both halves are always evaluated before
   the result is combined, so a failure does not reveal which half failed.
 - **Hedged signing** (extra randomness) is the default, as in quantum-safe-py. With the default format (v1), a verifier must be in the same
-  hedging mode as the signer (`new Sign(algo, { hedged: false })`). The [`-v2` format](#format-v2--v2) has no such setting.
+  hedging mode as the signer (`new Sign(algo, { hedged: false })`). The [`-v2` format](#format-v2--v2) has no such setting: `hedged: false` with a `-v2` suite is ignored and emits a `QS_HEDGED_IGNORED` warning
+  (quantum-safe-py raises `ValueError`; see [Context and AAD](/guide/context-and-aad#a-third-advisory-hedged-false-with-a-v2-suite)).
 - `SignedMessage` is self-contained: `message`, `signature`, `algorithm`, `context`, `signerFingerprint`, `signedAt`. The fingerprint and
   timestamp are metadata and are **not** covered by the signature. Do not use them for security decisions.
 - Sign a **digest** of large artifacts, not the whole file.
@@ -56,11 +57,11 @@ helps them. Use `isValid` for a boolean, or `verifyBytes(message, signature, pub
 
 | Name | Notes |
 |---|---|
-| `Ed25519+ML-DSA-44/65/87`, `P-256+ML-DSA-44/65` | Hybrid. Default `Ed25519+ML-DSA-65` (NIST category 3). Byte-compatible with quantum-safe-py. |
+| `Ed25519+ML-DSA-44/65/87`, `P-256+ML-DSA-44/65`, `P-384+ML-DSA-87` | Hybrid. Default `Ed25519+ML-DSA-65-v2` (NIST category 3). Byte-compatible with quantum-safe-py. |
 | `ML-DSA-44/65/87` | FIPS 204. `ML-DSA-87` is the CNSA 2.0 level. |
 | `SLH-DSA-SHAKE-*` and `SLH-DSA-SHA2-*` (`128/192/256`, `s`/`f`; 12 sets) | FIPS 205, hash-based. Large signatures, conservative assumptions, slower signing. `f` is faster to sign, `s` smaller. |
 | `<any ML-DSA or hybrid>-v2` | The cleaner format described below. |
-| LMS / HSS | **Verification only** (`Lms`), per RFC 8554. Signing needs durable state and is intentionally not provided. |
+| LMS / HSS | Verification everywhere (`Lms`), per RFC 8554; signing in Node.js with write-ahead durable state (`LmsSigner`, [LMS signing](/guide/lms-signing)). |
 
 ```ts test
 import { Sign, sigSuites, utf8 } from 'quantum-safe-ts';
@@ -107,9 +108,8 @@ if (signed.signature.length !== 64 + 3309) throw new Error('hybrid v2 blob is 64
 quantum-safe-py 0.3.2 or later reads and writes v2 (all eight identifiers are verified in both directions); 0.3.0 cannot read it and fails
 closed on the identifier (the format first appeared in 0.3.1). There is no SLH-DSA v2. `JWTSigner` / `JWTVerifier` accept v2 keys too.
 
-**Which to use:** the default stays `Ed25519+ML-DSA-65` for now so existing Python deployments keep verifying, and is planned to flip to
-`-v2` in the next minor release. Choose `-v2` explicitly when every verifier you control is quantum-safe-py 0.3.2+ or quantum-safe-ts
-([Choosing what to use](/guide/choosing#default-format-or-v2)).
+**Which to use:** `-v2` is the default hybrid from 1.0.0. Name the original `Ed25519+ML-DSA-65` when a verifier older than quantum-safe-py
+0.3.2 is involved ([Choosing what to use](/guide/choosing#original-format-or-v2)).
 
 ## Standard ML-DSA for other ecosystems
 
@@ -124,11 +124,33 @@ Compatible with quantum-safe-py is not the same as standard. Three different thi
 When the other side is not quantum-safe-py or quantum-safe-ts:
 
 - **JOSE and JWT:** use [`StandardJwt`](/guide/jwt) (RFC 9964). Any compliant JOSE library verifies it.
-- **A standard signature over arbitrary bytes:** the public TypeScript API does not expose this yet. The primitive exists in the core (it is what
-  `StandardJwt` uses, with an empty context) and is tested against quantum-safe-py 0.3.2 in both directions (its `Sign.sign_raw()` and
-  `Sign.verify_raw()` for ML-DSA-44, 65 and 87, with an empty, a short and a 255-byte context), but a public `signRaw` / `verifyRaw` is a
-  [roadmap](https://github.com/AnimeshShaw/quantum-safe-ts/blob/master/ROADMAP.md) item, not something to depend on today.
+- **A standard signature over arbitrary bytes:** `Sign.signRaw()` and `Sign.verifyRaw()` (aliases `signStandard` and `verifyStandard`), below.
 - **`-v2`** is for quantum-safe-py and quantum-safe-ts.
+
+## Standard FIPS 204 signatures
+
+`signRaw` signs your bytes exactly as given with FIPS 204's native context and returns the bare signature: no prefix, no wrapper, no metadata.
+Any FIPS 204 implementation verifies it from the message, context and public key; quantum-safe-py verifies it with `Sign.verify_raw()`.
+
+```ts test
+import { Sign, utf8 } from 'quantum-safe-ts';
+
+const signer = new Sign('ML-DSA-65');            // ML-DSA-44, ML-DSA-65 or ML-DSA-87
+using pair = signer.generateStandardKeyPair();   // a 32-byte seed and the FIPS 204 public key
+
+const sig = signer.signRaw(utf8('release 1.2.3'), pair, { context: utf8('myapp-release') });
+signer.verifyRaw(utf8('release 1.2.3'), sig, pair.publicKey, { context: utf8('myapp-release') }); // throws VerificationError if wrong
+```
+
+- The context is at most 255 bytes and defaults to empty. A signature verifies only under the context it was made with.
+- `verifyRaw` accepts the FIPS 204 public key as bytes or as a `PublicKey` of the same algorithm.
+- `standardKeyPairFromSeed(seed)` rebuilds a key pair from its 32-byte seed; `pair.exportSeed()` returns the seed (wipe your copy).
+
+::: danger Seed keys sign; expanded keys from quantum-safe-py only verify
+A secret key made by quantum-safe-py's liboqs backend is a 4,032-byte *expanded* key. No seed can be recovered from it, so quantum-safe-ts
+cannot sign with it. Every signature that key makes **verifies** here. For one key that signs in both libraries, use a seed key
+(`generateStandardKeyPair()`, or quantum-safe-py's `cryptography` backend in 1.0.0).
+:::
 
 ## Verifying bytes from elsewhere
 
@@ -155,7 +177,7 @@ try {
 ```ts test
 import { easy } from 'quantum-safe-ts';
 
-const keys = easy.generateSigningKeys('Ed25519+ML-DSA-65-v2');          // PEM strings; default is Ed25519+ML-DSA-65
+const keys = easy.generateSigningKeys();                                // PEM strings; default is Ed25519+ML-DSA-65-v2
 const signed = easy.sign(keys.secretKey, 'hello', { context: 'docs-v1' }); // Uint8Array (CBOR SignedMessage)
 if (easy.verifyText(keys.publicKey, signed, { context: 'docs-v1' }) !== 'hello') throw new Error('verify');
 if (easy.isValid(keys.publicKey, signed, { context: 'other' })) throw new Error('a different context must not verify');
@@ -167,8 +189,20 @@ if (easy.isValid(keys.publicKey, signed, { context: 'other' })) throw new Error(
 
 `Lms.verify(publicKey, message, signature)` verifies RFC 8554 signatures (SHA-256 parameter sets), checked against the RFC's own vectors and
 against signatures made by an independent implementation. `Lms.isValid` returns a boolean and `Lms.inspectPublicKey` reports the parameter
-set. **Signing is not provided**: a stateful scheme that reuses a one-time key is broken, and a library cannot guarantee durable state.
-Use the signer your HSM or tooling provides.
+set. **Signing** is provided in Node.js only, by `LmsSigner` from `quantum-safe-ts/lms-signer`: a stateful scheme that reuses a one-time key
+is broken, so the signer makes the index durable before a signature exists and refuses on any state problem. See
+[LMS signing](/guide/lms-signing).
+
+## Which default makes which format
+
+| Call | Format |
+|---|---|
+| `new HybridSign()` | `Ed25519+ML-DSA-65-v2` (the clean format, no prefix) |
+| `new Sign()` | `ML-DSA-65` in the original format. `ML-DSA-65` is also the name the standards formats (JOSE, COSE) use for the algorithm, so the bare name keeps its meaning; ask for `new Sign('ML-DSA-65-v2')` for the clean format |
+| `new HybridSign('Ed25519+ML-DSA-65')` | The original hybrid format, by name |
+| `new Sign().signRaw(...)` | A bare FIPS 204 signature with a native context, for other ML-DSA implementations |
+
+quantum-safe-py makes the same choices, so the same call gives the same format in both libraries.
 
 ## Common mistakes
 

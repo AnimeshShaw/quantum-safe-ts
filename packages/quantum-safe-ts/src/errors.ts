@@ -33,6 +33,7 @@ export type QsErrorCode =
   | 'QS_INTERNAL_ERROR';
 
 // Class names are fixed strings so that `error.name` survives a consumer's minifier (which mangles `new.target.name`).
+/** Maps each error code to the class name stored in `error.name`. */
 const NAME_BY_CODE: Readonly<Record<QsErrorCode, string>> = {
   QS_ERROR: 'QuantumSafeError',
   QS_NOT_INITIALIZED: 'NotInitializedError',
@@ -55,6 +56,7 @@ const NAME_BY_CODE: Readonly<Record<QsErrorCode, string>> = {
   QS_POLICY_VIOLATION: 'PolicyViolationError',
   QS_INTERNAL_ERROR: 'CryptoError',
 };
+/** Registry symbol set on every {@link QuantumSafeError}; {@link QuantumSafeError.is} tests for it, so it works across library copies. */
 const BRAND = Symbol.for('quantum-safe-ts.error');
 
 /** Base class for every error this library throws. */
@@ -64,6 +66,12 @@ export class QuantumSafeError extends Error {
   /** One-line, static suggestion for fixing the problem. Contains no sensitive data. */
   readonly hint: string;
 
+  /**
+   * Creates an error. `name` is set from `code`, and `code` and `hint` are stored as readonly properties.
+   * @param message - Human-readable description. Do not parse it; match on `code` or `instanceof`.
+   * @param code - Stable error code. Default `QS_ERROR`.
+   * @param hint - Static one-line suggestion for fixing the problem. Default: empty.
+   */
   constructor(message: string, code: QsErrorCode = 'QS_ERROR', hint = '') {
     super(message);
     this.name = NAME_BY_CODE[code] ?? 'QuantumSafeError';
@@ -76,12 +84,17 @@ export class QuantumSafeError extends Error {
   /**
    * True for errors from any copy of this library. Prefer this to `instanceof` when an application might load both the ESM and the CommonJS
    * build (each has its own class objects).
+   * @param e - Any value.
+   * @returns `true` when `e` is an object carrying this library's error brand.
    */
   static is(e: unknown): e is QuantumSafeError {
     return typeof e === 'object' && e !== null && (e as Record<symbol, unknown>)[BRAND] === true;
   }
 
-  /** JSON-safe description, useful for logs and for coding agents. */
+  /**
+   * JSON-safe description, useful for logs and for coding agents.
+   * @returns `name`, `code`, `message` and `hint`; contains no key material.
+   */
   toJSON(): { name: string; code: QsErrorCode; message: string; hint: string } {
     return { name: this.name, code: this.code, message: this.message, hint: this.hint };
   }
@@ -89,6 +102,7 @@ export class QuantumSafeError extends Error {
 
 /** Thrown when the WASM module has not been initialised yet. Call `await init()` first. */
 export class NotInitializedError extends QuantumSafeError {
+  /** Creates the error with code `QS_NOT_INITIALIZED` and a fixed message and hint. */
   constructor() {
     super(
       'quantum-safe-ts has not been initialised.',
@@ -98,11 +112,15 @@ export class NotInitializedError extends QuantumSafeError {
   }
 }
 
-/** A cryptographic operation failed. */
+/** A cryptographic operation failed. Also the class of the `QS_INTERNAL_ERROR` code, used for unclassified failures inside the WASM module. */
 export class CryptoError extends QuantumSafeError {}
 
 /** Decapsulation failed (invalid classical component). */
 export class DecapsulationError extends CryptoError {
+  /**
+   * Creates the error with code `QS_DECAPSULATION_FAILED`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(message, 'QS_DECAPSULATION_FAILED', 'The ciphertext was not produced for this key, or is corrupted.');
   }
@@ -110,6 +128,10 @@ export class DecapsulationError extends CryptoError {
 
 /** AEAD authentication failed: wrong key, wrong AAD, or tampered ciphertext. */
 export class DecryptionAuthenticationError extends CryptoError {
+  /**
+   * Creates the error with code `QS_DECRYPTION_FAILED`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(
       message,
@@ -121,6 +143,10 @@ export class DecryptionAuthenticationError extends CryptoError {
 
 /** A signature failed to verify. Deliberately carries no detail on *why*. */
 export class VerificationError extends CryptoError {
+  /**
+   * Creates the error with code `QS_VERIFICATION_FAILED`.
+   * @param message - Message text. Default `Signature verification failed.`; the library always uses the default so that no reason is revealed.
+   */
   constructor(message = 'Signature verification failed.') {
     super(
       message,
@@ -132,6 +158,10 @@ export class VerificationError extends CryptoError {
 
 /** Signing failed (for example RNG unavailable). */
 export class SigningError extends CryptoError {
+  /**
+   * Creates the error with code `QS_SIGNING_FAILED`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(message, 'QS_SIGNING_FAILED', 'Check that the secret key is intact and matches the chosen algorithm.');
   }
@@ -139,6 +169,10 @@ export class SigningError extends CryptoError {
 
 /** A key has the wrong length, wrong encoding, or does not belong to the stated algorithm. */
 export class MalformedKeyError extends CryptoError {
+  /**
+   * Creates the error with code `QS_MALFORMED_KEY`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(
       message,
@@ -150,6 +184,10 @@ export class MalformedKeyError extends CryptoError {
 
 /** A ciphertext, sealed message or signature blob is truncated or structurally invalid. */
 export class MalformedCiphertextError extends CryptoError {
+  /**
+   * Creates the error with code `QS_MALFORMED_CIPHERTEXT`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(
       message,
@@ -161,6 +199,10 @@ export class MalformedCiphertextError extends CryptoError {
 
 /** A signature (for example an LMS/HSS signature) is truncated or structurally invalid. */
 export class MalformedSignatureError extends CryptoError {
+  /**
+   * Creates the error with code `QS_MALFORMED_SIGNATURE`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(
       message,
@@ -172,6 +214,10 @@ export class MalformedSignatureError extends CryptoError {
 
 /** Key/message algorithm identifiers disagree. */
 export class AlgorithmMismatchError extends CryptoError {
+  /**
+   * Creates the error with code `QS_ALGORITHM_MISMATCH`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(
       message,
@@ -183,6 +229,10 @@ export class AlgorithmMismatchError extends CryptoError {
 
 /** HKDF output length exceeds the RFC 5869 limit for SHA-256 (8160 bytes). */
 export class HkdfOutputTooLongError extends CryptoError {
+  /**
+   * Creates the error with code `QS_HKDF_OUTPUT_TOO_LONG`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(message, 'QS_HKDF_OUTPUT_TOO_LONG', 'Request at most 8160 bytes from deriveKey().');
   }
@@ -190,16 +240,27 @@ export class HkdfOutputTooLongError extends CryptoError {
 
 /** Password-based key derivation failed (for example, salt shorter than 8 bytes). */
 export class KdfError extends CryptoError {
+  /**
+   * Creates the error with code `QS_KDF_FAILED`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(message, 'QS_KDF_FAILED', 'Use a random salt of at least 16 bytes and a non-empty password.');
   }
 }
 
-/** Serialization or parsing failure. */
+/**
+ * Serialization or parsing failure. Base class of {@link KeyParseError}, {@link IncompatibleKeyVersionError}, {@link PayloadTooLargeError}
+ * and {@link UnsupportedFormatError}.
+ */
 export class SerializationError extends QuantumSafeError {}
 
 /** A key could not be parsed from PEM, CBOR or JWK. */
 export class KeyParseError extends SerializationError {
+  /**
+   * Creates the error with code `QS_KEY_PARSE_ERROR`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(
       message,
@@ -211,6 +272,10 @@ export class KeyParseError extends SerializationError {
 
 /** A key was written by a newer, unsupported format version. */
 export class IncompatibleKeyVersionError extends SerializationError {
+  /**
+   * Creates the error with code `QS_INCOMPATIBLE_KEY_VERSION`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(message, 'QS_INCOMPATIBLE_KEY_VERSION', 'Upgrade quantum-safe-ts to read keys written by a newer version.');
   }
@@ -218,6 +283,10 @@ export class IncompatibleKeyVersionError extends SerializationError {
 
 /** A payload exceeded the 10 MB parsing limit. */
 export class PayloadTooLargeError extends SerializationError {
+  /**
+   * Creates the error with code `QS_PAYLOAD_TOO_LARGE`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(message, 'QS_PAYLOAD_TOO_LARGE', 'Payloads over 10 MB are refused before parsing. Check you passed the right data.');
   }
@@ -225,6 +294,10 @@ export class PayloadTooLargeError extends SerializationError {
 
 /** The requested serialization is not supported (for example, a secret key as JWK). */
 export class UnsupportedFormatError extends SerializationError {
+  /**
+   * Creates the error with code `QS_UNSUPPORTED_FORMAT`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(message, 'QS_UNSUPPORTED_FORMAT', 'Export secret keys as CBOR or PEM; JWK is for public keys only.');
   }
@@ -232,6 +305,10 @@ export class UnsupportedFormatError extends SerializationError {
 
 /** The algorithm name is unknown or not approved. */
 export class UnsupportedAlgorithmError extends QuantumSafeError {
+  /**
+   * Creates the error with code `QS_UNSUPPORTED_ALGORITHM`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(
       message,
@@ -243,6 +320,10 @@ export class UnsupportedAlgorithmError extends QuantumSafeError {
 
 /** A caller-supplied argument is invalid (wrong type, empty message, over-long context …). */
 export class InvalidArgumentError extends QuantumSafeError {
+  /**
+   * Creates the error with code `QS_INVALID_ARGUMENT`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(message, 'QS_INVALID_ARGUMENT', 'Check the argument types and limits in the API documentation.');
   }
@@ -250,6 +331,10 @@ export class InvalidArgumentError extends QuantumSafeError {
 
 /** A configured security policy (for example CNSA 2.0 enforcement) rejected an algorithm. */
 export class PolicyViolationError extends QuantumSafeError {
+  /**
+   * Creates the error with code `QS_POLICY_VIOLATION`.
+   * @param message - Description of the failure; contains no key material or caller input.
+   */
   constructor(message: string) {
     super(
       message,
@@ -259,7 +344,14 @@ export class PolicyViolationError extends QuantumSafeError {
   }
 }
 
-/** Maps the `kind` tag attached by the WASM layer to a typed error. Internal. */
+/**
+ * Maps the `kind` tag attached by the WASM layer to a typed error. Internal.
+ * An error that is already a {@link QuantumSafeError} is returned unchanged. An unknown or missing `kind` becomes a {@link CryptoError}
+ * with code `QS_INTERNAL_ERROR`; a `WebAssembly.RuntimeError` (a Rust panic) is reported with a fixed message instead of its own text.
+ * A `verification_failed` kind always yields a {@link VerificationError} with the fixed default message.
+ * @param e - The value thrown by the WASM module (or any other thrown value).
+ * @returns The typed error to throw to the caller.
+ */
 export function fromWasmError(e: unknown): Error {
   if (e instanceof QuantumSafeError) return e;
   const kind = (e as { kind?: unknown } | null)?.kind;

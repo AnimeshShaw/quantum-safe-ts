@@ -3,25 +3,64 @@
  * never touches the network and never executes scanned code.
  */
 
-export type UseCase = 'encrypt-data' | 'key-exchange' | 'sign-data' | 'jwt' | 'password-kdf' | 'file-or-vault-encryption';
+/** Use cases `recommend` has a recommendation for. */
+export type UseCase =
+  | 'encrypt-data'
+  | 'key-exchange'
+  | 'sign-data'
+  | 'jwt'
+  | 'password-kdf'
+  | 'file-or-vault-encryption'
+  | 'firmware-signing'
+  | 'migrate-stored-data';
+/**
+ * Which software has to read the output: nothing in particular (`none`), quantum-safe-py (`quantum-safe-py`), or third-party libraries
+ * (`other-ecosystems`, which selects X-Wing and the clean `-v2` signature format).
+ */
 export type Interop = 'none' | 'quantum-safe-py' | 'other-ecosystems';
 
+/** A recommendation returned by {@link recommend}. */
 export interface Recommendation {
+  /** The use case the recommendation answers. */
   useCase: UseCase;
+  /** One-sentence description of the approach. */
   summary: string;
+  /** Algorithm or suite name. */
   algorithm: string;
+  /** quantum-safe-ts API to call. */
   api: string;
+  /** Code snippet using the API. */
   code: string;
+  /** Interoperability notes for the chosen suite. */
   compatibility: string;
+  /** Points to know before using it: CNSA 2.0 notes first when requested, then the notes common to every recommendation. */
   caveats: string[];
+  /** Other options and related advice. */
   alternatives: string[];
 }
 
+/** Caveats added to every recommendation: initialising the WASM module outside Node.js, and freeing or wiping secrets. */
 const COMMON_CAVEATS = [
   'Outside Node.js call `await init()` once before use; in Cloudflare Workers pass the precompiled module: init({ wasm }).',
   'Secret objects live in WASM memory: free() them or use `using`; wipe() any bytes you export.',
 ];
 
+/**
+ * Returns the recommended algorithm suite, API, code snippet, compatibility notes and caveats for a use case.
+ *
+ * `requireCnsa2` selects pure ML-KEM-1024 and ML-DSA-87 (and adds the CNSA 2.0 caveats). Otherwise the key-encapsulation default is
+ * X25519+ML-KEM-768 and the signature default is Ed25519+ML-DSA-65-v2; `other-ecosystems` selects X-Wing and ML-DSA-65-v2 instead.
+ * The `password-kdf` and `firmware-signing` recommendations do not depend on these choices, and `jwt` picks its algorithm (ML-DSA-65 or
+ * ML-DSA-87) from `requireCnsa2` alone.
+ * `encrypt-data` and `file-or-vault-encryption` share a recommendation, and the latter adds a per-item key derivation line to the code.
+ * @param useCase - What the caller wants to do.
+ * @param requireCnsa2 - Select the CNSA 2.0 parameter sets.
+ * @param interop - Which software must read the output; see {@link Interop}.
+ * @returns The recommendation.
+ * @example
+ * const r = recommend('sign-data', true, 'none');
+ * r.algorithm; // 'ML-DSA-87'
+ */
 export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Interop): Recommendation {
   // CNSA 2.0: pure ML-KEM-1024 satisfies key establishment (NSA does not require hybrid and says not to use one on NSS
   // mission systems except NSA-specified exceptions). Pure ML-KEM-1024 seals as envelope v2 (HKDF-SHA-384).
@@ -29,19 +68,19 @@ export function recommend(useCase: UseCase, requireCnsa2: boolean, interop: Inte
   const kemCtor = requireCnsa2 ? 'new KEM' : 'new HybridKEM';
   const kemImport = requireCnsa2 ? 'KEM' : 'HybridKEM';
   // Signatures: pure ML-DSA-87 under CNSA 2.0 (a hybrid is only `partial`); for other ecosystems the clean -v2 format; otherwise the default hybrid.
-  const sigName = requireCnsa2 ? 'ML-DSA-87' : interop === 'other-ecosystems' ? 'ML-DSA-65-v2' : 'Ed25519+ML-DSA-65';
+  const sigName = requireCnsa2 ? 'ML-DSA-87' : interop === 'other-ecosystems' ? 'ML-DSA-65-v2' : 'Ed25519+ML-DSA-65-v2';
   const sigCls = sigName.includes('+') ? 'HybridSign' : 'Sign';
   const cnsaCaveats = requireCnsa2
     ? [
         'CNSA 2.0 parameter sets are selected (pure ML-KEM-1024, ML-DSA-87); selecting parameters is necessary and not sufficient for compliance.',
-        'CNSA 2.0 software/firmware signing requires LMS or XMSS (SP 800-208); neither is implemented yet.',
+        'CNSA 2.0 software/firmware signing requires LMS or XMSS (SP 800-208); LMS is verified everywhere and signed in Node.js (LmsSigner from quantum-safe-ts/lms-signer); XMSS is not implemented.',
         'Pure ML-KEM-1024 envelopes (v2: HKDF-SHA-384 + AES-256-GCM) are read and written by quantum-safe-py too. X25519+ML-KEM-1024 hybrids are NOT CNSA 2.0 compliant: NSA\'s CNSA 2.0 FAQ says hybrids are not required and not to be used on NSS mission systems except NSA-specified exceptions.',
         'Run cnsa2.report() to see exactly which requirements are and are not met.',
       ]
     : [];
   const interopNote =
     interop === 'other-ecosystems'
-      ? 'Interoperable with other X-Wing / RFC 9964 implementations (for example @noble/post-quantum, @hpke/hybridkem-x-wing). X-Wing is NOT readable by quantum-safe-py; RFC 9964 (StandardJwt) tokens and public JWKs are readable by quantum-safe-py 0.3.2 or later.'
+      ? 'Interoperable with other X-Wing / RFC 9964 implementations (for example @noble/post-quantum, @hpke/hybridkem-x-wing). X-Wing, RFC 9964 (StandardJwt) tokens and public JWKs are also read by quantum-safe-py 1.0.0.'
       : interop === 'quantum-safe-py'
         ? 'Byte-compatible with quantum-safe-py in both directions (envelopes, keys, signed messages). Not readable by third-party libraries.'
         : 'Default suites are byte-compatible with quantum-safe-py; use the X-Wing / RFC 9964 options when other ecosystems must read the data.';
@@ -98,11 +137,12 @@ const signed = signer.sign(message, pair.secretKey, { context: utf8('myapp-v1-do
 signer.verify(signed, pair.publicKey, { expectedContext: utf8('myapp-v1-docs') }); // throws VerificationError on failure`,
         compatibility:
           interop === 'other-ecosystems'
-            ? 'The -v2 ML-DSA half signs M2 = u8(len(algo))||algo||u8(len(ctx))||ctx||message under the FIPS 204 context quantum-safe-sig-v2, so a standard FIPS 204 library can verify it only by rebuilding M2 and passing that context; it is not a standard signature over your message. quantum-safe-py 0.3.2 or later reads it too; 0.3.0 does not.'
-            : 'Default format: byte-compatible with every quantum-safe-py version (a message prefix with an empty FIPS 204 context); third-party ML-DSA libraries cannot verify it. The -v2 format (for example Ed25519+ML-DSA-65-v2) is cleaner and is read by quantum-safe-py 0.3.2 or later. Never use one key in both formats.',
+            ? 'The -v2 ML-DSA half signs M2 = u8(len(algo))||algo||u8(len(ctx))||ctx||message under the FIPS 204 context quantum-safe-sig-v2, so a standard FIPS 204 library can verify it only by rebuilding M2 and passing that context; it is not a standard signature over your message. quantum-safe-py 0.3.2 or later reads it too.'
+            : 'Default -v2 format (Ed25519+ML-DSA-65-v2): the ML-DSA half uses a native FIPS 204 context and is read by quantum-safe-py 0.3.2 or later. The earlier prefix format stays available by naming the suite without -v2 (for example Ed25519+ML-DSA-65). Never use one key in both formats.',
         alternatives: [
           'Always sign with a context and verify with expectedContext: a signature without one is valid for any purpose of the key.',
-          'For tokens other ecosystems must verify, use StandardJwt (RFC 9964). A standard FIPS 204 signature over arbitrary bytes is not in the public TypeScript API yet; -v2 is for quantum-safe-py and quantum-safe-ts.',
+          'For tokens other ecosystems must verify, use StandardJwt (RFC 9964). For a standard FIPS 204 signature over your bytes that any ML-DSA library verifies, use Sign.signRaw / Sign.verifyRaw; -v2 is for quantum-safe-py and quantum-safe-ts.',
+          'For P-384 estates (CNSA 1.0 keys) the hybrids P-384+ML-KEM-1024 and P-384+ML-DSA-87-v2 are available; they are not readable outside quantum-safe-py 1.0.0 and quantum-safe-ts 1.0.0.',
         ],
       };
     case 'jwt':
@@ -134,13 +174,66 @@ const vaultKey = master.deriveKey(32, utf8('myapp-vault-v1'));`,
         compatibility: 'No quantum-safe-py equivalent (it has no master-password concept). Matches Node WebCrypto Argon2id in tests.',
         alternatives: ['Normalise Unicode passwords (NFKC) consistently everywhere: the library does not.'],
       };
+    case 'firmware-signing':
+      return {
+        ...base,
+        summary: 'Sign firmware and software releases with LMS (RFC 8554), the hash-based scheme CNSA 2.0 names for this; verify anywhere.',
+        algorithm: 'LMS_SHA256_M32 / LMOTS_SHA256_N32 (one tree, height 5, 10, 15 or 20)',
+        api: 'LmsSigner (quantum-safe-ts/lms-signer, Node.js) to sign; Lms.verify to check',
+        code: `import { Lms } from 'quantum-safe-ts';
+import { LmsSigner } from 'quantum-safe-ts/lms-signer';
+// Once, at key-ceremony time. The directory holds the key and its write-ahead state; the seed is encrypted at rest.
+const signer = LmsSigner.create({
+  directory: '/secure/release-key',
+  height: 10,
+  protection: { key: kmsDerivedKey32 }, // or { passphrase } ; { unprotected: true } only on a protected volume
+});
+const publicKey = signer.publicKey; // publish it
+const signature = signer.sign(firmwareBytes);
+Lms.verify(publicKey, firmwareBytes, signature); // in any runtime`,
+        compatibility: 'Signatures verify in Lms.verify and in pyhsslms (quantum-safe-py with the [lms] extra). Signing is Node.js-only and single-tree; XMSS and multi-level HSS signing are not implemented (LMS satisfies the "LMS or XMSS" requirement).',
+        alternatives: [
+          'Each key makes at most 2^height signatures; never restore the key directory from a backup while the key is in use.',
+          'For hardware-module key custody, use the module\'s own signer.',
+        ],
+      };
+    case 'migrate-stored-data':
+      return {
+        ...base,
+        summary: 'Move stored envelopes to a new key (or a stronger suite) without exposing plaintext: re-wrap them, resumably and verified.',
+        algorithm: kemName,
+        api: 'Envelope.rewrap, rewrapDirectory (quantum-safe-ts/rewrap, Node.js), Upgrader for the classical-to-hybrid key upgrade',
+        code: `import { Envelope, ${kemImport} } from 'quantum-safe-ts';
+import { rewrapDirectory } from 'quantum-safe-ts/rewrap';
+using newPair = ${kemCtor}('${kemName}').generateKeyPair();
+// One message:
+const moved = Envelope.rewrap(sealed, oldSecretKey, newPair.publicKey, { expectedAad });
+// A directory: the source is untouched; every output is opened again and compared.
+const report = await rewrapDirectory(sourceDir, destinationDir, {
+  oldSecretKey,
+  newPublicKey: newPair.publicKey,
+  newSecretKey: newPair.secretKey,
+  expectedAad: (relativePath) => aadFor(relativePath),
+});
+// report.counts, report.ok; report.toCbom() gives a CycloneDX CBOM`,
+        compatibility: 'quantum-safe-py 1.0.0 has the same operation (Envelope.rewrap, rewrap_directory, qs-migrate rewrap) with the same report shape; each library opens what the other re-wraps.',
+        alternatives: [
+          'Re-wrapping is idempotent and resumable: run it again after an interruption. inPlace: true replaces files one at a time through an atomic rename.',
+          'Streaming envelopes are a different container and are not re-wrapped.',
+        ],
+      };
   }
 }
 
+/** Description of one quantum-safe-ts error class. */
 export interface ErrorInfo {
+  /** Error class name, for example `DecryptionAuthenticationError`. */
   name: string;
+  /** Stable error code, for example `QS_DECRYPTION_FAILED`. */
   code: string;
+  /** What the error means. */
   meaning: string;
+  /** The usual fix. */
   fix: string;
 }
 
@@ -167,13 +260,22 @@ export const ERRORS: readonly ErrorInfo[] = [
   { name: 'CryptoError', code: 'QS_INTERNAL_ERROR', meaning: 'Unexpected internal error in the WASM module (a bug).', fix: 'Report at https://github.com/AnimeshShaw/quantum-safe-ts/issues without secret data.' },
 ];
 
+/**
+ * Looks up an error by code or class name, ignoring case and surrounding whitespace.
+ * The `QS_` prefix of the code may be left out.
+ * @param query - Error code (`QS_DECRYPTION_FAILED`), code without prefix (`DECRYPTION_FAILED`) or class name (`VerificationError`).
+ * @returns The matching entry of {@link ERRORS}, or `undefined`.
+ * @example
+ * findError('decryption_failed')?.name; // 'DecryptionAuthenticationError'
+ */
 export function findError(query: string): ErrorInfo | undefined {
   const q = query.trim().toLowerCase();
   return ERRORS.find((e) => e.code.toLowerCase() === q || e.name.toLowerCase() === q || e.code.toLowerCase() === `qs_${q}`);
 }
 
+/** Plain-text summary of quantum-safe-ts, served as the `quantum-safe-ts://llms.txt` resource. */
 export const LLMS_TXT = `quantum-safe-ts: hybrid post-quantum cryptography for TypeScript/JavaScript (Rust core compiled to WASM).
 Install: npm install quantum-safe-ts. Outside Node.js call await init() first.
-Defaults: X25519+ML-KEM-768 (HybridKEM), Ed25519+ML-DSA-65 (HybridSign). CNSA 2.0 needs pure ML-KEM-1024 (cnsa2.kem(); Envelope v2 uses HKDF-SHA-384) and ML-DSA-87 (new Sign('ML-DSA-87')); hybrids are reported partial.
-Envelope.seal(plaintext, publicKey, {aad}) / Envelope.open(sealed, secretKey). StandardJwt for RFC 9964 tokens. deriveMasterKey for Argon2id.
+Defaults: X25519+ML-KEM-768 (HybridKEM), Ed25519+ML-DSA-65-v2 (HybridSign); P-384 hybrids (P-384+ML-KEM-1024, P-384+ML-DSA-87-v2) for CNSA 1.0 estates. CNSA 2.0 needs pure ML-KEM-1024 (cnsa2.kem(); Envelope v2 uses HKDF-SHA-384) and ML-DSA-87 (new Sign('ML-DSA-87')); hybrids are reported partial.
+Envelope.seal(plaintext, publicKey, {aad}) / Envelope.open(sealed, secretKey). StandardJwt for RFC 9964 tokens. deriveMasterKey for Argon2id. LmsSigner (quantum-safe-ts/lms-signer, Node.js) signs firmware with LMS; Envelope.rewrap / rewrapDirectory (quantum-safe-ts/rewrap) move stored envelopes to a new key.
 Docs: https://github.com/AnimeshShaw/quantum-safe-ts`;

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "quantum-safe-ts",
+  "description": "Hybrid post-quantum cryptography for TypeScript and JavaScript: ML-KEM, ML-DSA, SLH-DSA, hybrid envelopes and signatures, PQC JWTs, migration tooling.",
+  "folders": ["website/guide", "website/tools", "packages/quantum-safe-ts"],
+  "excludeFolders": ["node_modules", "dist", "test"],
+  "rules": [
+    "Outside Node.js call await init() once before use.",
+    "Pass a context when signing and expectedContext when verifying; pass aad when sealing and expectedAad when opening.",
+    "Free secret objects with using or free(), and wipe() any exported secret bytes.",
+    "The default hybrid signature suite is Ed25519+ML-DSA-65-v2; the default hybrid KEM is X25519+ML-KEM-768."
+  ]
+}

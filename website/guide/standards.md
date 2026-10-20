@@ -9,7 +9,7 @@ repository; **sourced** means from a cited external document.
 |---|---|
 | NIST FIPS 203 / 204 / 205 algorithms | Implemented, with conformance evidence: 1,317 NIST ACVP known-answer cases pass. |
 | FIPS 206 (FN-DSA), HQC | Not implemented. The standards are not final. |
-| NIST SP 800-208 / RFC 8554 (LMS) | Partial: HSS/LMS **verification** only (SHA-256). No signing, no XMSS. |
+| NIST SP 800-208 / RFC 8554 (LMS) | Partial: HSS/LMS verification (SHA-256), and single-tree LMS signing in Node.js with durable state. No XMSS; key generation is in software. |
 | NSA CNSA 2.0 parameter sets | The pure-KEM profile meets them (ML-KEM-1024, HKDF-SHA-384, AES-256-GCM; ML-DSA-87). Hybrids with X25519 are **not** CNSA-conformant. |
 | NIST SP 800-227 | X-Wing provided (SP 800-227 mentions it as an example of a hybrid KEM; that is not an endorsement). The quantum-safe-py-compatible combiner has not been reviewed against its key-combiner guidance. |
 | IETF | RFC 9964 (ML-DSA for JOSE) implemented. X-Wing implemented. TLS hybrids (RFC 10024) are left to the platform. |
@@ -33,7 +33,7 @@ parameter sets is necessary and **not sufficient**. Known gaps, reported by `cns
    key-establishment requirement. quantum-safe-py (0.3.2+) reports hybrids the same way.
 2. The quantum-safe-py-compatible combiner and envelope v1 use HKDF-SHA-256, below the SHA-384/512 requirement. Envelope v2 uses HKDF-SHA-384
    (verified against independent HKDF and AES-GCM implementations, and against quantum-safe-py 0.3.2+ in both directions).
-3. LMS is verification-only and XMSS is absent.
+3. LMS signing is Node.js-only, single-tree, with software key generation (SP 800-208 expects a validated module for that), and XMSS is absent.
 
 ## Reading a report
 
@@ -54,8 +54,8 @@ const byName = Object.fromEntries(mixed.checks.map((c) => [c.requirement, c.find
 if (byName['Key establishment'] !== 'partial' || byName['Hashing'] !== 'non-compliant' || mixed.compliant) throw new Error('unexpected findings');
 ```
 
-`includeCodeSigning: false` leaves out the software and firmware signing row (CNSA 2.0 asks for LMS or XMSS there, and this library only
-verifies LMS). Without it that row is reported `partial`, so the report is never `compliant` for a system that signs firmware.
+`includeCodeSigning: false` leaves out the software and firmware signing row (CNSA 2.0 asks for LMS or XMSS there; this library signs LMS in Node.js with
+software key generation, and does not implement XMSS). Without it that row is reported `partial`, so the report is never `compliant` for a system that signs firmware.
 
 ## Why a hybrid is `partial`
 
@@ -111,8 +111,8 @@ Pair it with the [audit tool](/tools/audit) (`--cnsa2` reports SHA-256 where CNS
 
 ## What the profile does not cover
 
-Selecting parameters is necessary and **not sufficient**: no software library makes a system CNSA 2.0 compliant. Missing here: LMS or XMSS
-signing for software and firmware, SHA-384/512 key derivation for the hybrid and v1 envelope formats (they use
+Selecting parameters is necessary and **not sufficient**: no software library makes a system CNSA 2.0 compliant. Missing here: XMSS, LMS key
+generation inside a validated module, SHA-384/512 key derivation for the hybrid and v1 envelope formats (they use
 HKDF-SHA-256 for byte-compatibility), and everything outside this library (protocols, key management, platform).
 
 ## NIST
@@ -122,7 +122,7 @@ HKDF-SHA-256 for byte-compatibility), and everything outside this library (proto
 | FIPS 203 (ML-KEM) | Algorithms met | ACVP keyGen 75/75, encap 75/75, decap 30/30; cross-checked against `@noble/post-quantum` in both directions. Encapsulation/decapsulation key-check groups (60 cases) are not run. |
 | FIPS 204 (ML-DSA) | Algorithms met | ACVP keyGen 75/75, sigGen 180/180, sigVer 90/90. HashML-DSA and externalMu are not provided. |
 | FIPS 205 (SLH-DSA) | Algorithms met, all 12 parameter sets | ACVP keyGen 120/120, sigGen 336/336, sigVer 336/336. HashSLH-DSA is not provided. |
-| SP 800-208 | Partial | LMS/HSS verification checked against RFC 8554 Appendix F and 13 signatures from an independent implementation. |
+| SP 800-208 | Partial | LMS/HSS verification checked against RFC 8554 Appendix F and 13 signatures from an independent implementation; `LmsSigner` signatures verify in the library's verifier and in pyhsslms for every Winternitz parameter. |
 | SP 800-227 | Partial | SP 800-227 mentions X-Wing as an example hybrid KEM (not an endorsement). The compatible combiner is unreviewed. |
 | SP 800-38D (GCM) | Designed to stay within its limits | Every `seal` derives a fresh AES key from a fresh KEM secret, so a key encrypts once. |
 
@@ -130,7 +130,7 @@ HKDF-SHA-256 for byte-compatibility), and everything outside this library (proto
 
 | Specification | Status |
 |---|---|
-| RFC 9964, ML-DSA for JOSE | Implemented as `StandardJwt`, verified against `@noble/post-quantum` and Node WebCrypto. COSE serialisation is not implemented. |
+| RFC 9964, ML-DSA for JOSE and COSE | JOSE: `StandardJwt`, verified against `@noble/post-quantum` and Node WebCrypto. COSE: `cose.sign1` / `verify1` and AKP COSE keys, checked against RFC 9964 Appendix A (all three levels). |
 | RFC 10024, TLS 1.3 hybrids | Delegated to the platform. This library does not implement TLS. |
 | X-Wing (`draft-connolly-cfrg-xwing-kem`) | Implemented, interoperable with noble's `ml_kem768_x25519`. |
 | JOSE KEM drafts, composite signatures, LAMPS X.509/CMS, HPKE-PQ | Not implemented. |

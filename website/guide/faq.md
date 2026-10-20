@@ -7,7 +7,7 @@ You are not on Node.js (browser, Deno, Bun, Worker) and have not awaited `init()
 precompiled module: `await init({ wasm })` ([Runtimes](/guide/runtimes)).
 
 **My bundle got much bigger.**
-The default entry embeds the WebAssembly (about 600 KiB gzipped of JavaScript). Use `quantum-safe-ts/slim` and serve the `.wasm` yourself
+The default entry embeds the WebAssembly (about 680 KiB gzipped of JavaScript). Use `quantum-safe-ts/slim` and serve the `.wasm` yourself
 ([Runtimes](/guide/runtimes#size)).
 
 **`using` is a syntax error.**
@@ -85,16 +85,16 @@ In a secrets manager or KMS and load it at start-up, not in source control or an
 **Hybrid or pure?** Hybrid for most uses during the transition; pure `ML-KEM-1024`/`ML-DSA-87` for the CNSA 2.0 parameter sets
 ([Choosing](/guide/choosing)).
 
-**Why is the default signature `Ed25519+ML-DSA-65` and not `-v2`?**
-So deployments that include an older Python verifier keep working. `-v2` is cleaner and safe to choose today if every verifier is quantum-safe-py
-0.3.2+ or quantum-safe-ts; the default is planned to flip in the next minor release ([Upgrading](/guide/upgrading)).
+**Why is the default signature `Ed25519+ML-DSA-65-v2`?**
+`-v2` has no hedging prefix, signs the algorithm and context inside the message, and uses FIPS 204's native context. Name the original
+`Ed25519+ML-DSA-65` if a verifier older than quantum-safe-py 0.3.2 is involved ([Upgrading](/guide/upgrading)).
 
 **Do I need X-Wing?**
 Only if systems that are not quantum-safe-py or quantum-safe-ts must decrypt your data. They are not compatible with the default hybrid.
 
 **Why not use WebCrypto's ML-KEM/ML-DSA?**
 If you only need a primitive and your runtimes all have it, you probably should: it is smaller and native. This library adds formats, key
-handling, typed errors, JWT, migration tools and Python interop, and runs where WebCrypto does not have the algorithms yet ([Which library?](/compare)).
+handling, typed errors, JWT, migration tools and Python interop, and runs where WebCrypto does not have the algorithms yet ([What it adds](/compare)).
 
 ## Security and compliance
 

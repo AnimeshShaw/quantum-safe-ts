@@ -16,7 +16,9 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 const N: usize = 32; // hash output / node size
+/// Length in bytes of the tree identifier `I`.
 const I_LEN: usize = 16;
+/// RFC 8554 domain-separation constants (§4.3, §5.3): one-time public key, message hash, leaf, interior node.
 const D_PBLC: u16 = 0x8080;
 const D_MESG: u16 = 0x8181;
 const D_LEAF: u16 = 0x8282;
@@ -24,24 +26,34 @@ const D_INTR: u16 = 0x8383;
 /// RFC 8554 limits HSS to 1..=8 levels.
 const MAX_LEVELS: u32 = 8;
 
+/// Errors returned for structurally invalid keys or signatures. A signature that is well-formed but does
+/// not verify is `Ok(false)`, not an error.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum LmsError {
+    /// The public key has the wrong length (not `4 + 4 + 4 + 16 + 32` bytes for HSS).
     #[error("public key is truncated or has trailing bytes")]
     MalformedKey,
+    /// The signature is shorter or longer than its parameters imply, or its signed-key count differs from
+    /// the public key's level count minus one.
     #[error("signature is truncated, has trailing bytes, or disagrees with the key's level count")]
     MalformedSignature,
+    /// A parameter type code in the public key is not one of the supported LMS (5 to 9) or LM-OTS (1 to 4)
+    /// SHA-256 codes; the field is the code.
     #[error("unsupported or unknown parameter set (type code {0})")]
     UnsupportedParameters(u32),
+    /// The HSS level count is outside 1 to 8; the field is the count.
     #[error("HSS level count {0} is outside 1..=8")]
     BadLevelCount(u32),
 }
 
+/// LM-OTS parameters: Winternitz width `w` in bits, number of hash chains `p`, and the checksum left shift `ls`.
 struct OtsParams {
     w: usize,
     p: usize,
     ls: usize,
 }
 
+/// Parameters for an LM-OTS SHA-256/N32 type code (1 to 4 for W = 1, 2, 4, 8).
 fn ots_params(typecode: u32) -> Result<OtsParams, LmsError> {
     match typecode {
         1 => Ok(OtsParams { w: 1, p: 265, ls: 7 }),
@@ -52,6 +64,7 @@ fn ots_params(typecode: u32) -> Result<OtsParams, LmsError> {
     }
 }
 
+/// Tree height for an LMS SHA-256/M32 type code (5 to 9 for H = 5, 10, 15, 20, 25).
 fn lms_height(typecode: u32) -> Result<usize, LmsError> {
     match typecode {
         5 => Ok(5),
@@ -70,15 +83,18 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
+    /// A reader at the start of `data`.
     fn new(data: &'a [u8]) -> Self {
         Self { data, pos: 0 }
     }
+    /// The next `n` bytes; every failure is reported as `MalformedSignature`.
     fn take(&mut self, n: usize) -> Result<&'a [u8], LmsError> {
         let end = self.pos.checked_add(n).ok_or(LmsError::MalformedSignature)?;
         let s = self.data.get(self.pos..end).ok_or(LmsError::MalformedSignature)?;
         self.pos = end;
         Ok(s)
     }
+    /// The next big-endian `u32`.
     fn u32(&mut self) -> Result<u32, LmsError> {
         Ok(u32::from_be_bytes(
             self.take(4)?
@@ -86,6 +102,7 @@ impl<'a> Reader<'a> {
                 .map_err(|_| LmsError::MalformedSignature)?,
         ))
     }
+    /// Number of bytes not yet read.
     fn rest(&self) -> usize {
         self.data.len() - self.pos
     }
@@ -100,6 +117,8 @@ struct LmsPublicKey<'a> {
     k: &'a [u8],
 }
 
+// Parses an LMS public key. Invariants: the input is exactly `LMS_PUBLIC_LEN` bytes and both type codes
+// are supported, so later code can index by the derived parameters.
 fn parse_lms_public(raw: &[u8]) -> Result<LmsPublicKey<'_>, LmsError> {
     let key_err = |e: LmsError| {
         if e == LmsError::MalformedSignature {
@@ -126,6 +145,7 @@ fn parse_lms_public(raw: &[u8]) -> Result<LmsPublicKey<'_>, LmsError> {
     })
 }
 
+/// Length in bytes of an LMS public key.
 const LMS_PUBLIC_LEN: usize = 4 + 4 + I_LEN + N;
 
 /// `coef(S, i, w)` from RFC 8554 §3.1.3.
@@ -234,6 +254,7 @@ fn verify_lms(public: &LmsPublicKey<'_>, message: &[u8], sig: &[u8]) -> Result<b
     Ok(constant_time_eq(&tmp, public.k))
 }
 
+/// Equality without an early exit on the first differing byte.
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
@@ -250,6 +271,18 @@ fn lms_signature_len(lms_type: u32, ots_type: u32) -> Result<usize, LmsError> {
 ///
 /// Returns `Ok(false)` when the signature does not verify and `Err` when an input is structurally
 /// invalid. A bare LMS key/signature is an HSS key with L = 1 (`Nspk = 0`).
+///
+/// The public key is `4 + 4 + 4 + 16 + 32 = 60` bytes. Only LMS SHA-256/M32 (H = 5, 10, 15, 20, 25) with
+/// LM-OTS SHA-256/N32 (W = 1, 2, 4, 8) are supported, and the signature's type codes must equal the
+/// key's at each level.
+///
+/// # Errors
+///
+/// - [`LmsError::MalformedKey`] when the public key is not 60 bytes or has trailing bytes.
+/// - [`LmsError::BadLevelCount`] when the level count is outside 1 to 8.
+/// - [`LmsError::UnsupportedParameters`] when a type code in the public key is unsupported.
+/// - [`LmsError::MalformedSignature`] when the signature is truncated, has trailing bytes, or its
+///   signed-key count is not the level count minus one.
 pub fn verify_hss(public_key: &[u8], message: &[u8], signature: &[u8]) -> Result<bool, LmsError> {
     let (levels, top_raw) = split_hss_public(public_key)?;
     let mut current = parse_lms_public(top_raw)?;
@@ -278,6 +311,7 @@ pub fn verify_hss(public_key: &[u8], message: &[u8], signature: &[u8]) -> Result
     Ok(ok)
 }
 
+/// An independent reader at the same position, to look ahead without consuming.
 fn sr_peek<'a>(r: &Reader<'a>) -> Reader<'a> {
     Reader {
         data: r.data,
@@ -300,14 +334,21 @@ fn lms_signature_len_from(peek: &mut Reader<'_>, public: &LmsPublicKey<'_>) -> R
 /// Public parameters of an HSS public key (for display and policy checks).
 #[derive(Debug, PartialEq, Eq)]
 pub struct HssPublicInfo {
+    /// Number of HSS levels, 1 to 8.
     pub levels: u32,
+    /// LMS type code of the top-level tree (5 to 9).
     pub lms_type: u32,
+    /// LM-OTS type code (1 to 4).
     pub ots_type: u32,
+    /// Height of each tree: 5, 10, 15, 20 or 25.
     pub tree_height: usize,
+    /// Winternitz parameter W: 1, 2, 4 or 8.
     pub winternitz: usize,
 }
 
 /// Splits `u32(L) || LMS public key` into the level count and the LMS key bytes.
+// Invariant: on success the key is exactly `4 + LMS_PUBLIC_LEN` bytes and the level count is within
+// 1..=MAX_LEVELS.
 fn split_hss_public(public_key: &[u8]) -> Result<(u32, &[u8]), LmsError> {
     if public_key.len() != 4 + LMS_PUBLIC_LEN {
         return Err(LmsError::MalformedKey);
@@ -319,6 +360,12 @@ fn split_hss_public(public_key: &[u8]) -> Result<(u32, &[u8]), LmsError> {
     Ok((levels, &public_key[4..]))
 }
 
+/// Reads the parameters of an HSS public key without verifying anything.
+///
+/// # Errors
+///
+/// [`LmsError::MalformedKey`], [`LmsError::BadLevelCount`] or [`LmsError::UnsupportedParameters`], as for
+/// [`verify_hss`]'s public-key checks.
 pub fn inspect_hss_public_key(public_key: &[u8]) -> Result<HssPublicInfo, LmsError> {
     let (levels, raw) = split_hss_public(public_key)?;
     let p = parse_lms_public(raw)?;

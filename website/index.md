@@ -9,7 +9,7 @@ hero:
       text: Get started
       link: /guide/getting-started
     - theme: alt
-      text: Which library should I use?
+      text: What it adds
       link: /compare
     - theme: alt
       text: API reference

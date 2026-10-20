@@ -1,3 +1,8 @@
+/**
+ * Public API of quantum-safe-audit: the rule catalog (`rules`), the source scanner (`scanner`), the file-system walker and policy loader
+ * (`walk`), the text, JSON and SARIF reports (`report`), the CycloneDX CBOM builder (`cbom`) and the SBOM readiness enrichment (`sbom`).
+ * Each export is documented where it is defined.
+ */
 export { RULES, SEVERITY_ORDER, ruleById } from './rules.js';
 export type { Rule, Severity, Primitive } from './rules.js';
 export { scanSource, maxSeverity, ScanError, safeDetail } from './scanner.js';

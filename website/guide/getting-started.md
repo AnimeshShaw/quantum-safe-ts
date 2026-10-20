@@ -104,7 +104,7 @@ migrate, see [Interop with quantum-safe-py](/guide/python-interop) and the [audi
 
 | You want | Use |
 |---|---|
-| The sensible default | `X25519+ML-KEM-768` to encrypt, `Ed25519+ML-DSA-65` to sign (what `easy` uses) |
+| The sensible default | `X25519+ML-KEM-768` to encrypt, `Ed25519+ML-DSA-65-v2` to sign (what `easy` uses) |
 | Data that Python (quantum-safe-py) must read | The defaults; formats are byte-compatible both ways |
 | Data that other ecosystems (not Python) must read | `X-Wing` to encrypt and [`StandardJwt`](/guide/jwt) for tokens |
 | The CNSA 2.0 parameter sets | pure `ML-KEM-1024` and `ML-DSA-87` ([details](/guide/standards)) |

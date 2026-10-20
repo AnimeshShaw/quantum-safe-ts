@@ -5,12 +5,13 @@ import type { Finding, ScanOptions } from './scanner.js';
 import { SEVERITY_ORDER, ruleById } from './rules.js';
 import type { Severity } from './rules.js';
 
+/** Scan policy, read from a JSON file by {@link loadPolicy} or built in code; every field is optional. */
 export interface Policy {
-  /** Exit non-zero if any finding is at or above this severity. Default: `high`. */
+  /** Exit non-zero if any finding is at or above this severity. Default: `high`. `none` never fails. */
   failOn?: Severity | 'none';
   /** Rule ids to ignore entirely (for example `["QSJ050"]`). */
   ignoreRules?: string[];
-  /** Extra path globs to exclude (`**` and `*` supported). */
+  /** Extra path globs to exclude (`**` and `*` supported). Matched against the path relative to the scan root, with `/` separators. */
   exclude?: string[];
   /** Report CNSA 2.0 hash gaps too. */
   cnsa2?: boolean;
@@ -20,10 +21,13 @@ export interface Policy {
   noInlineIgnore?: boolean;
 }
 
+/** Result of {@link scanPaths}. */
 export interface ScanReport {
   /** Absolute scan root(s). */
   readonly roots: readonly string[];
+  /** Number of files read and analysed successfully (files with no findings included; skipped and failed files are not). */
   readonly filesScanned: number;
+  /** Findings after rule ignores, sorted by severity (most serious first), then file, then line. */
   readonly findings: readonly Finding[];
   /** Files that could not be read or parsed (never silently dropped). */
   readonly errors: readonly string[];
@@ -31,14 +35,18 @@ export interface ScanReport {
   readonly notes: readonly string[];
   /** Number of findings suppressed by inline `qs-audit-ignore` comments. */
   readonly suppressed: number;
+  /** The policy the scan ran with. */
   readonly policy: Policy;
 }
 
+/** Directory names skipped at any depth unless `noDefaultExcludes` is set. */
 const DEFAULT_EXCLUDED_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'out', 'coverage', '.next', '.nuxt', '.svelte-kit', '.turbo', '.cache',
   '.parcel-cache', '.vercel', '.output', 'vendor', 'target', '__pycache__', '.venv', 'venv', '.wrangler',
 ]);
+/** File extensions the directory walk treats as code. */
 const CODE_EXT = /\.(?:[cm]?[jt]sx?|vue|svelte|astro|html?|es6)$/i;
+/** Largest file size, in bytes, that is read; larger files are skipped and reported as errors. */
 const MAX_BYTES = 1_000_000;
 
 /** Escapes one character for use as a literal inside a regular expression. */
@@ -50,6 +58,14 @@ function escapeRegExpChar(c: string): string {
  * Converts a simple glob (`**`, `*`, `?`) to an anchored regular expression. Every other character is matched literally. Runs of the same
  * wildcard (`**\/**\/**`, `***`) are collapsed to one, which matches exactly the same strings but keeps the expression from backtracking
  * super-linearly when a policy file contains such a pattern.
+ *
+ * `**` matches any characters including `/`, `**` followed by `/` also matches zero directories, `*` matches any characters except `/`
+ * and `?` matches one character except `/`.
+ * @param glob - Glob pattern, matched against a whole path.
+ * @returns A regular expression anchored at both ends.
+ * @example
+ * globToRegExp('src/**\/*.test.ts').test('src/a/b.test.ts'); // true
+ * globToRegExp('*.js').test('lib/a.js'); // false
  */
 export function globToRegExp(glob: string): RegExp {
   let re = '';
@@ -80,6 +96,14 @@ export function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${re}$`);
 }
 
+/**
+ * Reads a policy from a JSON file.
+ * @param path - Path of the JSON policy file.
+ * @returns The parsed policy. Only `failOn` is validated; the other fields are used as written.
+ * @throws {Error} If the file cannot be read or parsed, or `failOn` is neither `none` nor a severity name.
+ * @example
+ * const policy = loadPolicy('.qs-audit.json'); // { "failOn": "medium", "ignoreRules": ["QSJ050"] }
+ */
 export function loadPolicy(path: string): Policy {
   const raw = JSON.parse(readFileSync(path, 'utf8')) as Policy;
   if (raw.failOn !== undefined && raw.failOn !== 'none' && !Object.hasOwn(SEVERITY_ORDER, raw.failOn)) {
@@ -104,6 +128,12 @@ function isNodeScript(file: string): boolean {
   }
 }
 
+/**
+ * Yields the absolute path of every scannable file under `dir`. Skips `.git` always, the default-excluded directories unless
+ * `noDefaultExcludes` is set, minified `.min.js` files and paths matching `excludes` (tested against the path relative to `root`).
+ * Unreadable directories, broken symlinks and symlinks to directories are added to `errors`; skipped directories and minified files are
+ * added to `notes` (at most 50 notes of these kinds). Symlinks to files are followed.
+ */
 function* walk(dir: string, excludes: RegExp[], root: string, errors: string[], notes: string[], noDefaultExcludes: boolean): Generator<string> {
   let entries;
   try {
@@ -143,7 +173,21 @@ function* walk(dir: string, excludes: RegExp[], root: string, errors: string[], 
   }
 }
 
-/** Scans files and directories. Paths in findings are relative to each scan root. */
+/**
+ * Scans files and directories. Paths in findings are relative to each scan root.
+ *
+ * A directory is walked recursively and only files with a code extension (`.js`, `.ts`, `.jsx`, `.tsx`, their `m`/`c` variants, `.vue`,
+ * `.svelte`, `.astro`, `.html`, `.htm`, `.es6`), files named `package.json` and extensionless files with a node, deno or bun shebang
+ * are read.
+ * A path that names a file is scanned whatever its extension. Files larger than 1,000,000 bytes, unreadable files and files that cannot be
+ * analysed are listed in `errors` and not counted in `filesScanned`. A root that does not exist is also listed in `errors`.
+ * @param paths - Files and directories to scan.
+ * @param policy - Scan policy; defaults to `{}` (no extra excludes, no ignored rules, `cnsa2` off, inline ignores honoured).
+ * @returns The report with findings sorted by severity (most serious first), then file, then line.
+ * @example
+ * const report = scanPaths(['src'], { failOn: 'medium', exclude: ['**\/*.test.ts'] });
+ * report.findings.length; // number of findings
+ */
 export function scanPaths(paths: readonly string[], policy: Policy = {}): ScanReport {
   let suppressed = 0;
   const options: ScanOptions = {

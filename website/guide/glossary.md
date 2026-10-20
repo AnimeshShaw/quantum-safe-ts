@@ -25,7 +25,7 @@ Terms as this documentation uses them. Entries link to the page that explains th
 | **Implicit rejection** | ML-KEM's design: decapsulating a modified ciphertext returns a pseudo-random secret instead of an error. [KEM](/guide/kem#implicit-rejection-a-wrong-ciphertext-does-not-throw) |
 | **JWK / JWKS** | JSON Web Key / a set of them. Public keys only are ever served. [JWT](/guide/jwt) |
 | **KEM** | Key encapsulation mechanism. [KEM](/guide/kem) |
-| **LMS / HSS / XMSS** | Stateful hash-based signature schemes (RFC 8554, SP 800-208). This library verifies LMS/HSS; it does not sign. [Signatures](/guide/signatures) |
+| **LMS / HSS / XMSS** | Stateful hash-based signature schemes (RFC 8554, SP 800-208). This library verifies LMS/HSS everywhere and signs LMS in Node.js. [LMS signing](/guide/lms-signing) |
 | **M2** | The bytes signed in the `-v2` format: `len(algo) ‖ algo ‖ len(ctx) ‖ ctx ‖ message`. [Signatures](/guide/signatures) |
 | **MCP** | Model Context Protocol: how a coding agent calls tools. [MCP server](/tools/mcp) |
 | **Migration state** | `classical_only → hybrid_transition → pqc_preferred → pqc_only`: where a key is in its move to post-quantum. [Migration](/guide/migration) |

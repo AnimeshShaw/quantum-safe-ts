@@ -8,8 +8,11 @@ import { NotInitializedError, fromWasmError } from './errors.js';
 /** The raw wasm-bindgen module. Internal. */
 export type WasmApi = typeof glue;
 
+/** The initialised WASM module, or `null` before initialisation completes. */
 let ready: WasmApi | null = null;
+/** The in-flight initialisation shared by concurrent `init()` calls; reset to `null` when it fails so a later call can retry. */
 let loading: Promise<void> | null = null;
+/** Supplier of the .wasm source registered by the entry point; used when `init()` gets no `wasm` option. */
 let defaultSource: (() => Promise<InitSource> | InitSource) | null = null;
 
 /**
@@ -18,7 +21,10 @@ let defaultSource: (() => Promise<InitSource> | InitSource) | null = null;
  */
 export type InitSource = Uint8Array | ArrayBuffer | string | object;
 
-/** @internal Registers how the entry point obtains the .wasm bytes. */
+/**
+ * @internal Registers how the entry point obtains the .wasm bytes.
+ * @param fn - Returns the source (or a promise of it) that `init()` uses when called without `options.wasm`.
+ */
 export function setDefaultSource(fn: () => Promise<InitSource> | InitSource): void {
   defaultSource = fn;
 }
@@ -31,7 +37,18 @@ export function setDefaultSource(fn: () => Promise<InitSource> | InitSource): vo
  * - **Cloudflare Workers** (which forbid compiling WASM from bytes): pass the precompiled module:
  *   `await init({ wasm: (await import('quantum-safe-ts/quantum_safe_wasm_bg.wasm')).default })`.
  *
+ * Once the module is ready, later calls return immediately. While a load is in progress, the `options` of further calls are ignored and they
+ * wait for that load. After a failed load the next call starts a new one.
+ *
  * @param options.wasm Optional custom source: bytes, a `WebAssembly.Module`, a `Response`, or a URL.
+ * @returns A promise that resolves when the module is ready.
+ * @throws {NotInitializedError} if no source is given and the entry point registered none (for example the slim entry without `options.wasm`).
+ * @throws {CryptoError} if instantiating the module fails (code `QS_INTERNAL_ERROR`).
+ * @example
+ * ```ts
+ * import { init } from 'quantum-safe-ts';
+ * await init(); // no-op on Node.js
+ * ```
  */
 export async function init(options: { wasm?: InitSource } = {}): Promise<void> {
   if (ready) return;
@@ -51,25 +68,41 @@ export async function init(options: { wasm?: InitSource } = {}): Promise<void> {
   await loading;
 }
 
-/** @internal Synchronous initialisation from bytes (used by the Node entry). */
+/**
+ * @internal Synchronous initialisation from bytes (used by the Node entry). Does nothing when the module is already ready.
+ * @param bytes - The .wasm bytes or a compiled `WebAssembly.Module`.
+ */
 export function initSyncFromBytes(bytes: Uint8Array | object): void {
   if (ready) return;
   glue.initSync({ module: bytes as never });
   ready = glue;
 }
 
-/** True once the WASM module is ready. */
+/**
+ * True once the WASM module is ready.
+ * @returns `false` before initialisation completes, `true` afterwards.
+ */
 export function isInitialized(): boolean {
   return ready !== null;
 }
 
-/** @internal */
+/**
+ * @internal The initialised WASM module.
+ * @returns The module API.
+ * @throws {NotInitializedError} if initialisation has not completed.
+ */
 export function wasm(): WasmApi {
   if (!ready) throw new NotInitializedError();
   return ready;
 }
 
-/** @internal Runs a WASM call, converting thrown values to typed errors. */
+/**
+ * @internal Runs a WASM call, converting thrown values to typed errors.
+ * @param fn - Receives the module API and returns the result.
+ * @returns The value returned by `fn`.
+ * @throws {NotInitializedError} if initialisation has not completed.
+ * @throws {QuantumSafeError} the typed error for anything `fn` throws (see `fromWasmError`).
+ */
 export function call<T>(fn: (w: WasmApi) => T): T {
   const w = wasm();
   try {

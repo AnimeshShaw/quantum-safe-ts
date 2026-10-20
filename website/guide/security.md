@@ -72,6 +72,11 @@ a key are not all wiped, and a review found residual copies in WebAssembly linea
 JavaScript heap (`exportBytes()`, `toPem()` of a secret, plaintext) is outside this library's control; call `wipe()` on those copies. Treat memory as not
 reliably scrubbed.
 
+On Node.js, `Envelope` payloads of 16 KiB or more and streams with chunks of 16 KiB or more are encrypted by Node's native AES-256-GCM, which is
+about five times faster than the WebAssembly cipher. For those calls the one-time AES key of the message (not your key pair) is copied into the
+JavaScript heap for the duration of the call and wiped afterwards, like the plaintext it protects. The bytes produced are identical, and all
+checks stay in the WebAssembly core. Browsers, Workers and the `slim` entry keep the WebAssembly cipher.
+
 ## Evidence in the repository
 
 | Evidence | Where |
@@ -82,6 +87,15 @@ reliably scrubbed.
 | cargo-fuzz targets for the main binary parsers (envelope, keys, signed message, ciphertexts, secret keys, LMS, streams); property and mutation tests for the rest | `fuzz/`, `test/`; CI job "cargo-fuzz" |
 | Packed-tarball fixtures in 12 real toolchains | `tests/fixtures/` |
 | Reproducible-build check | `scripts/repro-check.mjs` |
+
+## Release artifact record
+
+Each release has a small JSON record of what was built: the SHA-256 and size of every npm tarball, the package versions, the git commit and
+tag, the SHA-256 of the WebAssembly module and of `Cargo.lock`, and the pinned Rust toolchain. It is produced by
+`node scripts/artifact-record.mjs <directory with the tarballs> --out artifact-record-<version>.json` and attached to the GitHub release;
+Zenodo archives the release and gives it a DOI (the concept DOI in the README always resolves to the latest release). Compare a download with
+`sha256sum`, and rebuild the WebAssembly with `node scripts/repro-check.mjs`, which builds it twice from different paths with the pinned
+toolchain and compares the hashes. Published npm packages also carry provenance from the release workflow.
 
 ## Security history
 
