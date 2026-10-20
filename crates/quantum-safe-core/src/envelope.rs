@@ -322,10 +322,12 @@ fn version_for(algorithm: &str) -> Result<u8, EnvelopeError> {
 // Derives the 32-byte AES key: HKDF-SHA256 with the v1 info for version 1, HKDF-SHA384 with the v2 info
 // for version 2. Any other version is `UnsupportedVersion`.
 fn derive_enc_key(version: u8, shared_secret: &[u8]) -> Result<Zeroizing<[u8; 32]>, EnvelopeError> {
-    let okm = Zeroizing::new(match version {
-        ENVELOPE_VERSION => kdf::derive_key(shared_secret, ENC_KEY_INFO, aead::KEY_LEN)?,
-        ENVELOPE_VERSION_CNSA2 => kdf::derive_key_sha384(shared_secret, ENC_KEY_INFO_V2, aead::KEY_LEN)?,
-        v => return Err(EnvelopeError::UnsupportedVersion(v)),
+    let okm = Zeroizing::new(if version == ENVELOPE_VERSION {
+        kdf::derive_key(shared_secret, ENC_KEY_INFO, aead::KEY_LEN)?
+    } else if version == ENVELOPE_VERSION_CNSA2 {
+        kdf::derive_key_sha384(shared_secret, ENC_KEY_INFO_V2, aead::KEY_LEN)?
+    } else {
+        return Err(EnvelopeError::UnsupportedVersion(version));
     });
     let mut key = Zeroizing::new([0u8; 32]);
     key.copy_from_slice(&okm);

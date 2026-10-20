@@ -326,11 +326,11 @@ impl StreamCipher {
 
     // The 12-byte nonce of the current chunk: `prefix (7) || counter (u32 big-endian) || last (0 or 1)`.
     fn nonce(&self, last: bool) -> [u8; aead::NONCE_LEN] {
-        let mut n = [0u8; aead::NONCE_LEN];
-        n[..NONCE_PREFIX_LEN].copy_from_slice(&self.prefix);
-        n[NONCE_PREFIX_LEN..NONCE_PREFIX_LEN + 4].copy_from_slice(&self.counter.to_be_bytes());
-        n[aead::NONCE_LEN - 1] = u8::from(last);
-        n
+        let mut n = Vec::with_capacity(aead::NONCE_LEN);
+        n.extend_from_slice(&self.prefix);
+        n.extend_from_slice(&self.counter.to_be_bytes());
+        n.push(u8::from(last));
+        n.try_into().expect("7 + 4 + 1 bytes make a 12-byte nonce")
     }
 
     /// Seals the next chunk. Every chunk except the last must be exactly `chunk_size` bytes; the last may be 0..=`chunk_size`.
