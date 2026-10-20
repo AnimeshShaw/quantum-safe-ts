@@ -8,9 +8,12 @@ ML-KEM · ML-DSA · SLH-DSA · hybrid envelopes and signatures · PQC JWTs · mi
 
 [![CI](https://github.com/AnimeshShaw/quantum-safe-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/AnimeshShaw/quantum-safe-ts/actions/workflows/ci.yml)
 [![Docs](https://github.com/AnimeshShaw/quantum-safe-ts/actions/workflows/docs.yml/badge.svg)](https://animeshshaw.github.io/quantum-safe-ts/)
+[![Release](https://img.shields.io/github/v/release/AnimeshShaw/quantum-safe-ts.svg)](https://github.com/AnimeshShaw/quantum-safe-ts/releases/latest)
 [![npm: quantum-safe-ts](https://img.shields.io/npm/v/quantum-safe-ts.svg?label=quantum-safe-ts)](https://www.npmjs.com/package/quantum-safe-ts)
 [![npm: quantum-safe-audit](https://img.shields.io/npm/v/quantum-safe-audit.svg?label=quantum-safe-audit)](https://www.npmjs.com/package/quantum-safe-audit)
 [![npm: quantum-safe-mcp](https://img.shields.io/npm/v/quantum-safe-mcp.svg?label=quantum-safe-mcp)](https://www.npmjs.com/package/quantum-safe-mcp)
+[![npm: pqc-audit](https://img.shields.io/npm/v/pqc-audit.svg?label=pqc-audit)](https://www.npmjs.com/package/pqc-audit)
+[![npm: pqc-mcp](https://img.shields.io/npm/v/pqc-mcp.svg?label=pqc-mcp)](https://www.npmjs.com/package/pqc-mcp)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Algorithms: FIPS 203/204/205](https://img.shields.io/badge/algorithms-FIPS_203%2F204%2F205-purple.svg)](https://csrc.nist.gov/pubs/fips)
 [![NIST ACVP: 1,317 cases](https://img.shields.io/badge/NIST_ACVP-1%2C317_cases_pass-informational.svg)](https://animeshshaw.github.io/quantum-safe-ts/guide/security)
@@ -62,6 +65,14 @@ Both styles are in the [getting-started guide](https://animeshshaw.github.io/qua
 | [`quantum-safe-audit`](packages/quantum-safe-audit) (alias: `pqc-audit`) | A scanner for classical crypto in JS/TS projects; SARIF and CycloneDX CBOM output. | `npx quantum-safe-audit scan .` |
 | [`quantum-safe-mcp`](packages/quantum-safe-mcp) (alias: `pqc-mcp`) | An MCP server: lets coding agents run the scanner and get algorithm guidance. | `npx quantum-safe-mcp` |
 | [GitHub Action](https://github.com/marketplace/actions/quantum-safe-audit) ([source](action.yml)) | The scanner in CI: uploads SARIF, gates on severity. | `uses: AnimeshShaw/quantum-safe-ts@v0.1.3` |
+
+## Performance
+
+On Node.js, messages and stream chunks of 16 KiB or more use the native AES-256-GCM: 4 to 8 times faster, with identical output (a 1 MiB message seals in
+1.9 ms instead of 8.3 ms). The method, the protocol (1 discarded warm-up run plus 15 timed runs of 3,000 calls) and the timing-leakage screen are in
+[bench/README.md](bench/README.md) and the [runtimes guide](https://animeshshaw.github.io/quantum-safe-ts/guide/runtimes); the summaries are in
+[results/ts/2026-10-19/](results/ts/2026-10-19/), and every timed sample is attached to the
+[1.0.0 release](https://github.com/AnimeshShaw/quantum-safe-ts/releases/tag/v1.0.0) as `quantum-safe-ts-benchmarks-node22-2026-10-19.tar.gz`, with checksums.
 
 ## Documentation
 
