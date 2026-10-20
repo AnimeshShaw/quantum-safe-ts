@@ -1,7 +1,7 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
   "projectTitle": "quantum-safe-ts",
-  "description": "Hybrid post-quantum cryptography for TypeScript and JavaScript: ML-KEM, ML-DSA, SLH-DSA, hybrid envelopes and signatures, PQC JWTs, migration tooling.",
+  "description": "Hybrid post-quantum cryptography for TypeScript and JavaScript.",
   "folders": ["website/guide", "website/tools", "packages/quantum-safe-ts"],
   "excludeFolders": ["node_modules", "dist", "test"],
   "rules": [
