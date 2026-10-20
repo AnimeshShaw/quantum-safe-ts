@@ -205,8 +205,6 @@ impl SealedMessage {
 /// faster AES-256-GCM (Node's native crypto) can encrypt with these values itself and get the same
 /// bytes, then assemble the message with [`SealPlan::into_message`].
 pub struct SealPlan {
-    /// Envelope version chosen from the suite: 1 or 2.
-    pub version: u8,
     /// KEM suite name of the recipient key.
     pub algorithm: String,
     /// KEM ciphertext for the recipient.
@@ -222,11 +220,17 @@ pub struct SealPlan {
 }
 
 impl SealPlan {
+    /// The envelope version, 1 (hybrid suites) or 2 (ML-KEM-1024), derived from the suite. It is not stored in the plan, so the plan
+    /// holds nothing but the secret values and the message fields that depend on them.
+    pub fn version(&self) -> u8 {
+        version_for(&self.algorithm).expect("the suite was validated when the plan was made")
+    }
+
     /// The finished message for the AES-GCM output (`ciphertext || tag`), leaving the plan intact (the
     /// public fields are copied; the key stays in the plan and is wiped when it is dropped).
     pub fn to_message(&self, ciphertext: Vec<u8>) -> SealedMessage {
         SealedMessage {
-            version: self.version,
+            version: self.version(),
             algorithm: self.algorithm.clone(),
             kem_ct: self.kem_ct.clone(),
             nonce: self.nonce.to_vec(),
@@ -238,7 +242,7 @@ impl SealPlan {
     /// The finished message, given the AES-GCM output (`ciphertext || tag`).
     pub fn into_message(self, ciphertext: Vec<u8>) -> SealedMessage {
         SealedMessage {
-            version: self.version,
+            version: self.version(),
             algorithm: self.algorithm,
             kem_ct: self.kem_ct,
             nonce: self.nonce.to_vec(),
@@ -272,7 +276,6 @@ pub fn seal_plan(recipient_public_key: &kem::PublicKey, aad: &[u8]) -> Result<Se
 
     let built_aad = build_aad(version, &recipient_public_key.algorithm, aad)?;
     Ok(SealPlan {
-        version,
         algorithm: recipient_public_key.algorithm.clone(),
         kem_ct,
         nonce,

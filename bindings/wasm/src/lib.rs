@@ -461,7 +461,7 @@ impl SealPlan {
     /// The envelope version: 1 or 2.
     #[wasm_bindgen(getter)]
     pub fn version(&self) -> u8 {
-        self.plan().version
+        self.plan().version()
     }
     /// The KEM suite name of the recipient key.
     #[wasm_bindgen(getter)]
