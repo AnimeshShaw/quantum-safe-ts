@@ -14,7 +14,7 @@ ML-KEM · ML-DSA · SLH-DSA · hybrid envelopes and signatures · PQC JWTs · mi
 [![npm: quantum-safe-mcp](https://img.shields.io/npm/v/quantum-safe-mcp.svg?label=quantum-safe-mcp)](https://www.npmjs.com/package/quantum-safe-mcp)
 [![npm: pqc-audit](https://img.shields.io/npm/v/pqc-audit.svg?label=pqc-audit)](https://www.npmjs.com/package/pqc-audit)
 [![npm: pqc-mcp](https://img.shields.io/npm/v/pqc-mcp.svg?label=pqc-mcp)](https://www.npmjs.com/package/pqc-mcp)
-[![M8ven Score](https://m8ven.ai/badge/mcp/animeshshaw-quantum-safe-ts-82l3ic?v=a4aac63a8fe130cbe88eb11ffaa1e0d7)](https://m8ven.ai/mcp/animeshshaw-quantum-safe-ts-82l3ic?s=readme)
+[![M8ven Score](https://m8ven.ai/badge/mcp/animeshshaw-quantum-safe-ts-82l3ic?v=945e31616ed62df737820e81bf05d620)](https://m8ven.ai/mcp/animeshshaw-quantum-safe-ts-82l3ic?s=readme)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Algorithms: FIPS 203/204/205](https://img.shields.io/badge/algorithms-FIPS_203%2F204%2F205-purple.svg)](https://csrc.nist.gov/pubs/fips)
 [![NIST ACVP: 1,317 cases](https://img.shields.io/badge/NIST_ACVP-1%2C317_cases_pass-informational.svg)](https://animeshshaw.github.io/quantum-safe-ts/guide/security)
