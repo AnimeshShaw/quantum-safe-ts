@@ -295,8 +295,9 @@ export async function rewrapDirectory(source: string, destination: string | null
   } else {
     if (destination === null) throw new InvalidArgumentError('destination is required unless inPlace is true.');
     dst = resolve(destination);
-    if (dst === src) throw new InvalidArgumentError('destination is the source directory; pass inPlace: true to replace files there.');
-    if (dst.startsWith(src + sep)) throw new InvalidArgumentError('destination is inside the source directory; choose a directory outside it.');
+    const [dstKey, srcKey] = process.platform === 'win32' ? [dst.toLowerCase(), src.toLowerCase()] : [dst, src];
+    if (dstKey === srcKey) throw new InvalidArgumentError('destination is the source directory; pass inPlace: true to replace files there.');
+    if (dstKey.startsWith(srcKey + sep)) throw new InvalidArgumentError('destination is inside the source directory; choose a directory outside it.');
   }
   const report = new RewrapReport(options.newPublicKey.algorithm, options.dryRun === true, inPlace, options.expectedAad !== undefined);
   /** The AAD to require for a file: the caller's value (or function of the relative path), else the AAD the message already carries. */
