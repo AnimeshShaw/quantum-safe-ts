@@ -1,8 +1,13 @@
 # Changelog
 
-All notable changes are documented here. The project follows semantic versioning once 1.0 is reached; until then minor versions may
-add capability and, with notice, change behaviour that has not been released. **Wire formats are never changed**: new capability arrives
+All notable changes are documented here. The project follows semantic versioning. **Wire formats are never changed**: new capability arrives
 as a new, explicitly identified algorithm suite.
+
+## [Unreleased]
+
+### Changed
+
+- README: release and alias badges, a performance section linking the benchmark data attached to the 1.0.0 release.
 
 ## [1.0.0] - 2026-10-20
 
