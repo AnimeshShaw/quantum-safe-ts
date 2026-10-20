@@ -86,11 +86,11 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | sec1 | 0.8.1 | Apache-2.0 OR MIT | https://github.com/RustCrypto/formats |
 | serde_core | 1.0.229 | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
 | serde_derive | 1.0.229 | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
-| serde_json | 1.0.151 | MIT OR Apache-2.0 | https://github.com/serde-rs/json |
+| serde_json | 1.0.154 | MIT OR Apache-2.0 | https://github.com/serde-rs/json |
 | serde | 1.0.229 | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
 | serdect | 0.4.3 | Apache-2.0 OR MIT | https://github.com/RustCrypto/formats |
 | sha2 | 0.10.9 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
-| sha2 | 0.11.0 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
+| sha2 | 0.11.1 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | sha3 | 0.10.9 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | sha3 | 0.11.0 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | sha3 | 0.12.0 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
@@ -132,7 +132,7 @@ Each distinct text is printed once, followed by the crates whose source ships it
 
 ### LICENSE-APACHE
 
-Shipped by: aead 0.6.1, aes-gcm 0.11.1, aes 0.9.3, argon2 0.6.0, base16ct 1.0.0, base64ct 1.8.3, blake2 0.11.0, block-buffer 0.10.4, block-buffer 0.12.1, cipher 0.5.2, const-oid 0.10.2, cpubits 0.1.1, crypto-bigint 0.7.5, crypto-common 0.1.7, crypto-common 0.2.2, ctr 0.10.1, der 0.8.2, digest 0.10.7, digest 0.11.3, elliptic-curve 0.14.1, ghash 0.6.0, hkdf 0.13.0, hmac 0.12.1, hmac 0.13.0, hybrid-array 0.2.3, hybrid-array 0.4.15, inout 0.2.2, keccak 0.1.6, keccak 0.2.2, ml-kem 0.3.2, module-lattice 0.2.3, p256 0.14.0, p384 0.14.0, password-hash 0.6.1, pem-rfc7468 1.0.0, phc 0.6.1, pkcs8 0.11.0, polyval 0.7.3, primefield 0.14.0, primeorder 0.14.0, sec1 0.8.1, sha2 0.10.9, sha2 0.11.0, sha3 0.10.9, sha3 0.11.0, sha3 0.12.0, shake 0.1.0, signature 2.3.0-pre.4, signature 3.0.0, spki 0.8.0, sponge-cursor 0.1.0, universal-hash 0.6.1, wnaf 0.14.1, x-wing 0.1.1
+Shipped by: aead 0.6.1, aes-gcm 0.11.1, aes 0.9.3, argon2 0.6.0, base16ct 1.0.0, base64ct 1.8.3, blake2 0.11.0, block-buffer 0.10.4, block-buffer 0.12.1, cipher 0.5.2, const-oid 0.10.2, cpubits 0.1.1, crypto-bigint 0.7.5, crypto-common 0.1.7, crypto-common 0.2.2, ctr 0.10.1, der 0.8.2, digest 0.10.7, digest 0.11.3, elliptic-curve 0.14.1, ghash 0.6.0, hkdf 0.13.0, hmac 0.12.1, hmac 0.13.0, hybrid-array 0.2.3, hybrid-array 0.4.15, inout 0.2.2, keccak 0.1.6, keccak 0.2.2, ml-kem 0.3.2, module-lattice 0.2.3, p256 0.14.0, p384 0.14.0, password-hash 0.6.1, pem-rfc7468 1.0.0, phc 0.6.1, pkcs8 0.11.0, polyval 0.7.3, primefield 0.14.0, primeorder 0.14.0, sec1 0.8.1, sha2 0.10.9, sha2 0.11.1, sha3 0.10.9, sha3 0.11.0, sha3 0.12.0, shake 0.1.0, signature 2.3.0-pre.4, signature 3.0.0, spki 0.8.0, sponge-cursor 0.1.0, universal-hash 0.6.1, wnaf 0.14.1, x-wing 0.1.1
 
 ```text
                               Apache License
@@ -2704,7 +2704,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-MIT
 
-Shipped by: group 0.14.0, itoa 1.0.18, once_cell 1.21.4, pin-project-lite 0.2.17, proc-macro2 1.0.107, quote 1.0.47, serde_core 1.0.229, serde_derive 1.0.229, serde_json 1.0.151, serde 1.0.229, syn 2.0.119, syn 3.0.6, thiserror-impl 2.0.21, thiserror 2.0.21, unicode-ident 1.0.26, zmij 1.0.23
+Shipped by: group 0.14.0, itoa 1.0.18, once_cell 1.21.4, pin-project-lite 0.2.17, proc-macro2 1.0.107, quote 1.0.47, serde_core 1.0.229, serde_derive 1.0.229, serde_json 1.0.154, serde 1.0.229, syn 2.0.119, syn 3.0.6, thiserror-impl 2.0.21, thiserror 2.0.21, unicode-ident 1.0.26, zmij 1.0.23
 
 ```text
 Permission is hereby granted, free of charge, to any
@@ -3053,7 +3053,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-APACHE
 
-Shipped by: itoa 1.0.18, proc-macro2 1.0.107, quote 1.0.47, serde_core 1.0.229, serde_derive 1.0.229, serde_json 1.0.151, serde 1.0.229, syn 2.0.119, syn 3.0.6, thiserror-impl 2.0.21, thiserror 2.0.21, unicode-ident 1.0.26
+Shipped by: itoa 1.0.18, proc-macro2 1.0.107, quote 1.0.47, serde_core 1.0.229, serde_derive 1.0.229, serde_json 1.0.154, serde 1.0.229, syn 2.0.119, syn 3.0.6, thiserror-impl 2.0.21, thiserror 2.0.21, unicode-ident 1.0.26
 
 ```text
                               Apache License
@@ -4253,7 +4253,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-MIT
 
-Shipped by: sha2 0.11.0
+Shipped by: sha2 0.11.1
 
 ```text
 Copyright (c) 2016-2026 The RustCrypto Project Developers
