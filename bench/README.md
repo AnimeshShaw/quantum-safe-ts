@@ -1,7 +1,7 @@
 # Benchmarks and timing-leakage screen
 
 Scripts that produce the numbers and the timing screen mentioned in the main README. The summaries
-of the last run (`results/ts/2026-10-19/`: the aggregate, the environment and the leakage screen) are in [`../results/`](../results/); the per-run sample files are attached to the release.
+of the last run (`results/ts/2026-10-19/`: the aggregate, the environment and the leakage screen) are in [`../results/`](../results/); the per-run sample files are attached to the [1.0.0 release](https://github.com/AnimeshShaw/quantum-safe-ts/releases/tag/v1.0.0) as `quantum-safe-ts-benchmarks-node22-2026-10-19.tar.gz`, with checksums and the steps to recompute the published figures.
 
 ```bash
 npm ci --prefix packages/quantum-safe-ts && npm run build --prefix packages/quantum-safe-ts

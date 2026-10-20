@@ -74,6 +74,7 @@ Both styles are in the [getting-started guide](https://animeshshaw.github.io/qua
 | Sign firmware with LMS | [LMS signing](https://animeshshaw.github.io/quantum-safe-ts/guide/lms-signing) |
 | Check CNSA 2.0 parameters | [CNSA 2.0 and standards](https://animeshshaw.github.io/quantum-safe-ts/guide/standards) |
 | Memory, errors, evidence and how to reproduce it | [Security](https://animeshshaw.github.io/quantum-safe-ts/guide/security) |
+| Check the benchmark figures yourself | Raw samples, checksums and steps: attached to the [1.0.0 release](https://github.com/AnimeshShaw/quantum-safe-ts/releases/tag/v1.0.0) |
 | Use it with an AI coding agent | [`llms.txt`](packages/quantum-safe-ts/llms.txt), [`llms-full.txt`](packages/quantum-safe-ts/llms-full.txt), [`quantum-safe-mcp`](packages/quantum-safe-mcp) |
 
 ## Contributing, support, security
