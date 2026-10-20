@@ -125,7 +125,7 @@
     "@noble/post-quantum": "^0.7.1",
     "@types/node": "^26.6.4",
     "fast-check": "^4.10.2",
-    "tsup": "^8.5.1",
+    "tsup": "^9.0.0",
     "typescript": "~5.9",
     "vitest": "^5.0.3"
   },
