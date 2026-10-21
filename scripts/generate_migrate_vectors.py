@@ -109,7 +109,7 @@ for classical, pqc, gen in [
     signer = HybridSign(classical=classical, pqc=pqc)
     msg = f"py signs after upgrading {classical}".encode()
     sm = signer.sign(msg, kp.secret, context=b"upgrade")
-    signer.verify(sm, kp.public)
+    signer.verify(sm, kp.public, context=b"upgrade")
     sig_up.append(
         {
             "classical": classical,
