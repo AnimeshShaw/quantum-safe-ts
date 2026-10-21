@@ -92,6 +92,21 @@ jobs:
         run: |
           node scripts/gen_ts_js_vectors.mjs
           python scripts/verify_ts_vectors.py
+      - name: Check out quantum-safe-py 1.0.0 (its interop tests, pinned to the commit)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: AnimeshShaw/quantum-safe-py
+          ref: 6255e83fac4cc2ef3a597161931d4d080e3acacc # v1.0.0
+          path: py-src
+          persist-credentials: false
+      - name: "TS to py: quantum-safe-py's own tests open what this repository makes now (X-Wing, streams, COSE, seed keys, re-wrap)"
+        run: |
+          pip install pytest hypothesis pytest-asyncio 'cryptography==50.0.2'  # seeded ML-DSA needs cryptography >= 48
+          for g in gen_xwing_vectors gen_stream_vectors gen_cose_vectors gen_private_key_vectors gen_rewrap_vectors; do node scripts/$g.mjs; done
+          for f in xwing_vectors stream_vectors ts_cose_vectors ts_private_vectors ts_rewrap_vectors; do cp tests/vectors/$f.json py-src/tests/interop/vectors/$f.json; done
+          cd py-src
+          python -m pytest tests/unit/test_xwing.py tests/unit/test_stream.py tests/unit/test_cose.py tests/unit/test_seed_interop.py tests/unit/test_ts_rewrap_interop.py -q -rs -p no:cacheprovider | tee "$RUNNER_TEMP/py-interop.txt"
+          ! grep -q SKIPPED "$RUNNER_TEMP/py-interop.txt"
 
   typescript:
     name: TypeScript package (build, typecheck, tests, size budget)

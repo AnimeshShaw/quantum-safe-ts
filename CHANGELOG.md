@@ -7,7 +7,12 @@ as a new, explicitly identified algorithm suite.
 
 ### Changed
 
-- README: release and alias badges, a performance section linking the benchmark data attached to the 1.0.0 release.
+- README: release and alias badges, a performance section linking the benchmark data attached to the 1.0.0 release. The M8ven score badge.
+
+### Dependencies
+
+- Build and test tooling: tsup 9.0.0, vitest 5.0.5, @types/node 26.6.5, typedoc-plugin-markdown 4.14.0, the codeql-action upload-sarif step 4.39.0. Rust: sha2 0.11.1, serde_json 1.0.154 (also in the fuzz crate). None changes the published behaviour.
+- `context7.json`: a plain one-line description.
 
 ### Fixed
 
@@ -15,6 +20,8 @@ as a new, explicitly identified algorithm suite.
 - `rewrapDirectory`: the "destination inside the source" and "destination is the source" checks ignore letter case on Windows.
 - CI: the parity job installs quantum-safe-py 1.0.0 (it was 0.3.0), and a missing format in the installed quantum-safe-py fails the run instead of being skipped.
 - Compiled Python files are no longer tracked.
+- CI: quantum-safe-py's own interop tests (X-Wing, streaming, COSE, seed keys, re-wrap) now run in the parity job on vectors generated in this repository on every run; a skipped test fails the job.
+- `scripts/generate_migrate_vectors.py` and `scripts/verify_ts_vectors.py` verify with the context the message was signed with.
 
 ## [1.0.0] - 2026-10-20
 
