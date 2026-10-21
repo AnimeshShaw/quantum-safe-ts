@@ -393,14 +393,15 @@ const sleepSync = (ms: number): void => {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 };
 
-/** Flushes the directory entry of `dir` to disk; errors are ignored because directories cannot be opened for fsync on Windows. */
+/** Flushes the directory entry of `dir` to disk. On Windows directories cannot be opened for fsync, so errors are ignored there; elsewhere they propagate. */
 function fsyncDirectory(dir: string): void {
   let fd: number | undefined;
   try {
     fd = fs.openSync(dir, 'r');
     fs.fsyncSync(fd);
-  } catch {
+  } catch (error) {
     // Directories cannot be opened for fsync on Windows; the rename is already durable there once the file is.
+    if (process.platform !== 'win32') throw error;
   } finally {
     if (fd !== undefined) fs.closeSync(fd);
   }

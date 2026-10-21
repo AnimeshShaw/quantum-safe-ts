@@ -9,6 +9,13 @@ as a new, explicitly identified algorithm suite.
 
 - README: release and alias badges, a performance section linking the benchmark data attached to the 1.0.0 release.
 
+### Fixed
+
+- `LmsSigner`: a failed directory sync now stops the signing step on every platform except Windows, so an index is never used before it is durable.
+- `rewrapDirectory`: the "destination inside the source" and "destination is the source" checks ignore letter case on Windows.
+- CI: the parity job installs quantum-safe-py 1.0.0 (it was 0.3.0), and a missing format in the installed quantum-safe-py fails the run instead of being skipped.
+- Compiled Python files are no longer tracked.
+
 ## [1.0.0] - 2026-10-20
 
 ### Security

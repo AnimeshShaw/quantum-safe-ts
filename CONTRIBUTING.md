@@ -19,7 +19,7 @@ need, what we cannot accept, and how to get a change merged quickly.
 ## Setting up
 
 Requirements: Rust (stable, with `rustfmt` and `clippy`), the `wasm32-unknown-unknown` target, [`wasm-pack`](https://rustwasm.github.io/wasm-pack/),
-Node.js 20 or newer (24 recommended), and Python 3.11+ with `quantum-safe-py[liboqs]==0.3.0` only if you run the parity scripts.
+Node.js 20 or newer (24 recommended), and Python 3.11+ with `quantum-safe-py[liboqs]==1.0.0` only if you run the parity scripts.
 
 ```bash
 git clone https://github.com/AnimeshShaw/quantum-safe-ts && cd quantum-safe-ts

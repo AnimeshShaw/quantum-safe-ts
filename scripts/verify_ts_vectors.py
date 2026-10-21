@@ -191,13 +191,13 @@ else:
     check("ts_js_vectors.json present (run scripts/gen_ts_js_vectors.mjs)", False)
 
 # ---- Formats added in quantum-safe-py 0.3.1: envelope v2, the -v2 signatures, StandardJwt ----
-# Skipped (loudly) on an older quantum-safe-py, which has none of them.
+# An older quantum-safe-py, which has none of them, fails the run.
 v2_path = root / "ts_v2_vectors.json"
 try:
     from quantum_safe.protocols.standard_jwt import StandardJwt
 except ImportError:
     StandardJwt = None
-    print("skip v2 vectors: this quantum-safe-py predates 0.3.1 (no StandardJwt)")
+    check("v2 vectors: this quantum-safe-py must provide StandardJwt (0.3.1 or later)", False)
 if StandardJwt is not None and v2_path.exists():
     v2 = json.loads(v2_path.read_text(encoding="utf-8"))
     for i, e in enumerate(v2["envelope_v2"]):
@@ -248,7 +248,7 @@ if hasattr(Sign, "verify_raw") and hasattr(Sign, "sign_raw") and raw_path.exists
             check(f"{label} ({type(exc).__name__}: {exc})", False)
     check("raw fips204: at least 9 vectors were checked (got %d)" % len(raw["vectors"]), len(raw["vectors"]) >= 9)
 else:
-    print("skip raw FIPS 204 vectors: this quantum-safe-py predates 0.3.2 (no Sign.verify_raw/sign_raw)")
+    check("raw FIPS 204 vectors: this quantum-safe-py must provide Sign.verify_raw and sign_raw (0.3.2 or later)", False)
 
 # ---- Guards against vacuous passes ----
 for label, items, minimum in [

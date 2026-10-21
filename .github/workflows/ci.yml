@@ -71,7 +71,7 @@ jobs:
           python-version: "3.12"
       - name: Install quantum-safe-py (bundled liboqs) and wasm-pack
         run: |
-          pip install 'quantum-safe-py[liboqs]==0.3.0' 'liboqs-python==0.16.0' 'cbor2==6.1.4' 'cryptography==45.0.7'
+          pip install 'quantum-safe-py[liboqs]==1.0.0' 'liboqs-python==0.16.0' 'cbor2==6.1.4' 'cryptography==45.0.7'
           cargo install wasm-pack --locked --version 0.15.0
       - name: "py to Rust: committed vectors must pass natively"
         run: cargo test --release -p quantum-safe-core --test py_parity_kem --test py_parity_sig

@@ -127,6 +127,19 @@ describe('rewrapDirectory', () => {
     ).rejects.toThrow(/inside the source/);
   });
 
+  it.skipIf(process.platform !== 'win32')('refuses a destination inside the source when the paths differ only in case (Windows)', async () => {
+    using oldPair = new HybridKEM().generateKeyPair();
+    using newPair = new HybridKEM('X25519+ML-KEM-1024').generateKeyPair();
+    const src = mkdtempSync(join(tmpdir(), 'rw-case-'));
+    await mkdir(join(src, 'out'));
+    await expect(
+      rewrapDirectory(src, join(src.toUpperCase(), 'out'), { oldSecretKey: oldPair.secretKey, newPublicKey: newPair.publicKey, newSecretKey: newPair.secretKey }),
+    ).rejects.toThrow(/inside the source/);
+    await expect(
+      rewrapDirectory(src, src.toUpperCase(), { oldSecretKey: oldPair.secretKey, newPublicKey: newPair.publicKey, newSecretKey: newPair.secretKey }),
+    ).rejects.toThrow(/is the source directory/);
+  });
+
   it.skipIf(process.platform === 'win32')('an in-place rewrite keeps the file permissions', async () => {
     using oldPair = new HybridKEM().generateKeyPair();
     using newPair = new HybridKEM('X25519+ML-KEM-1024').generateKeyPair();
