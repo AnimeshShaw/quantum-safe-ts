@@ -21,7 +21,7 @@ as a new, explicitly identified algorithm suite.
 - CI: the parity job installs quantum-safe-py 1.0.0 (it was 0.3.0), and a missing format in the installed quantum-safe-py fails the run instead of being skipped.
 - Compiled Python files are no longer tracked.
 - CI: quantum-safe-py's own interop tests (X-Wing, streaming, COSE, seed keys, re-wrap) now run in the parity job on vectors generated in this repository on every run; a skipped test fails the job.
-- `scripts/generate_migrate_vectors.py` verifies with the context the message was signed with.
+- `scripts/generate_migrate_vectors.py` and `scripts/verify_ts_vectors.py` verify with the context the message was signed with.
 
 ## [1.0.0] - 2026-10-20
 
