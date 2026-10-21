@@ -107,9 +107,9 @@ for s in v["signatures"]:
         # hedging mode, so build the verifier in the mode the vector was made in.
         if "+" in algo:
             classical, pqc = algo.split("+", 1)
-            HybridSign(classical=classical, pqc=pqc, hedged=s["hedged"]).verify(sm, pub)
+            HybridSign(classical=classical, pqc=pqc, hedged=s["hedged"]).verify(sm, pub, context=b"ts-ctx")
         else:
-            Sign(algo, hedged=s["hedged"]).verify(sm, pub)
+            Sign(algo, hedged=s["hedged"]).verify(sm, pub, context=b"ts-ctx")
         check(label, sm.message == b"ts signed message" and sm.context == b"ts-ctx")
     except Exception as exc:  # noqa: BLE001
         check(f"{label} ({type(exc).__name__}: {exc})", False)
@@ -271,7 +271,7 @@ try:
     verifier = HybridSign(*algo0.split("+", 1)) if "+" in algo0 else Sign(algo0)
     bad = SignedMessage(message=bytes([sm0.message[0] ^ 1]) + sm0.message[1:], signature=sm0.signature, algorithm=sm0.algorithm, context=sm0.context, signer_fingerprint=sm0.signer_fingerprint, signed_at=sm0.signed_at)
     try:
-        verifier.verify(bad, pub0)
+        verifier.verify(bad, pub0, context=sm0.context)
         check("negative control: py rejects a tampered signed message", False)
     except Exception:  # noqa: BLE001
         check("negative control: py rejects a tampered signed message", True)
