@@ -9,8 +9,8 @@ const dist = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 // The generic (browser) entry is index.js plus the shared chunks it imports; measure them together.
 const chunkFiles = readdirSync(dist).filter((f) => /^chunk-.*\.js$/.test(f));
 const BUDGET = {
-  'quantum_safe_wasm_bg.wasm': { files: ['quantum_safe_wasm_bg.wasm'], raw: 1_520_000, gzip: 480_000 },
-  'browser bundle (index.js + chunks)': { files: ['index.js', ...chunkFiles], raw: 2_300_000, gzip: 730_000 },
+  'quantum_safe_wasm_bg.wasm': { files: ['quantum_safe_wasm_bg.wasm'], raw: 1_540_000, gzip: 485_000 },
+  'browser bundle (index.js + chunks)': { files: ['index.js', ...chunkFiles], raw: 2_330_000, gzip: 730_000 },
 };
 let failed = false;
 for (const [file, b] of Object.entries(BUDGET)) {

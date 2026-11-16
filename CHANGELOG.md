@@ -9,13 +9,21 @@ as a new, explicitly identified algorithm suite.
 
 - README: release and alias badges, a performance section linking the benchmark data attached to the 1.0.0 release. The M8ven score badge.
 
+### Security
+
+- **`crypto-bigint` 0.7.11 (Rust, also in the fuzz crate).** The locked 0.7.5 is yanked and carries RUSTSEC-2026-0387: some operations meant to be constant-time could branch on secret integers depending on the compiler and CPU (fixed in 0.7.6). It is a dependency of the P-256 and P-384 code through `elliptic-curve` and `ecdsa`; the update is in `Cargo.lock` and `fuzz/Cargo.lock`.
+
 ### Dependencies
 
+- **Security updates (19 Dependabot alerts closed).** `quantum-safe-mcp` now declares `zod` ^4.6.7 (it was ^3.25.0; zod before 4.6.6 can exhaust memory validating a very large array, GHSA-mrhx-c7xc-m3w5) and is tested with `@modelcontextprotocol/sdk` 1.32.2: the server starts, lists its five tools and rejects invalid arguments as before. Locked transitive versions: hono 4.13.18, @hono/node-server 2.1.8, body-parser 2.4.0, ip-address 10.7.5 and fast-uri 3.1.9 (in `quantum-safe-mcp` and `quantum-safe-audit`).
+- Tooling and Rust: vitest 5.1.0, @types/node 26.6.6, typedoc-plugin-markdown 4.14.1, the actions group (3 updates); ml-kem 0.3.3, ml-dsa 0.1.2 and js-sys 0.3.107 (also in the fuzz crate). The licence list is regenerated.
 - Build and test tooling: tsup 9.0.0, vitest 5.0.5, @types/node 26.6.5, typedoc-plugin-markdown 4.14.0, the codeql-action upload-sarif step 4.39.0. Rust: sha2 0.11.1, serde_json 1.0.154 (also in the fuzz crate). None changes the published behaviour.
 - `context7.json`: a plain one-line description.
 
 ### Fixed
 
+- CI: the framework fixtures job runs on `ubuntu-24.04` because Playwright cannot install a browser on `ubuntu-latest` (26.04) yet.
+- The size budgets are 1,540,000 bytes raw and 485,000 gzip for the WebAssembly (was 1,520,000 and 480,000) and 2,330,000 raw for the browser bundle (was 2,300,000) after the dependency updates; the WebAssembly is now 1,532,209 bytes.
 - `LmsSigner`: a failed directory sync now stops the signing step on every platform except Windows, so an index is never used before it is durable.
 - `rewrapDirectory`: the "destination inside the source" and "destination is the source" checks ignore letter case on Windows.
 - CI: the parity job installs quantum-safe-py 1.0.0 (it was 0.3.0), and a missing format in the installed quantum-safe-py fails the run instead of being skipped.
