@@ -23,7 +23,7 @@ as a new, explicitly identified algorithm suite.
 ### Fixed
 
 - CI: the framework fixtures job runs on `ubuntu-24.04` because Playwright cannot install a browser on `ubuntu-latest` (26.04) yet.
-- The WebAssembly size budget is 1,540,000 bytes raw and 485,000 gzip (was 1,520,000 and 480,000) after the Rust dependency updates.
+- The size budgets are 1,540,000 bytes raw and 485,000 gzip for the WebAssembly (was 1,520,000 and 480,000) and 2,330,000 raw for the browser bundle (was 2,300,000) after the dependency updates; the WebAssembly is now 1,532,209 bytes.
 - `LmsSigner`: a failed directory sync now stops the signing step on every platform except Windows, so an index is never used before it is durable.
 - `rewrapDirectory`: the "destination inside the source" and "destination is the source" checks ignore letter case on Windows.
 - CI: the parity job installs quantum-safe-py 1.0.0 (it was 0.3.0), and a missing format in the installed quantum-safe-py fails the run instead of being skipped.

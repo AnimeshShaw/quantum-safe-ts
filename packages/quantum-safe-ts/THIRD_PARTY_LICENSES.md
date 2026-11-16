@@ -29,7 +29,7 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | cmov | 0.5.4 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
 | const-oid | 0.10.2 | Apache-2.0 OR MIT | https://github.com/RustCrypto/formats |
 | cpubits | 0.1.1 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |
-| crypto-bigint | 0.7.5 | Apache-2.0 OR MIT | https://github.com/RustCrypto/crypto-bigint |
+| crypto-bigint | 0.7.11 | Apache-2.0 OR MIT | https://github.com/RustCrypto/crypto-bigint |
 | crypto-common | 0.1.7 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
 | crypto-common | 0.2.2 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
 | ctr | 0.10.1 | MIT OR Apache-2.0 | https://github.com/RustCrypto/block-modes |
@@ -131,7 +131,7 @@ Each distinct text is printed once, followed by the crates whose source ships it
 
 ### LICENSE-APACHE
 
-Shipped by: aead 0.6.1, aes-gcm 0.11.1, aes 0.9.3, argon2 0.6.0, base16ct 1.0.0, base64ct 1.8.3, blake2 0.11.0, block-buffer 0.10.4, block-buffer 0.12.1, cipher 0.5.2, const-oid 0.10.2, cpubits 0.1.1, crypto-bigint 0.7.5, crypto-common 0.1.7, crypto-common 0.2.2, ctr 0.10.1, der 0.8.2, digest 0.10.7, digest 0.11.3, elliptic-curve 0.14.1, ghash 0.6.0, hkdf 0.13.0, hmac 0.12.1, hmac 0.13.0, hybrid-array 0.2.3, hybrid-array 0.4.15, inout 0.2.2, keccak 0.1.6, keccak 0.2.2, ml-kem 0.3.3, module-lattice 0.2.4, p256 0.14.0, p384 0.14.0, password-hash 0.6.1, pem-rfc7468 1.0.0, phc 0.6.1, pkcs8 0.11.0, polyval 0.7.3, primefield 0.14.0, primeorder 0.14.0, sec1 0.8.1, sha2 0.10.9, sha2 0.11.1, sha3 0.10.9, sha3 0.12.0, shake 0.1.0, signature 2.3.0-pre.4, signature 3.0.0, spki 0.8.0, sponge-cursor 0.1.0, universal-hash 0.6.1, wnaf 0.14.1, x-wing 0.1.1
+Shipped by: aead 0.6.1, aes-gcm 0.11.1, aes 0.9.3, argon2 0.6.0, base16ct 1.0.0, base64ct 1.8.3, blake2 0.11.0, block-buffer 0.10.4, block-buffer 0.12.1, cipher 0.5.2, const-oid 0.10.2, cpubits 0.1.1, crypto-bigint 0.7.11, crypto-common 0.1.7, crypto-common 0.2.2, ctr 0.10.1, der 0.8.2, digest 0.10.7, digest 0.11.3, elliptic-curve 0.14.1, ghash 0.6.0, hkdf 0.13.0, hmac 0.12.1, hmac 0.13.0, hybrid-array 0.2.3, hybrid-array 0.4.15, inout 0.2.2, keccak 0.1.6, keccak 0.2.2, ml-kem 0.3.3, module-lattice 0.2.4, p256 0.14.0, p384 0.14.0, password-hash 0.6.1, pem-rfc7468 1.0.0, phc 0.6.1, pkcs8 0.11.0, polyval 0.7.3, primefield 0.14.0, primeorder 0.14.0, sec1 0.8.1, sha2 0.10.9, sha2 0.11.1, sha3 0.10.9, sha3 0.12.0, shake 0.1.0, signature 2.3.0-pre.4, signature 3.0.0, spki 0.8.0, sponge-cursor 0.1.0, universal-hash 0.6.1, wnaf 0.14.1, x-wing 0.1.1
 
 ```text
                               Apache License
@@ -445,7 +445,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-MIT
 
-Shipped by: argon2 0.6.0, crypto-bigint 0.7.5, phc 0.6.1, sec1 0.8.1, spki 0.8.0
+Shipped by: argon2 0.6.0, crypto-bigint 0.7.11, phc 0.6.1, sec1 0.8.1, spki 0.8.0
 
 ```text
 Copyright (c) 2021-2026 The RustCrypto Project Developers

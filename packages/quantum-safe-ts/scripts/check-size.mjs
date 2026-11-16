@@ -10,7 +10,7 @@ const dist = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const chunkFiles = readdirSync(dist).filter((f) => /^chunk-.*\.js$/.test(f));
 const BUDGET = {
   'quantum_safe_wasm_bg.wasm': { files: ['quantum_safe_wasm_bg.wasm'], raw: 1_540_000, gzip: 485_000 },
-  'browser bundle (index.js + chunks)': { files: ['index.js', ...chunkFiles], raw: 2_300_000, gzip: 730_000 },
+  'browser bundle (index.js + chunks)': { files: ['index.js', ...chunkFiles], raw: 2_330_000, gzip: 730_000 },
 };
 let failed = false;
 for (const [file, b] of Object.entries(BUDGET)) {
