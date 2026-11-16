@@ -11,6 +11,8 @@ as a new, explicitly identified algorithm suite.
 
 ### Dependencies
 
+- **Security updates (19 Dependabot alerts closed).** `quantum-safe-mcp` now declares `zod` ^4.6.7 (it was ^3.25.0; zod before 4.6.6 can exhaust memory validating a very large array, GHSA-mrhx-c7xc-m3w5) and is tested with `@modelcontextprotocol/sdk` 1.32.2: the server starts, lists its five tools and rejects invalid arguments as before. Locked transitive versions: hono 4.13.18, @hono/node-server 2.1.8, body-parser 2.4.0, ip-address 10.7.5 and fast-uri 3.1.9 (in `quantum-safe-mcp` and `quantum-safe-audit`).
+- Tooling and Rust: vitest 5.1.0, @types/node 26.6.6, typedoc-plugin-markdown 4.14.1, the actions group (3 updates); ml-kem 0.3.3, ml-dsa 0.1.2 and js-sys 0.3.107 (also in the fuzz crate). The licence list is regenerated.
 - Build and test tooling: tsup 9.0.0, vitest 5.0.5, @types/node 26.6.5, typedoc-plugin-markdown 4.14.0, the codeql-action upload-sarif step 4.39.0. Rust: sha2 0.11.1, serde_json 1.0.154 (also in the fuzz crate). None changes the published behaviour.
 - `context7.json`: a plain one-line description.
 
