@@ -5,7 +5,7 @@ project's Rust code together with the third-party Rust crates below, which are u
 (MIT OR Apache-2.0) is also linked into the module. The list is generated from Cargo.lock by scripts/generate-third-party-licenses.mjs and matches
 the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bindings through normal dependencies).
 
-## Crates (114)
+## Crates (113)
 
 | Crate | Version | License | Repository |
 |---|---|---|---|
@@ -33,7 +33,7 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | crypto-common | 0.1.7 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
 | crypto-common | 0.2.2 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
 | ctr | 0.10.1 | MIT OR Apache-2.0 | https://github.com/RustCrypto/block-modes |
-| ctutils | 0.4.2 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
+| ctutils | 0.4.8 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
 | curve25519-dalek | 5.0.0 | BSD-3-Clause | https://github.com/dalek-cryptography/curve25519-dalek/tree/main/curve25519-dalek |
 | der | 0.8.2 | Apache-2.0 OR MIT | https://github.com/RustCrypto/formats |
 | digest | 0.10.7 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
@@ -58,14 +58,14 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | hybrid-array | 0.4.15 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hybrid-array |
 | inout | 0.2.2 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |
 | itoa | 1.0.18 | MIT OR Apache-2.0 | https://github.com/dtolnay/itoa |
-| js-sys | 0.3.106 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/js-sys |
+| js-sys | 0.3.107 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/js-sys |
 | keccak | 0.1.6 | Apache-2.0 OR MIT | https://github.com/RustCrypto/sponges/tree/master/keccak |
 | keccak | 0.2.2 | Apache-2.0 OR MIT | https://github.com/RustCrypto/sponges |
 | kem | 0.3.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/traits |
 | memchr | 2.8.3 | Unlicense OR MIT | https://github.com/BurntSushi/memchr |
-| ml-dsa | 0.1.1 | Apache-2.0 OR MIT | https://github.com/RustCrypto/signatures |
-| ml-kem | 0.3.2 | Apache-2.0 OR MIT | https://github.com/RustCrypto/KEMs |
-| module-lattice | 0.2.3 | Apache-2.0 OR MIT | https://github.com/RustCrypto/KEMs |
+| ml-dsa | 0.1.2 | Apache-2.0 OR MIT | https://github.com/RustCrypto/signatures |
+| ml-kem | 0.3.3 | Apache-2.0 OR MIT | https://github.com/RustCrypto/KEMs |
+| module-lattice | 0.2.4 | Apache-2.0 OR MIT | https://github.com/RustCrypto/KEMs |
 | num-traits | 0.2.19 | MIT OR Apache-2.0 | https://github.com/rust-num/num-traits |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 | https://github.com/matklad/once_cell |
 | p256 | 0.14.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/elliptic-curves |
@@ -92,7 +92,6 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | sha2 | 0.10.9 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | sha2 | 0.11.1 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | sha3 | 0.10.9 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
-| sha3 | 0.11.0 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | sha3 | 0.12.0 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | shake | 0.1.0 | MIT OR Apache-2.0 | https://github.com/RustCrypto/XOFs |
 | signature | 2.3.0-pre.4 | Apache-2.0 OR MIT | https://github.com/RustCrypto/traits |
@@ -109,10 +108,10 @@ the CycloneDX SBOM in the repository (crates reachable from the WebAssembly bind
 | typenum | 1.20.1 | MIT OR Apache-2.0 | https://github.com/paholg/typenum |
 | unicode-ident | 1.0.26 | (MIT OR Apache-2.0) AND Unicode-3.0 | https://github.com/dtolnay/unicode-ident |
 | universal-hash | 0.6.1 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
-| wasm-bindgen-macro-support | 0.2.129 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen/tree/main/crates/macro-support |
-| wasm-bindgen-macro | 0.2.129 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/macro |
-| wasm-bindgen-shared | 0.2.129 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/shared |
-| wasm-bindgen | 0.2.129 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen |
+| wasm-bindgen-macro-support | 0.2.130 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen/tree/main/crates/macro-support |
+| wasm-bindgen-macro | 0.2.130 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/macro |
+| wasm-bindgen-shared | 0.2.130 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/shared |
+| wasm-bindgen | 0.2.130 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen |
 | wnaf | 0.14.1 | Apache-2.0 OR MIT | https://github.com/RustCrypto/elliptic-curves |
 | x-wing | 0.1.1 | Apache-2.0 OR MIT | https://github.com/RustCrypto/KEMs/tree/master/x-wing |
 | x25519-dalek | 3.0.0 | BSD-3-Clause | https://github.com/dalek-cryptography/curve25519-dalek/tree/main/x25519-dalek |
@@ -132,7 +131,7 @@ Each distinct text is printed once, followed by the crates whose source ships it
 
 ### LICENSE-APACHE
 
-Shipped by: aead 0.6.1, aes-gcm 0.11.1, aes 0.9.3, argon2 0.6.0, base16ct 1.0.0, base64ct 1.8.3, blake2 0.11.0, block-buffer 0.10.4, block-buffer 0.12.1, cipher 0.5.2, const-oid 0.10.2, cpubits 0.1.1, crypto-bigint 0.7.5, crypto-common 0.1.7, crypto-common 0.2.2, ctr 0.10.1, der 0.8.2, digest 0.10.7, digest 0.11.3, elliptic-curve 0.14.1, ghash 0.6.0, hkdf 0.13.0, hmac 0.12.1, hmac 0.13.0, hybrid-array 0.2.3, hybrid-array 0.4.15, inout 0.2.2, keccak 0.1.6, keccak 0.2.2, ml-kem 0.3.2, module-lattice 0.2.3, p256 0.14.0, p384 0.14.0, password-hash 0.6.1, pem-rfc7468 1.0.0, phc 0.6.1, pkcs8 0.11.0, polyval 0.7.3, primefield 0.14.0, primeorder 0.14.0, sec1 0.8.1, sha2 0.10.9, sha2 0.11.1, sha3 0.10.9, sha3 0.11.0, sha3 0.12.0, shake 0.1.0, signature 2.3.0-pre.4, signature 3.0.0, spki 0.8.0, sponge-cursor 0.1.0, universal-hash 0.6.1, wnaf 0.14.1, x-wing 0.1.1
+Shipped by: aead 0.6.1, aes-gcm 0.11.1, aes 0.9.3, argon2 0.6.0, base16ct 1.0.0, base64ct 1.8.3, blake2 0.11.0, block-buffer 0.10.4, block-buffer 0.12.1, cipher 0.5.2, const-oid 0.10.2, cpubits 0.1.1, crypto-bigint 0.7.5, crypto-common 0.1.7, crypto-common 0.2.2, ctr 0.10.1, der 0.8.2, digest 0.10.7, digest 0.11.3, elliptic-curve 0.14.1, ghash 0.6.0, hkdf 0.13.0, hmac 0.12.1, hmac 0.13.0, hybrid-array 0.2.3, hybrid-array 0.4.15, inout 0.2.2, keccak 0.1.6, keccak 0.2.2, ml-kem 0.3.3, module-lattice 0.2.4, p256 0.14.0, p384 0.14.0, password-hash 0.6.1, pem-rfc7468 1.0.0, phc 0.6.1, pkcs8 0.11.0, polyval 0.7.3, primefield 0.14.0, primeorder 0.14.0, sec1 0.8.1, sha2 0.10.9, sha2 0.11.1, sha3 0.10.9, sha3 0.12.0, shake 0.1.0, signature 2.3.0-pre.4, signature 3.0.0, spki 0.8.0, sponge-cursor 0.1.0, universal-hash 0.6.1, wnaf 0.14.1, x-wing 0.1.1
 
 ```text
                               Apache License
@@ -515,7 +514,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-APACHE
 
-Shipped by: base64 0.23.1, bumpalo 3.20.3, cfg-if 1.0.5, ff 0.14.0, group 0.14.0, js-sys 0.3.106, num-traits 0.2.19, once_cell 1.21.4, wasm-bindgen-macro-support 0.2.129, wasm-bindgen-macro 0.2.129, wasm-bindgen-shared 0.2.129, wasm-bindgen 0.2.129
+Shipped by: base64 0.23.1, bumpalo 3.20.3, cfg-if 1.0.5, ff 0.14.0, group 0.14.0, js-sys 0.3.107, num-traits 0.2.19, once_cell 1.21.4, wasm-bindgen-macro-support 0.2.130, wasm-bindgen-macro 0.2.130, wasm-bindgen-shared 0.2.130, wasm-bindgen 0.2.130
 
 ```text
                               Apache License
@@ -1003,7 +1002,7 @@ For more information, please refer to <http://unlicense.org/>
 
 ### LICENSE-MIT
 
-Shipped by: cfg-if 1.0.5, js-sys 0.3.106, wasm-bindgen-macro-support 0.2.129, wasm-bindgen-macro 0.2.129, wasm-bindgen-shared 0.2.129, wasm-bindgen 0.2.129
+Shipped by: cfg-if 1.0.5, js-sys 0.3.107, wasm-bindgen-macro-support 0.2.130, wasm-bindgen-macro 0.2.130, wasm-bindgen-shared 0.2.130, wasm-bindgen 0.2.130
 
 ```text
 Copyright (c) 2014 Alex Crichton
@@ -1281,7 +1280,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-APACHE
 
-Shipped by: cmov 0.5.4, ctutils 0.4.2, serdect 0.4.3, zeroize_derive 1.5.0, zeroize 1.9.1
+Shipped by: cmov 0.5.4, ctutils 0.4.8, serdect 0.4.3, zeroize_derive 1.5.0, zeroize 1.9.1
 
 ```text
 
@@ -1697,7 +1696,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-MIT
 
-Shipped by: ctutils 0.4.2
+Shipped by: ctutils 0.4.8
 
 ```text
 Copyright (c) 2025-2026 The RustCrypto Project Developers
@@ -3328,7 +3327,7 @@ limitations under the License.
 
 ### LICENSE-APACHE
 
-Shipped by: ml-dsa 0.1.1, slh-dsa 0.1.0
+Shipped by: ml-dsa 0.1.2, slh-dsa 0.1.0
 
 ```text
                               Apache License
@@ -3538,7 +3537,7 @@ limitations under the License.
 
 ### LICENSE-MIT
 
-Shipped by: ml-dsa 0.1.1, primefield 0.14.0
+Shipped by: ml-dsa 0.1.2, primefield 0.14.0
 
 ```text
 Copyright (c) 2024-2026 RustCrypto Developers
@@ -3572,7 +3571,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-MIT
 
-Shipped by: ml-kem 0.3.2, module-lattice 0.2.3, x-wing 0.1.1
+Shipped by: ml-kem 0.3.3, module-lattice 0.2.4, x-wing 0.1.1
 
 ```text
 Copyright (c) 2024-2026 RustCrypto Developers
@@ -4327,7 +4326,7 @@ DEALINGS IN THE SOFTWARE.
 
 ### LICENSE-MIT
 
-Shipped by: sha3 0.11.0, sha3 0.12.0
+Shipped by: sha3 0.12.0
 
 ```text
 Copyright (c) 2020-2026 The RustCrypto Project Developers
