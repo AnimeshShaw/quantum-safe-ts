@@ -5,6 +5,10 @@ as a new, explicitly identified algorithm suite.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-16
+
+Patch release: **`quantum-safe-ts` 1.0.1**, **`quantum-safe-mcp` 0.1.4** and its alias **`pqc-mcp` 0.1.4**. `quantum-safe-audit` and `pqc-audit` stay at 0.1.3 (no change to what they ship). No wire format changes.
+
 ### Changed
 
 - README: release and alias badges, a performance section linking the benchmark data attached to the 1.0.0 release. The M8ven score badge.
