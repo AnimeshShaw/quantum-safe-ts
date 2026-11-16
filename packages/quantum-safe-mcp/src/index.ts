@@ -89,7 +89,7 @@ function failure(message: string) {
 export interface ServerOptions {
   /** Directory `audit_path` may read. Default: `process.env.QS_MCP_ROOT` or the working directory. */
   root?: string;
-  /** Server version reported to MCP clients. Default: `0.1.3`. */
+  /** Server version reported to MCP clients. Default: `0.1.4`. */
   version?: string;
 }
 
@@ -116,7 +116,7 @@ export interface ServerOptions {
  */
 export function createServer(options: ServerOptions = {}): McpServer {
   const root = options.root ?? process.env.QS_MCP_ROOT ?? process.cwd();
-  const server = new McpServer({ name: 'quantum-safe', version: options.version ?? '0.1.3' });
+  const server = new McpServer({ name: 'quantum-safe', version: options.version ?? '0.1.4' });
 
   server.registerTool(
     'audit_path',

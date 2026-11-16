@@ -1,6 +1,6 @@
 [package]
 name = "quantum-safe-wasm"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "wasm-bindgen bindings for quantum-safe-core (private; wrapped by the quantum-safe-ts npm package)"
